@@ -1,0 +1,42 @@
+import bpy
+
+settings = bpy.context.window_manager.recom_render_settings
+
+settings.override_settings.cycles.sampling_override = True
+settings.override_settings.cycles.samples = 256
+settings.override_settings.cycles.adaptive_min_samples = 64
+settings.override_settings.cycles.time_limit = 0.0
+settings.override_settings.cycles.use_adaptive_sampling = True
+settings.override_settings.cycles.adaptive_threshold = 0.025
+settings.override_settings.cycles.use_denoising = True
+settings.override_settings.cycles.denoiser = "OPENIMAGEDENOISE"
+settings.override_settings.cycles.denoising_input_passes = "RGB_ALBEDO_NORMAL"
+settings.override_settings.cycles.denoising_prefilter = "ACCURATE"
+settings.override_settings.cycles.denoising_quality = "HIGH"
+settings.override_settings.cycles.denoising_use_gpu = True
+settings.override_settings.cycles.denoising_store_passes = False
+settings.override_settings.cycles.light_path_override = True
+settings.override_settings.cycles.max_bounces = 8
+settings.override_settings.cycles.diffuse_bounces = 2
+settings.override_settings.cycles.glossy_bounces = 2
+settings.override_settings.cycles.transmission_bounces = 6
+settings.override_settings.cycles.volume_bounces = 0
+settings.override_settings.cycles.transparent_bounces = 8
+settings.override_settings.cycles.sample_clamp_direct = 32.0
+settings.override_settings.cycles.sample_clamp_indirect = 10.0
+settings.override_settings.cycles.caustics_reflective = True
+settings.override_settings.cycles.caustics_refractive = True
+settings.override_settings.cycles.blur_glossy = 1.0
+settings.override_settings.output_path_override = True
+settings.override_settings.output_directory = "{blend_dir}/render/"
+settings.override_settings.output_filename = "{blend_name}_Preview"
+settings.override_settings.file_format_override = True
+settings.override_settings.file_format = "PNG"
+settings.override_settings.color_depth = "8"
+settings.override_settings.format_override = True
+settings.override_settings.resolution_override = False
+settings.override_settings.resolution_mode = "SET_WIDTH"
+settings.override_settings.resolution_x = 720
+settings.override_settings.resolution_y = 720
+settings.override_settings.render_scale = "0.50"
+settings.override_settings.custom_render_scale = 50

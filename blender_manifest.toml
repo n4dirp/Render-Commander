@@ -1,0 +1,20 @@
+schema_version = "1.0.0"
+id = "render_commander"
+version = "0.9.6"
+name = "Render Commander"
+tagline = "Advanced background render launcher for Cycles and EEVEE"
+maintainer = "Nadir Perazzo <n4dirp@gmail.com>"
+type = "add-on"
+tags = ["Render"]
+blender_version_min = "4.2.0"
+license = [
+  "SPDX:GPL-3.0-or-later",
+]
+platforms = ["windows-x64", "linux-x64"]
+wheels = [
+   "./wheels/win11toast-0.35-py3-none-any.whl",
+   "./wheels/winsdk-1.0.0b10-cp311-cp311-win_amd64.whl",
+]
+[permissions]
+files = "Render output files and temporary data used during rendering"
+clipboard = "Copy render output paths to the clipboard for quick access"

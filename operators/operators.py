@@ -1,0 +1,60 @@
+# ./operators/operators.py
+
+import logging
+
+import bpy
+from bpy.types import Operator
+
+from ..preferences import get_addon_preferences
+from ..utils.helpers import (
+    redraw_ui,
+)
+
+
+log = logging.getLogger(__name__)
+
+
+class RECOM_OT_ContinueSetup(Operator):
+    """Mark initial setup as complete after configuring devices"""
+
+    bl_idname = "recom.continue_setup"
+    bl_label = "Continue"
+    bl_description = "Proceed to the main interface after completing device configuration."
+
+    def execute(self, context):
+        prefs = get_addon_preferences(context)
+        prefs.initial_setup_complete = True
+        return {"FINISHED"}
+
+
+class RECOM_OT_ReinitializeDevices(Operator):
+    """Reinitialize all Cycles render devices (clean and rescan)"""
+
+    bl_idname = "recom.reinitialize_devices"
+    bl_label = "Refresh Device List"
+    bl_description = "Clean and rescan all device backends"
+
+    def execute(self, context):
+        prefs = get_addon_preferences(context)
+
+        prefs.rescan_all_devices()
+        redraw_ui()
+
+        self.report({"INFO"}, "Device list refreshed successfully")
+        return {"FINISHED"}
+
+
+classes = (
+    RECOM_OT_ContinueSetup,
+    RECOM_OT_ReinitializeDevices,
+)
+
+
+def register():
+    for cls in classes:
+        bpy.utils.register_class(cls)
+
+
+def unregister():
+    for cls in reversed(classes):
+        bpy.utils.unregister_class(cls)

@@ -2,49 +2,64 @@
 
 > **Take full control of background rendering without leaving Blender.**
 
-Render Commander is a powerful Blender add-on that lets you run **stills, animations, or custom frame lists** in the background while you continue working. Designed specifically for **artists and studios using multi-GPU systems**, it unlocks parallel rendering capabilities and seamless workflow integration.
 
-Optimized for **Cycles**, it maximizes your hardware by distributing render jobs across multiple GPUs—without affecting your active Blender session.
+
+Render Commander is a powerful Blender add-on that lets you run **stills, animations, or custom frame lists** in the background while you continue working. Designed specifically for artists and studios using multi-GPU systems and optimized for **Cycles Render**.
+
+<img title="" src="images/render_launcher.png" alt="Alt text" style="zoom:67%;">
 
 ---
 
-## 🚀 Features
+## Features
 
-### ⚡ Quick Adjustments
+### Quick Adjustments
 
 - **Render Presets & Overrides**: Tweak resolution, samples, output paths, and more—without altering your original scene. Save and reuse presets for different project stages (draft, final, client review, etc.).
+  
+  <img src="images/override_settings.png" title="" alt="override_settings" style="zoom:50%;">
+  
+  <img src="images/path_templates.png" title="" alt="path_templates" style="zoom:50%;">
 
-### 🖥️ Faster Renders on Multi-GPU Systems
+### Faster Renders on Multi-GPU Systems
 
 - **Device-Parallel Rendering**: Launch multiple background render processes, each assigned to a specific GPU. Cut animation render times dramatically by leveraging all available devices simultaneously.
+  
+  <img src="images/device_parallel.png" title="" alt="preferences" style="zoom:50%;">
 
-### 📁 External Scene Support
+### External Scene Support
 
 - Render scenes stored in **external `.blend` files** without opening them in Blender.
-- Preview scene settings, apply overrides, and start renders directly from the add-on panel.
 
-### 🔔 System Integration
+- Preview scene settings, apply overrides, and start renders directly from the add-on panel.
+  
+  <img src="images/external_scene.png" title="" alt="external_scene" style="zoom:50%;">
+
+### System Integration
 
 - **Prevents system sleep** during renders.
 - **Desktop notifications** alert you when a render job finishes.
 
-### 🛠️ Advanced Customization
+### Advanced Customization
 
 - Use **custom Blender executable paths** (e.g., different Blender versions or builds).
 - **Append your own Python scripts** to render jobs for custom logging, post-processing, or pipeline integration.
+  
+  
+
+<img title="" src="images/misc.png" alt="misc" style="zoom:50%;">
 
 ---
 
-## 📦 Installation
+## Installation
 
-1. Download the latest release from the [Releases](https://github.com/your-username/render-commander/releases) page.
+1. Download the latest release from the [Releases](https://github.com/n4dirp/render-commander/releases) page.
 2. In Blender, go to **Edit > Preferences > Get Extensions.
 3. Click **Install from Disk…** and select the downloaded `.zip` file.
 4. Enable the add-on by checking the box next to **Render Commander**.
 
 ---
 
-## ▶️ Usage
+## Usage
 
 1. Open the **Render Commander** panel in the **Viewport Sidebar** panel.
 2. Choose a render mode: **Image**, **Animation**, or **Frame List**.
@@ -54,23 +69,7 @@ Optimized for **Cycles**, it maximizes your hardware by distributing render jobs
 
 ---
 
-## 💡 Requirements
+## Requirements
 
-- **Blender 4.2 or newer**
+- Blender 4.2 or newer
 - Windows, Linux
-
----
-
-## 📄 License
-
-Render Commander is licensed under the **GNU General Public License v3.0 (GPL-3.0)** — compatible with Blender’s license.  
-See [LICENSE](LICENSE) for details.
-
----
-
-## 🙌 Feedback & Contributions
-
-Found a bug? Have a feature idea?  
-👉 Open an [Issue](https://github.com/your-username/render-commander/issues) or submit a [Pull Request](https://github.com/your-username/render-commander/pulls)!
-
-

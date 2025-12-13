@@ -11,14 +11,6 @@ Designed for artists and studios working on **multi-GPU** systems.
 
 ## Features
 
-### Quick Adjustments
-
-- **Render Presets & Overrides**: Tweak resolution, samples, output paths, and more—without altering your original scene. Save and reuse presets for different project stages (draft, final, client review, etc.).
-  
-  <img src="images/override_settings.png" title="" alt="override_settings" style="zoom:50%;">
-  
-  <img src="images/path_templates.png" title="" alt="path_templates" style="zoom:50%;">
-
 ### Faster Renders on Multi-GPU Systems
 
 - **Device-Parallel Rendering**: Launch multiple background render processes, each assigned to a specific GPU. Cut animation render times dramatically by leveraging all available devices simultaneously.
@@ -26,6 +18,14 @@ Designed for artists and studios working on **multi-GPU** systems.
   <img src="images/device_parallel.png" title="" alt="device_parallel" style="zoom:50%;">
   
   <img src="images/parallel_render_benchmark.jpg" title="" alt="parallel_render_benchmark" style="zoom:50%;">
+  
+### Quick Adjustments
+
+- **Render Presets & Overrides**: Tweak resolution, samples, output paths, and more—without altering your original scene. Save and reuse presets for different project stages (draft, final, client review, etc.).
+  
+  <img src="images/override_settings.png" title="" alt="override_settings" style="zoom:50%;">
+  
+  <img src="images/path_templates.png" title="" alt="path_templates" style="zoom:50%;">
 
 ### External Scene Support
 

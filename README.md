@@ -1,10 +1,9 @@
-# Render Commander – Background Rendering for Blender
+# Render Commander — Blender Add-on
 
 > **Take full control of background rendering without leaving Blender.**
 
-
-
-Render Commander is a powerful Blender add-on that lets you run **stills, animations, or custom frame lists** in the background while you continue working. Designed specifically for artists and studios using multi-GPU systems and optimized for **Cycles Render**.
+Run **stills, animations, or frame lists** in the background while you keep working.
+Designed for artists and studios working on **multi-GPU** systems.
 
 <img title="" src="images/render_launcher.png" alt="Alt text" style="zoom:67%;">
 

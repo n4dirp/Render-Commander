@@ -5,6 +5,7 @@ name = "Render Commander"
 tagline = "Advanced background render launcher for Cycles and EEVEE"
 maintainer = "Nadir Perazzo <n4dirp@gmail.com>"
 type = "add-on"
+website = "https://github.com/n4dirp/Render-Commander"
 tags = ["Render"]
 blender_version_min = "4.2.0"
 license = [

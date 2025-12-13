@@ -24,7 +24,9 @@ Render Commander is a powerful Blender add-on that lets you run **stills, animat
 
 - **Device-Parallel Rendering**: Launch multiple background render processes, each assigned to a specific GPU. Cut animation render times dramatically by leveraging all available devices simultaneously.
   
-  <img src="images/device_parallel.png" title="" alt="preferences" style="zoom:50%;">
+  <img src="images/device_parallel.png" title="" alt="device_parallel" style="zoom:50%;">
+  
+  <img src="images/parallel_render_benchmark.jpg" title="" alt="parallel_render_benchmark" style="zoom:50%;">
 
 ### External Scene Support
 

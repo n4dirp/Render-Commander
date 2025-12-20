@@ -19,7 +19,7 @@ class RECOM_MT_ResolvedPath(Menu):
         settings = context.window_manager.recom_render_settings
         prefs = get_addon_preferences(context)
 
-        layout.operator("recom.import_output_format", text="Sync Output Path", icon=ICON_SYNC)
+        layout.operator("recom.import_output_path", text="Sync Output Path", icon=ICON_SYNC)
         layout.separator()
 
         layout.prop(prefs, "path_preview", text="Show Resolved Path")

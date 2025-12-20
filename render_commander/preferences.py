@@ -1060,32 +1060,40 @@ class RECOM_Preferences(AddonPreferences):
             # visible_panels_box.prop(self, "show_layout_options", text="Layout Buttons")
             # visible_panels_box.separator()
 
-            main_panels_col = visible_panels_box.column(heading="General")
+            visible_panels_box.label(text="General")
+
+            main_panels_col = visible_panels_box.column(heading="")
             main_panels_col.prop(self.visible_panels, "external_scene", text="External Scene")
             main_panels_col.prop(self.visible_panels, "override_settings", text="Override Settings")
-            main_panels_col.prop(self.visible_panels, "preferences", text="Render Preferences")
-            main_panels_col.prop(self.visible_panels, "history", text="Render History")
+            main_panels_col.prop(self.visible_panels, "preferences", text="Preferences")
+            main_panels_col.prop(self.visible_panels, "history", text="History")
 
-            visible_panels_box.label(text="Sub-Panels")
-
-            override_settings_box = visible_panels_box.column(heading="Override Settings")
-            override_settings_box.prop(self.visible_panels, "frame_range", text="Frame Range")
-            override_settings_box.prop(self.visible_panels, "resolution", text="Resolution")
-            override_settings_box.prop(self.visible_panels, "overscan", text="Overscan")
-            override_settings_box.prop(self.visible_panels, "camera_shift", text="Lens Shift")
-            override_settings_box.prop(self.visible_panels, "motion_blur", text="Motion Blur")
-            override_settings_box.prop(self.visible_panels, "output_path", text="Output Path")
-            override_settings_box.prop(self.visible_panels, "file_format", text="File Format")
-            override_settings_box.prop(self.visible_panels, "compositor", text="Compositing")
+            visible_panels_box.label(text="Override Settings")
+            override_settings_box = visible_panels_box.column(heading="")
 
             # Cycles
-            cycles_settings_box = override_settings_box.column(heading="Cycles")
+            cycles_settings_box = override_settings_box.column(heading="Cycles Render")
             cycles_settings_box.prop(self.visible_panels, "compute_device", text="Compute Device")
             cycles_settings_box.prop(self.visible_panels, "light_paths", text="Light Paths")
             cycles_settings_box.prop(self.visible_panels, "performance")
             cycles_settings_box.separator()
 
-            preferences_box = cycles_settings_box.column(heading="Render Preferences")
+            override_settings_box.prop(self.visible_panels, "frame_range", text="Frame Range")
+
+            override_settings_box.separator()
+            override_settings_box.prop(self.visible_panels, "resolution", text="Format")
+            override_settings_box.prop(self.visible_panels, "overscan", text="Overscan")
+            override_settings_box.prop(self.visible_panels, "camera_shift", text="Lens Shift")
+            override_settings_box.separator()
+
+            override_settings_box.prop(self.visible_panels, "motion_blur", text="Motion Blur")
+            override_settings_box.prop(self.visible_panels, "output_path", text="Output Path")
+            override_settings_box.prop(self.visible_panels, "file_format", text="File Format")
+            override_settings_box.prop(self.visible_panels, "compositor", text="Compositing")
+
+            visible_panels_box.label(text="Preferences")
+
+            preferences_box = visible_panels_box.column(heading="")
             preferences_box.prop(self.visible_panels, "system_power")
             preferences_box.prop(self.visible_panels, "ocio")
             preferences_box.prop(self.visible_panels, "blender_executable")

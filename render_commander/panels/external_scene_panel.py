@@ -111,7 +111,7 @@ class RECOM_PT_SceneFilePanel(Panel):
                     and info.get("blend_filepath") != "No Data"
                 ):
                     self._draw_scene_info_box(layout, info)
-
+            """
             else:
                 wm = context.window_manager
                 items = wm.recom_external_scene_info_items
@@ -146,7 +146,7 @@ class RECOM_PT_SceneFilePanel(Panel):
                     rows=8,
                 )
                 row_main.menu("RECOM_MT_external_blend_options", text="", icon="DOWNARROW_HLT")
-
+            """
         except (json.JSONDecodeError, TypeError):
             if settings.external_blend_file_path:
                 layout.label(text="Invalid Scene Info Data", icon="ERROR")
@@ -302,7 +302,9 @@ class RECOM_PT_ExternalBlendInfoExpanded(Panel):
 class RECOM_UL_ExternalBlendInfoList(UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
         layout.active = False
-        layout.label(text=f"{item.key}: {item.value}")
+        split = layout.split(factor=0.5)
+        split.column().label(text=f"{item.key}")
+        split.column().label(text=f"{item.value}")
 
     def filter_items(self, context, data, propname):
         items = getattr(data, propname)
@@ -323,6 +325,7 @@ class RECOM_UL_ExternalBlendInfoList(UIList):
 classes = (
     RECOM_PT_SceneFilePanel,
     RECOM_UL_ExternalBlendInfoList,
+    RECOM_PT_ExternalBlendInfoExpanded,
 )
 
 

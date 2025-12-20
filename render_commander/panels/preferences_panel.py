@@ -42,7 +42,10 @@ class RECOM_PT_RenderPreferences(Panel):
 
     def draw_header_preset(self, context):
         layout = self.layout
-        RECOM_PT_RenderPreferencesPresets.draw_panel_header(layout)
+        row = layout.row(align=True)
+        row.operator("recom.open_pref", text="", icon="PREFERENCES", emboss=False)
+
+        RECOM_PT_RenderPreferencesPresets.draw_panel_header(row)
 
     def draw(self, context):
         pass
@@ -452,7 +455,7 @@ class RECOM_PT_OCIO(Panel):
 
 
 class RECOM_PT_CustomCommandLineArguments(Panel):
-    bl_label = "Command Line Arguments"
+    bl_label = "Arguments"
     bl_idname = "RECOM_PT_custom_command_line_arguments"
     bl_parent_id = "RECOM_PT_render_preferences"
     bl_space_type = "VIEW_3D"
@@ -476,9 +479,16 @@ class RECOM_PT_CustomCommandLineArguments(Panel):
         layout.use_property_decorate = False
 
         prefs = get_addon_preferences(context)
+        layout.active = prefs.add_command_line_args
 
         col = layout.column()
-        col.prop(prefs, "custom_command_line_args", text="Arguments")
+        col.prop(
+            prefs,
+            "custom_command_line_args",
+            text="",
+            placeholder="Command Line Arguments",
+            icon="CONSOLE",
+        )
 
 
 class RECOM_PT_AdditionalScriptPresets(PresetPanel, Panel):

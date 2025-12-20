@@ -5,7 +5,11 @@ import logging
 from pathlib import Path
 
 from ...utils.constants import *
-from ...utils.helpers import get_render_engine
+from ...utils.helpers import (
+    get_render_engine,
+    calculate_auto_width,
+    calculate_auto_height,
+)
 
 log = logging.getLogger(__name__)
 

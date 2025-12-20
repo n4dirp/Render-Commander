@@ -4,7 +4,7 @@ bl_info = {
     "name": "Render Commander",
     "author": "Nadir Perazzo",
     "description": "Flexible background rendering with presets and overrides",
-    "version": (0, 9, 6),
+    "version": (0, 9, 7),
     "blender": (4, 2, 0),
     "doc_url": "",
     "tracker_url": "",

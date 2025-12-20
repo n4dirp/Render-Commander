@@ -47,7 +47,7 @@ class RECOM_PG_RenderSettings(PropertyGroup):
 
     frame_list: StringProperty(
         name="Frame List",
-        description="Frame numbers or ranges separated by commas. Example: 1, 2, 5-8",
+        description="Frame numbers or ranges separated by commas.\nExample: 1, 2, 5-8",
         default="",
         update=_sanitize_frame_list,
     )

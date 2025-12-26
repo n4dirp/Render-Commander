@@ -69,6 +69,8 @@ class RECOM_OT_AddOverridesPreset(AddPresetBase, Operator):
         "settings.override_settings.codec",
         "settings.override_settings.jpeg_quality",
         #
+        "settings.override_settings.format_override",
+        #
         "settings.override_settings.resolution_override",
         "settings.override_settings.resolution_mode",
         "settings.override_settings.resolution_x",
@@ -80,6 +82,10 @@ class RECOM_OT_AddOverridesPreset(AddPresetBase, Operator):
         "settings.override_settings.overscan_type",
         "settings.override_settings.overscan_percent",
         "settings.override_settings.overscan_width",
+        #
+        "settings.override_settings.camera_shift_override",
+        "settings.override_settings.camera_shift_x",
+        "settings.override_settings.camera_shift_y",
         #
         "settings.override_settings.motion_blur_override",
         "settings.override_settings.use_motion_blur",

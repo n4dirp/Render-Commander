@@ -1,54 +1,61 @@
-# Render Commander — Blender Add-on
+# Render Commander
 
-> *Take full control of background rendering without leaving Blender.*
+Blender add‑on for background rendering with multi‑GPU support.
 
-Run **stills**, **animations**, or **frame lists** in the background while you keep working.<br>
-Designed for artists and studios working on multi-GPU systems.
+This addon provides a simple and intuitive UI to configure a set of common render settings.
+It compiles all selected options into a temporary Python file, which is then attached to a Blender command-line render execution.
+This approach enables fast, efficient, and fully automated background renders without manual setup.
 
-<img src="images/render_launcher.png" alt="Render-Commander Panel" width="350">
+<img src="images/render_launcher.png" alt="Render-Commander Panel" width="320">
 
----
+## Table of Contents
+
+1. [Features](#features)  
+2. [Screenshots](#screenshots)  
+3. [Installation](#installation)  
+4. [Usage](#usage)  
+5. [Build from Source](#build-from-source)  
 
 ## Features
 
-### Faster Renders with Device-Parallel Rendering
+### Device-Parallel Rendering
 
-Launch multiple background render processes, each assigned to a specific GPU. Cut animation render times dramatically by leveraging all available devices simultaneously.
-
-<img src="images/parallel_render_benchmark.jpg" alt="Device-Parallel Benchmark">
-<img src="images/device_parallel.png" alt="Device-Parallel" width="300">
+The addon uses its own render-device selection and automates your rendering workflow by launching a separate background Blender instance for each enabled compute device. It also supports rendering across multiple back‑ends simultaneously.
 
 ### Render Presets & Overrides
 
-Tweak resolution, samples, output paths, and more—without altering your original scene. Save and reuse presets for different project stages (draft, final, client review, etc.).
-  
-<img src="images/override_settings.png" alt="Render Overrides" width="300">
-<img src="images/path_templates.png" alt="Output Path Templates" width="300">
+Tweak resolution, samples, output paths, and more, without altering your original scene. Save and reuse presets for different project stages (draft, final, client review, etc.).
 
-### External Scene Support
+### External Blend Files
 
 Render scenes stored in external `.blend` files without opening them in Blender.
 Preview scene settings, apply overrides, and start renders directly from the add-on panel.
-  
-<img src="images/external_scene.png" alt="External Scene" width="300">
 
-### Advanced Customization
+### Advanced Options
 
-- Desktop notifications alert you when a render job finishes.
-- Prevents system sleep during renders.
-- Use custom Blender executable paths (e.g., different Blender versions or builds).
-- Append your own Python scripts to render jobs for custom logging, post-processing, or pipeline integration.
+- Desktop Notifications – Get notified when a render job finishes.
 
-<img src="images/misc.png" alt="Misc" width="300">
+- System Power Control – Keeps your PC awake during renders and can automatically sleep or shut down once all jobs are complete.
+
+- Custom Blender Executables – Define custom Blender paths to use different versions or builds.
+
+- Python Script – Attach your own Python scripts to render jobs for logging, post-processing, or pipeline integration.
+
+## Screenshots
+
+<img src="images/device_parallel.png" alt="Device-Parallel" height="200">
+<img src="images/parallel_render_benchmark.jpg" alt="Device-Parallel Benchmark" height="200">
+<img src="images/override_settings.png" alt="Render Overrides" height="200">
+<img src="images/path_templates.png" alt="Output Path Templates" height="200">
+<img src="images/external_scene.png" alt="External Scene" height="200">
+<img src="images/misc.png" alt="Misc" height="200">
 
 ---
 
 ## Requirements
 
-- Blender 4.2 or newer
-- Windows, Linux
-
----
+- Blender 4.2 - 5.0
+- Windows 11, Linux
 
 ## Installation
 
@@ -57,21 +64,16 @@ Preview scene settings, apply overrides, and start renders directly from the add
 3. Click **Install from Disk…** and select the downloaded `.zip` file.
 4. Enable the add-on by checking the box next to **Render Commander**.
 
----
-
 ## Usage
 
 1. Open the **Render Commander** panel in the **Viewport Sidebar** panel.
 2. Choose a render mode: **Image**, **Animation**, or **Frame List**.
-3. In the Add‑on Preferences, select the render devices for *Cycles*.
-4. Optionally apply a preset or override specific settings.
-5. Click **Render** — your job starts immediately, and you can keep working!
+3. Optionally: 
+    - Apply a preset or override specific settings.
+    - In the Add‑on Preferences, select the render devices for ***Cycles Render***.
+4. Click **Render** > your render job starts immediately.
 
----
-
-## Building from Source
-
-If you want to build the extension yourself, follow these steps:
+## Build from Source
 
 ```bash
 git clone https://github.com/n4dirp/Render-Commander.git
@@ -79,4 +81,12 @@ cd Render-Commander/render_commander
 blender --command extension build --split-platforms
 ```
 
-See blender extensions [build](https://docs.blender.org/manual/en/latest/advanced/command_line/extension_arguments.html#command-line-args-extension-build) docs.
+---
+
+### Contribute
+
+Pull requests welcome! See the repository for issues and guidelines.  
+
+--- 
+
+Happy rendering! 🚀

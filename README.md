@@ -20,7 +20,7 @@ This approach enables fast, efficient, and fully automated background renders wi
 
 ### Device-Parallel Rendering
 
-The addon uses its own render-device selection and automates your rendering workflow by launching a separate background Blender instance for each enabled compute device. It also supports rendering across multiple back‑ends simultaneously.
+The addon uses its own render-device selection and automates your rendering workflow by launching a separate background Blender instance for each enabled compute device. It also supports different frame allocations methods and rendering across multiple Cycles backends simultaneously.
 
 ### Render Presets & Overrides
 

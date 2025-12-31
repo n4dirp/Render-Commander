@@ -75,13 +75,3 @@ git clone https://github.com/n4dirp/Render-Commander.git
 cd Render-Commander/render_commander
 blender --command extension build --split-platforms
 ```
-
----
-
-### Contribute
-
-Pull requests welcome! See the repository for issues and guidelines.  
-
---- 
-
-Happy rendering! 🚀

@@ -3,10 +3,10 @@
 bl_info = {
     "name": "Render Commander",
     "author": "Nadir Perazzo",
-    "description": "Flexible background rendering with presets and overrides",
-    "version": (0, 9, 7),
+    "description": "Advanced background render launcher for Cycles and EEVEE",
+    "version": (0, 9, 8),
     "blender": (4, 2, 0),
-    "doc_url": "",
+    "doc_url": "https://github.com/n4dirp/Render-Commander",
     "tracker_url": "",
     "category": "Render",
 }

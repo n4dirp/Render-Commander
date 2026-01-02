@@ -721,7 +721,7 @@ class RECOM_PG_OverrideSettings(PropertyGroup):
     output_directory: StringProperty(
         name="Output Directory",
         # subtype="DIR_PATH",
-        options={"OUTPUT_PATH", "PATH_SUPPORTS_BLEND_RELATIVE"},
+        options={"OUTPUT_PATH"},
         default="{blend_dir}/render/",
         description="Specify the directory where rendered files will be saved.",
         update=on_output_path_changed,

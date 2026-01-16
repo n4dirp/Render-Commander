@@ -70,14 +70,10 @@ class RECOM_OT_ExtractExternalSceneData(Operator):
                 )
 
                 if result.stderr:
-                    log.debug(
-                        f"--- Subprocess STDERR ---\n{result.stderr.strip()}\n--- END STDERR ---"
-                    )
+                    log.debug(f"--- Subprocess STDERR ---\n{result.stderr.strip()}\n--- END STDERR ---")
 
                 if result.returncode != 0:
-                    error_message = (
-                        f"Blender subprocess failed with return code {result.returncode}."
-                    )
+                    error_message = f"Blender subprocess failed with return code {result.returncode}."
                     log.error(error_message)
 
                     try:
@@ -109,9 +105,7 @@ class RECOM_OT_ExtractExternalSceneData(Operator):
                         continue
 
                 log.error("No valid JSON object found in subprocess output.")
-                log.debug(
-                    f"--- Subprocess STDOUT (when no JSON found) ---\n{output}\n--- END STDOUT ---"
-                )
+                log.debug(f"--- Subprocess STDOUT (when no JSON found) ---\n{output}\n--- END STDOUT ---")
                 return {
                     "error": "No valid JSON data returned from script.",
                     "stdout": output,
@@ -124,9 +118,7 @@ class RECOM_OT_ExtractExternalSceneData(Operator):
                 log.exception(f"Error executing Blender subprocess (CalledProcessError):")
                 return {"error": str(e), "stdout": e.stdout, "stderr": e.stderr}
             except Exception as exc:
-                log.exception(
-                    f"An unexpected error occurred during subprocess handling: {str(exc)}"
-                )
+                log.exception(f"An unexpected error occurred during subprocess handling: {str(exc)}")
                 import traceback
 
                 traceback.print_exc()
@@ -148,13 +140,9 @@ class RECOM_OT_ExtractExternalSceneData(Operator):
                     # print("Full Scene Info:", info_data)  # Uncomment for verbose success
                 log.debug(f"Extraction process finished in {duration_secs:.2f} seconds")
             else:
-                settings.external_scene_info = json.dumps(
-                    {"error": "No data returned from extraction process."}
-                )
+                settings.external_scene_info = json.dumps({"error": "No data returned from extraction process."})
                 settings.is_scene_info_loaded = True
-                log.warning(
-                    "Failed to extract scene info (subprocess returned no valid data or null)."
-                )
+                log.warning("Failed to extract scene info (subprocess returned no valid data or null).")
 
         def _task():
             settings = context.window_manager.recom_render_settings
@@ -200,12 +188,12 @@ class RECOM_OT_ExtractExternalSceneData(Operator):
         context.preferences.is_dirty = True
 
         log.debug(f"Attempting to extract scene info from: {external_blend_path}")
-        self._async_extract_scene_info(context, external_blend_path)
-
         self.report(
             {"INFO"},
             "Started extracting scene info in background.",
         )
+        self._async_extract_scene_info(context, external_blend_path)
+
         return {"FINISHED"}
 
 
@@ -282,9 +270,7 @@ class RECOM_OT_SelectRecentFile(Operator):
                     prefs.recent_blend_files.remove(i)
                     break
 
-            self.report(
-                {"WARNING"}, f"File not found: {external_blend_path}. Removed from recent files."
-            )
+            self.report({"WARNING"}, f"File not found: {external_blend_path}. Removed from recent files.")
             return {"CANCELLED"}
 
         # Set the file path and proceed with extraction
@@ -350,9 +336,7 @@ class RECOM_OT_OpenInNewBlender(Operator):
     bl_idname = "recom.open_in_new_blender"
     bl_label = "Open in New Blender Instance"
 
-    file_path: StringProperty(
-        name="File Path", description="Path to the .blend file to open", default=""
-    )
+    file_path: StringProperty(name="File Path", description="Path to the .blend file to open", default="")
 
     def execute(self, context):
         settings = context.window_manager.recom_render_settings
@@ -410,7 +394,7 @@ class RECOM_OT_SelectExternalBlendFile(Operator):
     bl_label = "Select External Blend File"
 
     # The property that will receive the path from the file selector
-    filepath: StringProperty(subtype="FILE_PATH")
+    filepath: StringProperty(subtype="FILE_PATH", options={"HIDDEN"})
     filter_glob: StringProperty(
         default="*.blend;*.blend1;*.blend2;*.blend3",
         options={"HIDDEN"},
@@ -422,7 +406,11 @@ class RECOM_OT_SelectExternalBlendFile(Operator):
         abs_path = bpy.path.abspath(self.filepath)
         settings.external_blend_file_path = abs_path
 
-        self.report({"INFO"}, f"External blend set to: {abs_path}")
+        log.info(f"External blend set to: {abs_path}")
+
+        if abs_path:
+            bpy.ops.recom.extract_external_scene_data()
+
         return {"FINISHED"}
 
     def invoke(self, context, event):

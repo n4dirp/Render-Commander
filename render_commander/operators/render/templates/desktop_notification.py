@@ -1,5 +1,4 @@
 # Desktop Notification
-
 import subprocess
 import atexit
 import sys
@@ -169,22 +168,16 @@ def _send_linux_notification(title, message):
 def send_desktop_notification(title, message, output_path, preview_image_path=None):
     """
     Sends a desktop notification by choosing the best available method for the current OS.
-
-    On Windows, it prefers the 'win11toast' library for rich notifications
-    (if installed) and falls back to a PowerShell command. On macOS, it uses
-    'osascript', and on Linux, it uses 'notify-send'.
     """
-    # Convert input paths to Path objects for consistent and robust handling.
     preview_path = Path(preview_image_path) if preview_image_path else None
     output_dir_path = Path(output_path) if output_path else None
 
-    if _WIN11TOAST_AVAILABLE:
-        # Use rich notifications if win11toast is installed
-        _send_win11toast_notification(title, message, output_dir_path, preview_path)
-    elif _IS_WINDOWS:
-        # Fallback to a basic PowerShell notification on Windows
-        print("win11toast not found. Falling back to PowerShell notification.")
-        _send_powershell_notification(title, message)
+    if _IS_WINDOWS:
+        if _WIN11TOAST_AVAILABLE:
+            _send_win11toast_notification(title, message, output_dir_path, preview_path)
+        else:
+            print("win11toast not found. Falling back to PowerShell notification.")
+            _send_powershell_notification(title, message)
     elif _IS_MACOS:
         _send_macos_notification(title, message)
     elif _IS_LINUX:

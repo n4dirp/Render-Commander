@@ -68,8 +68,8 @@ class RECOM_PT_SceneFilePanel(Panel):
             settings,
             "external_blend_file_path",
             text="",
-            icon="FILE_BLEND",
-            placeholder="Path to .Blend File",
+            # icon="FILE_BLEND",
+            placeholder="Blend Path",
         )
         blend_path_row.operator("recom.select_external_blend_file", text="", icon="FILE_FOLDER")
 
@@ -105,11 +105,7 @@ class RECOM_PT_SceneFilePanel(Panel):
         try:
             if prefs.compact_external_info:
                 info = json.loads(settings.external_scene_info)
-                if (
-                    settings.external_blend_file_path
-                    and info
-                    and info.get("blend_filepath") != "No Data"
-                ):
+                if settings.external_blend_file_path and info and info.get("blend_filepath") != "No Data":
                     self._draw_scene_info_box(layout, info)
             """
             else:
@@ -211,18 +207,12 @@ class RECOM_PT_SceneFilePanel(Panel):
         labels_col.active = False
         if render_engine != "CYCLES":
             labels_col.label(text=f' Render Engine: {render_engine.replace("_", " ")}')
-        labels_col.label(
-            text=f" Frame: {frame_current} / {frame_start}-{frame_end} @{fps_real} FPS{motion_text}"
-        )
+        labels_col.label(text=f" Frame: {frame_current} / {frame_start}-{frame_end} @{fps_real} FPS{motion_text}")
 
         if render_engine == "CYCLES":
-            labels_col.label(
-                text=f" Samples: {samples}{threshold_text}{denoising_text}{compositing_text}"
-            )
+            labels_col.label(text=f" Samples: {samples}{threshold_text}{denoising_text}{compositing_text}")
         elif render_engine in {"BLENDER_EEVEE_NEXT", "BLENDER_EEVEE"}:
-            labels_col.label(
-                text=f" Samples: {eevee_samples}{use_raytracing_text}{compositing_text}"
-            )
+            labels_col.label(text=f" Samples: {eevee_samples}{use_raytracing_text}{compositing_text}")
 
         labels_col.label(
             text=f" Format: {file_format_text}{color_depth_text}{separator}{resolution_x} x {resolution_y} px{render_scale_text}"
@@ -243,11 +233,7 @@ class RECOM_PT_ExternalBlendInfoExpanded(Panel):
     def poll(cls, context):
         prefs = get_addon_preferences(context)
         settings = context.window_manager.recom_render_settings
-        return (
-            settings.external_blend_file_path
-            and settings.is_scene_info_loaded
-            and not prefs.compact_external_info
-        )
+        return settings.external_blend_file_path and settings.is_scene_info_loaded and not prefs.compact_external_info
 
     def draw_header_preset(self, context):
         layout = self.layout
@@ -271,11 +257,7 @@ class RECOM_PT_ExternalBlendInfoExpanded(Panel):
 
         try:
             info_dict = json.loads(settings.external_scene_info)
-            if (
-                settings.external_blend_file_path
-                and info_dict
-                and info_dict.get("blend_filepath") != "No Data"
-            ):
+            if settings.external_blend_file_path and info_dict and info_dict.get("blend_filepath") != "No Data":
                 items.clear()
                 for k, v in info_dict.items():
                     item = items.add()
@@ -296,15 +278,19 @@ class RECOM_PT_ExternalBlendInfoExpanded(Panel):
             wm,
             "recom_external_scene_info_active",
             rows=8,
+            item_dyntip_propname="tooltip_display",
         )
 
 
 class RECOM_UL_ExternalBlendInfoList(UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
         layout.active = False
-        split = layout.split(factor=0.5)
+        """
+        split = layout.split(factor=0.45)
         split.column().label(text=f"{item.key}")
         split.column().label(text=f"{item.value}")
+        """
+        layout.label(text=f"{item.key}: {item.value}")
 
     def filter_items(self, context, data, propname):
         items = getattr(data, propname)

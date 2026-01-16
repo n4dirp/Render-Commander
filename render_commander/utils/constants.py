@@ -4,7 +4,7 @@ from .helpers import get_addon_name
 
 ADDON_NAME = get_addon_name()
 CENTER_TEXT = "      "
-OPEN_FOLDER_DELAY = 1.0
+OPEN_FOLDER_DELAY = 0.3
 RE_CYCLES = "CYCLES"
 RE_EEVEE = "BLENDER_EEVEE"
 RE_EEVEE_NEXT = "BLENDER_EEVEE_NEXT"

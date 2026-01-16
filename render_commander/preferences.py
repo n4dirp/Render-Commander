@@ -131,15 +131,15 @@ class RECOM_PG_VisiblePanels(PropertyGroup):
     frame_range: BoolProperty(default=True, name="Frame Range")
     resolution: BoolProperty(default=True, name="Resolution")
     overscan: BoolProperty(default=True, name="Overscan")
-    camera_shift: BoolProperty(default=True, name="Camera Shift")
+    camera_shift: BoolProperty(default=False, name="Camera Shift")
     motion_blur: BoolProperty(default=True, name="Motion Blur")
     output_path: BoolProperty(default=True, name="Output Path")
     file_format: BoolProperty(default=True, name="Output Format")
-    compositor: BoolProperty(default=True, name="Compositor")
-    compute_device: BoolProperty(default=True, name="Compute Device")
+    compositor: BoolProperty(default=False, name="Compositor")
+    compute_device: BoolProperty(default=False, name="Compute Device")
     samples: BoolProperty(default=True, name="Sampling")
-    light_paths: BoolProperty(default=True, name="Light Paths")
-    performance: BoolProperty(default=True, name="Performance")
+    light_paths: BoolProperty(default=False, name="Light Paths")
+    performance: BoolProperty(default=False, name="Performance")
 
     preferences: BoolProperty(
         name="Show Render Preferences",
@@ -147,18 +147,18 @@ class RECOM_PG_VisiblePanels(PropertyGroup):
         update=lambda self, context: redraw_ui(),
     )
     cycles_device_ids: BoolProperty(default=False, name="Device IDs")
-    system_power: BoolProperty(default=True, name="System Power")
+    system_power: BoolProperty(default=False, name="System Power")
     ocio: BoolProperty(default=False, name="OCIO Environment")
     blender_executable: BoolProperty(default=True, name="Blender Executable")
-    command_line_arguments: BoolProperty(default=False, name="Command Line Arguments")
+    command_line_arguments: BoolProperty(default=True, name="Command Line Arguments")
     append_scripts: BoolProperty(default=True, name="Append Scripts")
 
     history: BoolProperty(
         name="Show Render History",
-        default=True,
+        default=False,
         update=lambda self, context: redraw_ui(),
     )
-    render_details: BoolProperty(default=True, name="History Entry Info")
+    render_details: BoolProperty(default=False, name="History Entry Info")
 
 
 def get_addon_preferences(context):
@@ -168,19 +168,12 @@ def get_addon_preferences(context):
 def get_prevent_sleep_description():
     if sys.platform == "win32":
         return (
-            "Keep the computer awake while rendering.\n"
-            "Uses Windows system flags to disable sleep and hibernation."
+            "Keep the computer awake while rendering.\n" "Uses Windows system flags to disable sleep and hibernation."
         )
     elif sys.platform == "darwin":
-        return (
-            "Keep the computer awake while rendering.\n"
-            "Uses the 'caffeinate' utility to block sleep."
-        )
+        return "Keep the computer awake while rendering.\n" "Uses the 'caffeinate' utility to block sleep."
     elif sys.platform.startswith("linux"):
-        return (
-            "Keep the computer awake while rendering.\n"
-            "Uses 'systemd-inhibit' to prevent suspend."
-        )
+        return "Keep the computer awake while rendering.\n" "Uses 'systemd-inhibit' to prevent suspend."
     else:
         return "Keep the computer awake while rendering."
 
@@ -267,10 +260,7 @@ class RECOM_Preferences(AddonPreferences):
 
     def find_existing_device_entry(self, device_info_tuple):
         for device_entry in self.devices:
-            if (
-                device_entry.id == device_info_tuple[2]
-                and device_entry.type == device_info_tuple[1]
-            ):
+            if device_entry.id == device_info_tuple[2] and device_entry.type == device_info_tuple[1]:
                 return device_entry
         return None
 
@@ -345,9 +335,7 @@ class RECOM_Preferences(AddonPreferences):
                     devices_to_display.append(dev_entry)
             if selected_compute_type != "CPU":
                 for dev_entry in self.devices:
-                    if dev_entry.type == "CPU" and not any(
-                        d.id == dev_entry.id for d in devices_to_display
-                    ):
+                    if dev_entry.type == "CPU" and not any(d.id == dev_entry.id for d in devices_to_display):
                         devices_to_display.append(dev_entry)
             else:
                 for dev_entry in self.devices:
@@ -365,18 +353,14 @@ class RECOM_Preferences(AddonPreferences):
         selected_compute_type = self.compute_device_type
 
         # Quick‑check for “no compatible devices” when we’re not in multi‑backend mode.
-        has_primary_devices = any(
-            d.type == selected_compute_type and d.type != "CPU" for d in devices_to_draw
-        )
+        has_primary_devices = any(d.type == selected_compute_type and d.type != "CPU" for d in devices_to_draw)
         if not self.multiple_backends:
             if not devices_to_draw or (
-                selected_compute_type != "CPU"
-                and selected_compute_type != "NONE"
-                and not has_primary_devices
+                selected_compute_type != "CPU" and selected_compute_type != "NONE" and not has_primary_devices
             ):
                 row = layout.row(align=True)
                 row.active = False
-                row.label(text=f"No compatible devices found for {selected_compute_type}")
+                row.label(text=f"No compatible devices found.")
                 return
 
         # Draw each device
@@ -385,11 +369,7 @@ class RECOM_Preferences(AddonPreferences):
             if prev_type is not None and device.type != prev_type:
                 layout.separator(type="LINE")
 
-            if (
-                self.launch_mode != "SINGLE_FRAME"
-                and self.multiple_backends
-                and self.device_parallel
-            ):
+            if self.launch_mode != "SINGLE_FRAME" and self.multiple_backends and self.device_parallel:
                 device_name = f"{self._normalize_device_name(device.name)} ({device.type})"
             else:
                 device_name = self._normalize_device_name(device.name)
@@ -484,7 +464,7 @@ class RECOM_Preferences(AddonPreferences):
         name="Multi-Process Start Delay",
         description="Delay before starting each additional render process to avoid resource conflicts.",
         min=0.0,
-        default=0.5,
+        default=1.0,
         step=100.0,
         unit="TIME_ABSOLUTE",
     )
@@ -598,9 +578,7 @@ class RECOM_Preferences(AddonPreferences):
         # Get and display version info
         version_info = self._get_blender_version_info(str(executable_path))
         if version_info:
-            formatted = "\n".join(
-                f"{k.capitalize().replace('_', ' ')}: {v}" for k, v in version_info.items()
-            )
+            formatted = "\n".join(f"{k.capitalize().replace('_', ' ')}: {v}" for k, v in version_info.items())
             self.custom_executable_version = formatted
         else:
             log.error(f"Could not determine Blender version from: {executable_path}")
@@ -645,9 +623,7 @@ class RECOM_Preferences(AddonPreferences):
                 # Parse version string safely
                 version_str = info.get("version", "4.0.0")
                 # Remove any suffix after dash (e.g., "4.0.0-alpha" → "4.0.0")
-                version_str = version_str.split("-")[0].split("+")[
-                    0
-                ]  # also handle build metadata like "+git..."
+                version_str = version_str.split("-")[0].split("+")[0]  # also handle build metadata like "+git..."
                 version_parts = version_str.split(".")
 
                 # Normalize to exactly 3 numeric parts
@@ -729,14 +705,11 @@ class RECOM_Preferences(AddonPreferences):
     log_to_file_location: EnumProperty(
         name="",
         items=[
-            (
-                "BLEND_PATH",
-                "Blend File Path",
-                "Save logs in the same directory as the blend file.",
-            ),
+            ("EXECUTION_FILES", "Execution Files Path", "Save logs in the execution files folder."),
+            ("BLEND_PATH", "Blend File Path", "Save logs in the same directory as the blend file."),
             ("CUSTOM_PATH", "Custom", "Specify a custom directory for log files."),
         ],
-        default="BLEND_PATH",
+        default="EXECUTION_FILES",
     )
     save_to_log_folder: BoolProperty(
         name="Save to Logs Folder",
@@ -792,7 +765,7 @@ class RECOM_Preferences(AddonPreferences):
     # Render Options
     auto_save_before_render: BoolProperty(
         name="Auto‑Save Before Render",
-        description="Save the current .blend file automatically before launching a background render.",
+        description="Save the current blend file automatically before launching a background render.",
         default=False,
     )
     auto_open_output_folder: BoolProperty(
@@ -847,14 +820,15 @@ class RECOM_Preferences(AddonPreferences):
     )
 
     add_command_line_args: BoolProperty(
-        name="Add Command Line Arguments",
-        description="Add additional command line arguments.",
-        default=False,
+        name="Use Command Line Arguments",
+        description="Add additional command line arguments for render.",
+        default=True,
     )
     custom_command_line_args: StringProperty(
-        name="Custom Command Line Arguments",
-        description="Additional command line arguments to pass to Blender during render (e.g., --debug --verbose)",
-        default="",
+        name="Command Line Arguments",
+        description="Additional command line arguments to pass to Blender during render.",
+        default="-noaudio --log render",
+        update=lambda self, context: redraw_ui(),
     )
 
     # OCIO
@@ -954,9 +928,7 @@ class RECOM_Preferences(AddonPreferences):
         description="Dynamically resolve and display the full output path with variables replaced.",
         # update=on_output_path_changed,
     )
-    preset_installed: BoolProperty(
-        default=False, description="Indicates if default presets have been installed."
-    )
+    preset_installed: BoolProperty(default=False, description="Indicates if default presets have been installed.")
     initial_setup_complete: BoolProperty(
         name="Cycles Render Devices Setup Complete",
         description="Indicates if the initial device configuration has been completed.",
@@ -1030,6 +1002,37 @@ class RECOM_Preferences(AddonPreferences):
     render_history: CollectionProperty(type=RECOM_PG_RenderHistoryItem)
     active_render_history_index: IntProperty(default=-1, name="Active Render History Index")
 
+    # Export Options
+    auto_open_exported_folder: BoolProperty(
+        name="Open Exported Folder",
+        description="Open the folder that contains the exported script/files after export",
+        default=False,
+    )
+
+    export_output_target: EnumProperty(
+        name="Export Folder Target",
+        description="Where the exported files will be saved",
+        items=[
+            ("SELECT_DIR", "Select Directory", "Folder chosen in the export dialog"),
+            ("BLEND_DIR", "Blend File Path", "Folder next to the .blend file"),
+            ("CUSTOM_PATH", "Custom", "User‑defined folder"),
+        ],
+        default="SELECT_DIR",
+    )
+
+    custom_export_path: StringProperty(
+        name="Custom Export Path",
+        description="Manually set the folder to open after export",
+        subtype="DIR_PATH",
+        default="",
+    )
+
+    scripts_directory: StringProperty(
+        name="Scripts Directory",
+        description="Directory containing additional Python scripts.",
+        default="",
+        subtype="DIR_PATH",
+    )
     visible_panels: PointerProperty(type=RECOM_PG_VisiblePanels)
 
     # Preference Groups
@@ -1051,9 +1054,7 @@ class RECOM_Preferences(AddonPreferences):
         visible_panels_header_row = visible_panels_box.row(align=True)
         visible_panels_header_row.alignment = "LEFT"
         icon = ICON_COLLAPSED if self.group_box_visible_panels else ICON_EXPANDED
-        visible_panels_header_row.prop(
-            self, "group_box_visible_panels", text="", icon=icon, emboss=False
-        )
+        visible_panels_header_row.prop(self, "group_box_visible_panels", text="", icon=icon, emboss=False)
         visible_panels_header_row.label(text="Visible Panels")
 
         if self.group_box_visible_panels:
@@ -1072,33 +1073,46 @@ class RECOM_Preferences(AddonPreferences):
             override_settings_box = visible_panels_box.column(heading="")
 
             # Cycles
-            cycles_settings_box = override_settings_box.column(heading="Cycles Render")
+            cycles_settings_box = override_settings_box.column(heading="Render")
             cycles_settings_box.prop(self.visible_panels, "compute_device", text="Compute Device")
             cycles_settings_box.prop(self.visible_panels, "light_paths", text="Light Paths")
             cycles_settings_box.prop(self.visible_panels, "performance")
             cycles_settings_box.separator()
-
-            override_settings_box.prop(self.visible_panels, "frame_range", text="Frame Range")
-
-            override_settings_box.separator()
-            override_settings_box.prop(self.visible_panels, "resolution", text="Format")
-            override_settings_box.prop(self.visible_panels, "overscan", text="Overscan")
-            override_settings_box.prop(self.visible_panels, "camera_shift", text="Lens Shift")
-            override_settings_box.separator()
-
             override_settings_box.prop(self.visible_panels, "motion_blur", text="Motion Blur")
-            override_settings_box.prop(self.visible_panels, "output_path", text="Output Path")
-            override_settings_box.prop(self.visible_panels, "file_format", text="File Format")
             override_settings_box.prop(self.visible_panels, "compositor", text="Compositing")
+            override_settings_box.separator()
+            output_settings_box = visible_panels_box.column(heading="Output")
+            output_settings_box.prop(self.visible_panels, "resolution", text="Format")
+            output_settings_box.prop(self.visible_panels, "overscan", text="Overscan")
+            output_settings_box.prop(self.visible_panels, "camera_shift", text="Lens Shift")
+            output_settings_box.prop(self.visible_panels, "frame_range", text="Frame Range")
+            output_settings_box.prop(self.visible_panels, "output_path", text="Output Path")
+            output_settings_box.prop(self.visible_panels, "file_format", text="File Format")
 
             visible_panels_box.label(text="Preferences")
 
             preferences_box = visible_panels_box.column(heading="")
             preferences_box.prop(self.visible_panels, "system_power")
-            preferences_box.prop(self.visible_panels, "ocio")
             preferences_box.prop(self.visible_panels, "blender_executable")
+            preferences_box.prop(self.visible_panels, "ocio")
             preferences_box.prop(self.visible_panels, "command_line_arguments")
             preferences_box.prop(self.visible_panels, "append_scripts")
+
+        # Default Filename
+        col.separator(factor=0.25)
+
+        default_filename_box = col.box().column()
+        default_filename_header_row = default_filename_box.row(align=True)
+        default_filename_header_row.alignment = "LEFT"
+        icon = ICON_COLLAPSED if self.group_box_default_filename else ICON_EXPANDED
+        default_filename_header_row.prop(self, "group_box_default_filename", text="", icon=icon, emboss=False)
+        default_filename_header_row.label(text="Output Filename")
+
+        if self.group_box_default_filename:
+            default_filename_box.prop(self, "default_render_filename", text="Default Name")
+            filename_separator_row = default_filename_box.row()
+            filename_separator_row.prop(self, "filename_separator", text="Frame Separator", expand=True)
+            default_filename_box.prop(self, "frame_length_digits", text="Padding")
 
         col.separator(factor=0.25)
 
@@ -1107,10 +1121,8 @@ class RECOM_Preferences(AddonPreferences):
         custom_vars_header_row = custom_vars_box.row(align=True)
         custom_vars_header_row.alignment = "LEFT"
         icon = ICON_COLLAPSED if self.group_box_custom_variables else ICON_EXPANDED
-        custom_vars_header_row.prop(
-            self, "group_box_custom_variables", text="", icon=icon, emboss=False
-        )
-        custom_vars_header_row.label(text="Custom Path Variables")
+        custom_vars_header_row.prop(self, "group_box_custom_variables", text="", icon=icon, emboss=False)
+        custom_vars_header_row.label(text="Output Path Variables")
 
         if self.group_box_custom_variables:
             custom_vars_row = custom_vars_box.row()
@@ -1137,38 +1149,19 @@ class RECOM_Preferences(AddonPreferences):
             add_remove_box = variable_controls_box.column(align=True)
             add_remove_box.operator("recom.add_custom_variable", text="", icon="ADD")
 
-            is_variable_selected = len(
+            is_variable_selected = len(self.custom_variables) > 0 and self.active_custom_variable_index < len(
                 self.custom_variables
-            ) > 0 and self.active_custom_variable_index < len(self.custom_variables)
+            )
 
             remove_variable_button = add_remove_box.column(align=True)
             remove_variable_button.active = is_variable_selected
-            remove_variable_button.operator(
-                "cbl.remove_custom_variable", text="", icon="REMOVE"
-            )  # placeholder
+            remove_variable_button.operator("cbl.remove_custom_variable", text="", icon="REMOVE")  # placeholder
             variable_controls_box.separator(factor=0.5)
 
             variable_menu_row = variable_controls_box.row()
             if not is_variable_selected or len(self.custom_variables) < 2:
                 variable_menu_row.active = False
             variable_menu_row.menu("RECOM_MT_custom_variables", text="", icon="DOWNARROW_HLT")
-
-        # Default Filename
-        col.separator(factor=0.25)
-
-        default_filename_box = col.box().column()
-        default_filename_header_row = default_filename_box.row(align=True)
-        default_filename_header_row.alignment = "LEFT"
-        icon = ICON_COLLAPSED if self.group_box_default_filename else ICON_EXPANDED
-        default_filename_header_row.prop(
-            self, "group_box_default_filename", text="", icon=icon, emboss=False
-        )
-        default_filename_header_row.label(text="Output Filename")
-
-        if self.group_box_default_filename:
-            default_filename_box.prop(self, "default_render_filename", text="Default Name")
-            default_filename_box.prop(self, "filename_separator", text="Frame Separator")
-            default_filename_box.prop(self, "frame_length_digits", text="Padding")
 
         # Linux - Default Applications
         if _IS_LINUX:
@@ -1178,9 +1171,7 @@ class RECOM_Preferences(AddonPreferences):
             default_apps_header_row = default_apps_box.row(align=True)
             default_apps_header_row.alignment = "LEFT"
             icon = ICON_COLLAPSED if self.group_box_default_applications else ICON_EXPANDED
-            default_apps_header_row.prop(
-                self, "group_box_default_applications", text="", icon=icon, emboss=False
-            )
+            default_apps_header_row.prop(self, "group_box_default_applications", text="", icon=icon, emboss=False)
             default_apps_header_row.label(text="Default Applications")
 
             if self.group_box_default_applications:
@@ -1202,41 +1193,36 @@ class RECOM_Preferences(AddonPreferences):
         development_header_row.label(text="Developer")
 
         if self.group_box_development:
-            # development_box.separator()
-
-            debug_preferences_box = development_box.column()
-
-            temp_row = debug_preferences_box.row(heading="Temp Folder")
+            temp_row = development_box.row(heading="Temp Folder")
             temp_row.prop(self, "use_custom_temp", text="")
             temp_sub_row = temp_row.row()
             temp_sub_row.active = self.use_custom_temp
             temp_sub_row.prop(self, "custom_temp_path", text="", placeholder="")
-            # development_box.separator()
 
+            development_box.separator()
             development_box.prop(self, "debug_mode", text="Debug Mode")
-
             if self.debug_mode:
+                development_box.separator()
                 debug_preferences_box = development_box.column(heading="Debug")
-                debug_preferences_box.prop(
-                    self, "initial_setup_complete", text="Cycles Setup Completed"
-                )
-                debug_preferences_box.prop(
-                    self, "preset_installed", text="Default Presets Installed"
-                )
+                debug_preferences_box.prop(self, "initial_setup_complete", text="Cycles Setup Completed")
+                debug_preferences_box.prop(self, "preset_installed", text="Default Presets Installed")
+
+            development_box.separator()
+            temp_files_row = development_box.row(align=True)
+            temp_files_row.operator("recom.clean_temp_files", icon="TRASH")
+            temp_files_row.operator("recom.open_temp_dir", text="", icon="FOLDER_REDIRECT")
 
 
 class RECOM_UL_custom_variables(UIList):
     bl_idname = "RECOM_UL_custom_variables"
 
-    def draw_item(
-        self, context, layout, data, item, icon, active_data, active_propname, index, flt_flag
-    ):
+    def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index, flt_flag):
         if self.layout_type in {"DEFAULT", "COMPACT"}:
             # Show name and token side‑by‑side
             row = layout.row(align=True)
             row.prop(item, "name", text="", emboss=False, placeholder="Name")
-            row.prop(item, "token", text="", placeholder="Token")
-            row.prop(item, "value", text="", placeholder="Value")
+            row.prop(item, "token", text="", emboss=False, placeholder="Token")
+            row.prop(item, "value", text="", emboss=False, placeholder="Value")
 
 
 classes = (

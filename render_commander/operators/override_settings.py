@@ -31,6 +31,27 @@ class RECOM_OT_SetResolutionY(Operator):
         return {"FINISHED"}
 
 
+class RECOM_OT_SwapResolution(Operator):
+    """Swap the values of resolution_x and resolution_y."""
+
+    bl_idname = "recom.swap_resolution"
+    bl_label = "Swap Width / Height"
+    bl_description = "Exchange the current width and height values"
+
+    def execute(self, context):
+        rs = context.window_manager.recom_render_settings.override_settings
+
+        # Grab the two values
+        x = rs.resolution_x
+        y = rs.resolution_y
+
+        # Swap them – each assignment triggers _update_auto_cache()
+        rs.resolution_x = y
+        rs.resolution_y = x
+
+        return {"FINISHED"}
+
+
 class RECOM_OT_SetAdaptiveThreshold(Operator):
     bl_idname = "recom.set_adaptive_threshold"
     bl_label = "Set Adaptive Threshold"
@@ -112,6 +133,7 @@ class RECOM_OT_SetEEVEESamples(Operator):
 classes = (
     RECOM_OT_SetResolutionX,
     RECOM_OT_SetResolutionY,
+    RECOM_OT_SwapResolution,
     RECOM_OT_SetAdaptiveThreshold,
     RECOM_OT_SetSamples,
     RECOM_OT_SetAdaptiveMinSamples,

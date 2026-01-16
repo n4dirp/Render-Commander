@@ -1,4 +1,5 @@
 from pathlib import Path
+import logging
 
 import bpy
 from bpy.types import Operator
@@ -8,6 +9,8 @@ from ..preferences import get_addon_preferences
 from ..utils.helpers import (
     redraw_ui,
 )
+
+log = logging.getLogger(__name__)
 
 
 class RECOM_OT_RemoveAdditionalScript(Operator):
@@ -50,13 +53,13 @@ class RECOM_OT_AddScriptFromMenu(Operator):
         for script in prefs.additional_scripts:
             if script.script_path == "":
                 script.script_path = script_to_add
-                self.report({"INFO"}, f"Filled existing empty script entry with: {script_to_add}")
+                log.info(f"Filled existing empty script entry with: {script_to_add}")
                 return {"FINISHED"}
 
         # If no empty entry found, add a new one
         script_entry = prefs.additional_scripts.add()
         script_entry.script_path = script_to_add
-        self.report({"INFO"}, f"Added new script entry: {script_to_add}")
+        log.info(f"Added new script entry: {script_to_add}")
         return {"FINISHED"}
 
 

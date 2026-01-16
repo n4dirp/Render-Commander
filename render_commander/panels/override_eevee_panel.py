@@ -19,7 +19,7 @@ class RECOM_PT_EEVEESettingsPresets(PresetPanel, Panel):
 class RECOM_PT_EEVEESettings(Panel):
     bl_label = "EEVEE"
     bl_idname = "RECOM_PT_eevee_settings"
-    bl_parent_id = "RECOM_PT_render_overrides"
+    bl_parent_id = "RECOM_PT_render_settings"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = "Render Commander"
@@ -68,7 +68,7 @@ class RECOM_PT_EEVEESamplingSettings(Panel):
 
         row = layout.row(align=True)
         row.prop(settings.override_settings.eevee, "samples", text="Samples")
-        row.separator(factor=0.5)
+        # row.separator(factor=0.5)
         row.menu("RECOM_MT_eevee_samples", text="", icon=ICON_OPTION)
 
 
@@ -94,10 +94,7 @@ class RECOM_PT_EEVEEShadowsSettings(Panel):
         layout.use_property_decorate = False
 
         settings = context.window_manager.recom_render_settings
-        layout.active = (
-            settings.override_settings.eevee_override
-            and settings.override_settings.eevee.use_shadows
-        )
+        layout.active = settings.override_settings.eevee_override and settings.override_settings.eevee.use_shadows
 
         col = layout.column()
         col.prop(settings.override_settings.eevee, "shadow_ray_count", text="Rays")
@@ -125,10 +122,7 @@ class RECOM_PT_EEVEERaytracingSettings(Panel):
         layout.use_property_decorate = False
 
         settings = context.window_manager.recom_render_settings
-        layout.active = (
-            settings.override_settings.eevee_override
-            and settings.override_settings.eevee.use_raytracing
-        )
+        layout.active = settings.override_settings.eevee_override and settings.override_settings.eevee.use_raytracing
 
         col = layout.column()
 
@@ -150,10 +144,7 @@ class RECOM_PT_EEVEEDenoiseSettings(Panel):
     def draw_header(self, context):
         layout = self.layout
         settings = context.window_manager.recom_render_settings
-        layout.active = (
-            settings.override_settings.eevee_override
-            and settings.override_settings.eevee.use_raytracing
-        )
+        layout.active = settings.override_settings.eevee_override and settings.override_settings.eevee.use_raytracing
 
         layout.prop(settings.override_settings.eevee, "ray_tracing_denoise", text="")
 
@@ -185,10 +176,7 @@ class RECOM_PT_EEVEEFastGISettings(Panel):
     def draw_header(self, context):
         layout = self.layout
         settings = context.window_manager.recom_render_settings
-        layout.active = (
-            settings.override_settings.eevee_override
-            and settings.override_settings.eevee.use_raytracing
-        )
+        layout.active = settings.override_settings.eevee_override and settings.override_settings.eevee.use_raytracing
         layout.prop(settings.override_settings.eevee, "fast_gi", text="")
 
     def draw(self, context):
@@ -207,9 +195,7 @@ class RECOM_PT_EEVEEFastGISettings(Panel):
 
         gi_col = col.column()
         gi_col.active = settings.override_settings.eevee.fast_gi
-        gi_col.prop(
-            settings.override_settings.eevee, "trace_max_roughness", text="Threshold", slider=True
-        )
+        gi_col.prop(settings.override_settings.eevee, "trace_max_roughness", text="Threshold", slider=True)
         gi_col.prop(settings.override_settings.eevee, "fast_gi_resolution", text="Resolution")
         gi_col.prop(settings.override_settings.eevee, "fast_gi_step_count", text="Steps")
         gi_col.prop(settings.override_settings.eevee, "fast_gi_distance", text="Distance")

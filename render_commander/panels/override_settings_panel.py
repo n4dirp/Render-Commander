@@ -39,8 +39,136 @@ class RECOM_PT_RenderOverrides(Panel):
             prefs.initial_setup_complete if render_engine == "CYCLES" else True
         ) and prefs.visible_panels.override_settings
 
+    def draw_header(self, context):
+        layout = self.layout
+        settings = context.window_manager.recom_render_settings
+        # layout.prop(settings, "use_override_settings", text="")
+
     def draw_header_preset(self, context):
         RECOM_PT_OverridesPresets.draw_panel_header(self.layout)
+
+    def draw(self, context):
+        pass
+
+
+class RECOM_PT_RenderSettings(Panel):
+    bl_label = "Render Properties"
+    bl_idname = "RECOM_PT_render_settings"
+    bl_parent_id = "RECOM_PT_render_overrides"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "UI"
+    bl_category = "Render Commander"
+    bl_options = {"HIDE_HEADER"}
+
+    def draw(self, context):
+        pass
+
+
+class RECOM_PT_MotionBlurSettings(Panel):
+    bl_label = "Motion Blur"
+    bl_idname = "RECOM_PT_motion_blur_settings"
+    bl_parent_id = "RECOM_PT_render_settings"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "UI"
+    bl_category = "Render Commander"
+    bl_options = {"DEFAULT_CLOSED"}
+    bl_order = 1
+
+    @classmethod
+    def poll(cls, context):
+        prefs = get_addon_preferences(context)
+        return prefs.visible_panels.motion_blur
+
+    def draw_header(self, context):
+        layout = self.layout
+        settings = context.window_manager.recom_render_settings
+        layout.prop(settings.override_settings, "motion_blur_override", text="")
+
+    def draw_header_preset(self, context):
+        layout = self.layout
+        settings = context.window_manager.recom_render_settings
+        layout.active = settings.override_settings.motion_blur_override
+
+        row = layout.row(align=True)
+        row.operator("recom.import_motion_blur", text="", icon=ICON_SYNC, emboss=False)
+        row.separator()
+
+    def draw(self, context):
+        layout = self.layout
+        layout.use_property_split = True
+        layout.use_property_decorate = False
+
+        settings = context.window_manager.recom_render_settings
+        layout.active = settings.override_settings.motion_blur_override
+
+        col = layout.column()
+        col.prop(settings.override_settings, "use_motion_blur", text="Use Motion Blur")
+
+        sub = layout.column()
+        sub.active = settings.override_settings.motion_blur_override and settings.override_settings.use_motion_blur
+        sub.prop(settings.override_settings, "motion_blur_position", text="Position")
+        sub.prop(settings.override_settings, "motion_blur_shutter", text="Shutter", slider=True)
+
+
+class RECOM_PT_CompositorSettings(Panel):
+    bl_label = "Compositing"
+    bl_idname = "RECOM_PT_compositor_settings"
+    bl_parent_id = "RECOM_PT_render_settings"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "UI"
+    bl_category = "Render Commander"
+    bl_options = {"DEFAULT_CLOSED"}
+    bl_order = 1
+
+    @classmethod
+    def poll(cls, context):
+        prefs = get_addon_preferences(context)
+        return prefs.visible_panels.compositor
+
+    def draw_header(self, context):
+        layout = self.layout
+        settings = context.window_manager.recom_render_settings
+        layout.prop(settings.override_settings, "compositor_override", text="")
+
+    def draw_header_preset(self, context):
+        layout = self.layout
+        settings = context.window_manager.recom_render_settings
+        layout.active = settings.override_settings.compositor_override
+        row = layout.row(align=True)
+        row.operator("recom.import_compositor", text="", icon=ICON_SYNC, emboss=False)
+        row.separator()
+
+    def draw(self, context):
+        layout = self.layout
+        layout.use_property_split = True
+        layout.use_property_decorate = False
+        settings = context.window_manager.recom_render_settings
+
+        layout.active = settings.override_settings.compositor_override
+
+        col = layout.column()
+
+        col.prop(settings.override_settings, "use_compositor", text="Use Compositor")
+        sub = col.column()
+        sub.active = settings.override_settings.use_compositor
+        sub.prop(
+            settings.override_settings,
+            "compositor_disable_output_files",
+            text="Bypass File Outputs",
+        )
+        sub.separator(factor=0.25)
+        device_row = sub.row()
+        device_row.prop(settings.override_settings, "compositor_device", text="Device", expand=True)
+
+
+class RECOM_PT_OutputSettings(Panel):
+    bl_label = "Output Properties"
+    bl_idname = "RECOM_PT_output_settings"
+    bl_parent_id = "RECOM_PT_render_overrides"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "UI"
+    bl_category = "Render Commander"
+    bl_options = {"HIDE_HEADER"}
 
     def draw(self, context):
         pass
@@ -49,7 +177,7 @@ class RECOM_PT_RenderOverrides(Panel):
 class RECOM_PT_FrameRangeSettings(Panel):
     bl_label = "Frame Range"
     bl_idname = "RECOM_PT_frame_range_settings"
-    bl_parent_id = "RECOM_PT_render_overrides"
+    bl_parent_id = "RECOM_PT_output_settings"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = "Render Commander"
@@ -72,9 +200,7 @@ class RECOM_PT_FrameRangeSettings(Panel):
         layout = self.layout
         settings = context.window_manager.recom_render_settings
         prefs = get_addon_preferences(context)
-        layout.active = (
-            settings.override_settings.frame_range_override and not prefs.launch_mode == MODE_LIST
-        )
+        layout.active = settings.override_settings.frame_range_override and not prefs.launch_mode == MODE_LIST
         row = layout.row(align=True)
         row.operator("recom.import_frame_range", text="", icon=ICON_SYNC, emboss=False)
         row.separator(factor=1)
@@ -87,9 +213,7 @@ class RECOM_PT_FrameRangeSettings(Panel):
         settings = context.window_manager.recom_render_settings
         prefs = get_addon_preferences(context)
 
-        layout.active = (
-            settings.override_settings.frame_range_override and not prefs.launch_mode == MODE_LIST
-        )
+        layout.active = settings.override_settings.frame_range_override and not prefs.launch_mode == MODE_LIST
 
         row = layout.row(align=True)
         row.active = prefs.launch_mode == MODE_SINGLE
@@ -112,7 +236,7 @@ class RECOM_PT_ResolutionPresets(PresetPanel, Panel):
 class RECOM_PT_ResolutionSettings(Panel):
     bl_label = "Format"
     bl_idname = "RECOM_PT_resolution_settings"
-    bl_parent_id = "RECOM_PT_render_overrides"
+    bl_parent_id = "RECOM_PT_output_settings"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = "Render Commander"
@@ -125,8 +249,9 @@ class RECOM_PT_ResolutionSettings(Panel):
         return prefs.visible_panels.resolution
 
     def draw_header(self, context):
+        layout = self.layout
         settings = context.window_manager.recom_render_settings
-        self.layout.prop(settings.override_settings, "format_override", text="")
+        layout.prop(settings.override_settings, "format_override", text="")
 
     def draw_header_preset(self, context):
         layout = self.layout
@@ -162,7 +287,7 @@ class RECOM_PT_ResolutionSettings(Panel):
         if settings.override_settings.resolution_mode == "SET_WIDTH":
             row_x = col_res.row(align=True)
             row_x.prop(settings.override_settings, "resolution_x", text="Width")
-            row_x.separator(factor=0.5)
+            # row_x.separator(factor=0.5)
             row_x.menu("RECOM_MT_resolution_x", text="", icon=ICON_OPTION)
 
             auto_height = settings.override_settings.cached_auto_height
@@ -171,7 +296,7 @@ class RECOM_PT_ResolutionSettings(Panel):
             row_y = col_res.row(align=True)
             row_y.active = False
             row_y.prop(settings.override_settings, "resolution_preview", text="Auto-Height")
-            row_y.separator(factor=0.5)
+            # row_y.separator(factor=0.5)
             row_y.menu("RECOM_MT_resolution_y", text="", icon="DECORATE_LOCKED")
         elif settings.override_settings.resolution_mode == "SET_HEIGHT":
             auto_width = settings.override_settings.cached_auto_width
@@ -180,22 +305,22 @@ class RECOM_PT_ResolutionSettings(Panel):
             row_x = col_res.row(align=True)
             row_x.active = False
             row_x.prop(settings.override_settings, "resolution_preview", text="Auto-Width")
-            row_x.separator(factor=0.5)
+            # row_x.separator(factor=0.5)
             row_x.menu("RECOM_MT_resolution_x", text="", icon="DECORATE_LOCKED")
 
             row_y = col_res.row(align=True)
             row_y.prop(settings.override_settings, "resolution_y", text="Height")
-            row_y.separator(factor=0.5)
+            # row_y.separator(factor=0.5)
             row_y.menu("RECOM_MT_resolution_y", text="", icon=ICON_OPTION)
         else:
             row_x = col_res.row(align=True)
             row_x.prop(settings.override_settings, "resolution_x", text="Width")
-            row_x.separator(factor=0.5)
+            # row_x.separator(factor=0.5)
             row_x.menu("RECOM_MT_resolution_x", text="", icon=ICON_OPTION)
 
             row_y = col_res.row(align=True)
             row_y.prop(settings.override_settings, "resolution_y", text="Height")
-            row_y.separator(factor=0.5)
+            # row_y.separator(factor=0.5)
             row_y.menu("RECOM_MT_resolution_y", text="", icon=ICON_OPTION)
 
         # Scale resolution menu
@@ -206,8 +331,7 @@ class RECOM_PT_ResolutionSettings(Panel):
 
         # Scaled result
         show_scale = settings.override_settings.render_scale != "1.00" and (
-            settings.override_settings.render_scale != "CUSTOM"
-            or settings.override_settings.custom_render_scale != 100
+            settings.override_settings.render_scale != "CUSTOM" or settings.override_settings.custom_render_scale != 100
         )
         if show_scale:
             scale_factor = (
@@ -233,11 +357,11 @@ class RECOM_PT_ResolutionSettings(Panel):
             scaled_width = int(width * scale_factor)
             scaled_height = int(height * scale_factor)
 
-            scaled_label_box = layout.box()
+            scaled_label_box = scale_col.box()
             scaled_label_row = scaled_label_box.row(align=True)
             scaled_label_row.separator(factor=0.5)
             scaled_label_row.active = False
-            scaled_label_row.label(text=f"Scaled: {scaled_width} x {scaled_height} px")
+            scaled_label_row.label(text=f"Output: {scaled_width} x {scaled_height} px")
 
 
 class RECOM_PT_OverscanSettings(Panel):
@@ -266,9 +390,7 @@ class RECOM_PT_OverscanSettings(Panel):
         layout.use_property_decorate = False
 
         settings = context.window_manager.recom_render_settings
-        layout.active = (
-            settings.override_settings.format_override and settings.override_settings.use_overscan
-        )
+        layout.active = settings.override_settings.format_override and settings.override_settings.use_overscan
 
         overscan_col = layout.column()
         overscan_row = overscan_col.row()
@@ -288,7 +410,7 @@ class RECOM_PT_OverscanSettings(Panel):
 
 
 class RECOM_PT_CameraShiftSettings(Panel):
-    bl_label = "Shift"
+    bl_label = "Lens Shift"
     bl_idname = "RECOM_PT_camera_shift_settings"
     bl_parent_id = "RECOM_PT_resolution_settings"
     bl_space_type = "VIEW_3D"
@@ -313,62 +435,11 @@ class RECOM_PT_CameraShiftSettings(Panel):
         layout.use_property_decorate = False
 
         settings = context.window_manager.recom_render_settings
-        layout.active = (
-            settings.override_settings.format_override
-            and settings.override_settings.camera_shift_override
-        )
+        layout.active = settings.override_settings.format_override and settings.override_settings.camera_shift_override
 
         col = layout.column(align=True)
-        col.prop(settings.override_settings, "camera_shift_x", text="Width", slider=True)
-        col.prop(settings.override_settings, "camera_shift_y", text="Height", slider=True)
-
-
-class RECOM_PT_MotionBlurSettings(Panel):
-    bl_label = "Motion Blur"
-    bl_idname = "RECOM_PT_motion_blur_settings"
-    bl_parent_id = "RECOM_PT_render_overrides"
-    bl_space_type = "VIEW_3D"
-    bl_region_type = "UI"
-    bl_category = "Render Commander"
-    bl_options = {"DEFAULT_CLOSED"}
-    bl_order = 1
-
-    @classmethod
-    def poll(cls, context):
-        prefs = get_addon_preferences(context)
-        return prefs.visible_panels.motion_blur
-
-    def draw_header(self, context):
-        settings = context.window_manager.recom_render_settings
-        self.layout.prop(settings.override_settings, "motion_blur_override", text="")
-
-    def draw_header_preset(self, context):
-        layout = self.layout
-        settings = context.window_manager.recom_render_settings
-        layout.active = settings.override_settings.motion_blur_override
-
-        row = layout.row(align=True)
-        row.operator("recom.import_motion_blur", text="", icon=ICON_SYNC, emboss=False)
-        row.separator()
-
-    def draw(self, context):
-        layout = self.layout
-        layout.use_property_split = True
-        layout.use_property_decorate = False
-
-        settings = context.window_manager.recom_render_settings
-        layout.active = settings.override_settings.motion_blur_override
-
-        col = layout.column()
-        col.prop(settings.override_settings, "use_motion_blur", text="Use Motion Blur")
-
-        sub = layout.column()
-        sub.active = (
-            settings.override_settings.motion_blur_override
-            and settings.override_settings.use_motion_blur
-        )
-        sub.prop(settings.override_settings, "motion_blur_position", text="Position")
-        sub.prop(settings.override_settings, "motion_blur_shutter", text="Shutter", slider=True)
+        col.prop(settings.override_settings, "camera_shift_x", text="Shift X", slider=True)
+        col.prop(settings.override_settings, "camera_shift_y", text="Y", slider=True)
 
 
 class RECOM_PT_OutputPresets(PresetPanel, Panel):
@@ -381,7 +452,7 @@ class RECOM_PT_OutputPresets(PresetPanel, Panel):
 class RECOM_PT_OutputPathSettings(Panel):
     bl_label = "Output Path"
     bl_idname = "RECOM_PT_output_path_settings"
-    bl_parent_id = "RECOM_PT_render_overrides"
+    bl_parent_id = "RECOM_PT_output_settings"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = "Render Commander"
@@ -394,8 +465,9 @@ class RECOM_PT_OutputPathSettings(Panel):
         return prefs.visible_panels.output_path
 
     def draw_header(self, context):
+        layout = self.layout
         settings = context.window_manager.recom_render_settings
-        self.layout.prop(settings.override_settings, "output_path_override", text="")
+        layout.prop(settings.override_settings, "output_path_override", text="")
 
     def draw_header_preset(self, context):
         layout = self.layout
@@ -435,12 +507,14 @@ class RECOM_PT_OutputPathSettings(Panel):
         )
 
         if prefs.path_preview:
-            resolved_path = settings.override_settings.resolved_path or "Resolve Output Path"
-
+            resolved_path = settings.override_settings.resolved_path or f"Resolve"
             row = layout.row(align=True)
             row.active = False
-            row.alignment = "LEFT"
-            row.operator("recom.show_tooltip", text=resolved_path, icon="FILE_REFRESH")
+            row.operator(
+                "recom.show_tooltip",
+                text=resolved_path,
+                # icon="FILE_REFRESH",
+            )
 
 
 class RECOM_PT_AddVariablesPanel(Panel):
@@ -452,7 +526,7 @@ class RECOM_PT_AddVariablesPanel(Panel):
     bl_category = "Render Commander"
     bl_options = {"DEFAULT_CLOSED"}
 
-    MAX_WIDTH = 300
+    MAX_WIDTH = 250
     SECTIONS = [
         (
             "show_custom_variables",
@@ -592,7 +666,7 @@ class RECOM_PT_AddVariablesPanel(Panel):
 class RECOM_PT_OutputFormatSettings(Panel):
     bl_label = "File Format"
     bl_idname = "RECOM_PT_output_format_settings"
-    bl_parent_id = "RECOM_PT_render_overrides"
+    bl_parent_id = "RECOM_PT_output_settings"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = "Render Commander"
@@ -605,8 +679,9 @@ class RECOM_PT_OutputFormatSettings(Panel):
         return prefs.visible_panels.file_format
 
     def draw_header(self, context):
+        layout = self.layout
         settings = context.window_manager.recom_render_settings
-        self.layout.prop(settings.override_settings, "file_format_override", text="")
+        layout.prop(settings.override_settings, "file_format_override", text="")
 
     def draw_header_preset(self, context):
         layout = self.layout
@@ -643,64 +718,16 @@ class RECOM_PT_OutputFormatSettings(Panel):
             col.prop(settings.override_settings, "jpeg_quality", text="Quality", slider=True)
 
 
-class RECOM_PT_CompositorSettings(Panel):
-    bl_label = "Compositing"
-    bl_idname = "RECOM_PT_compositor_settings"
-    bl_parent_id = "RECOM_PT_render_overrides"
-    bl_space_type = "VIEW_3D"
-    bl_region_type = "UI"
-    bl_category = "Render Commander"
-    bl_options = {"DEFAULT_CLOSED"}
-    bl_order = 1
-
-    @classmethod
-    def poll(cls, context):
-        prefs = get_addon_preferences(context)
-        return prefs.visible_panels.compositor
-
-    def draw_header(self, context):
-        settings = context.window_manager.recom_render_settings
-        self.layout.prop(settings.override_settings, "compositor_override", text="")
-
-    def draw_header_preset(self, context):
-        layout = self.layout
-        settings = context.window_manager.recom_render_settings
-        layout.active = settings.override_settings.compositor_override
-        row = layout.row(align=True)
-        row.operator("recom.import_compositor", text="", icon=ICON_SYNC, emboss=False)
-        row.separator()
-
-    def draw(self, context):
-        layout = self.layout
-        layout.use_property_split = True
-        layout.use_property_decorate = False
-        settings = context.window_manager.recom_render_settings
-
-        layout.active = settings.override_settings.compositor_override
-
-        col = layout.column()
-
-        col.prop(settings.override_settings, "use_compositor", text="Use Compositor")
-        sub = col.column()
-        sub.active = settings.override_settings.use_compositor
-        sub.prop(
-            settings.override_settings,
-            "compositor_disable_output_files",
-            text="Bypass File Outputs",
-        )
-        sub.separator(factor=0.25)
-        device_row = sub.row()
-        device_row.prop(settings.override_settings, "compositor_device", text="Device", expand=True)
-
-
 classes = (
     RECOM_PT_OverridesPresets,
     RECOM_PT_RenderOverrides,
-    RECOM_PT_FrameRangeSettings,
+    RECOM_PT_RenderSettings,
+    RECOM_PT_OutputSettings,
     RECOM_PT_ResolutionPresets,
     RECOM_PT_ResolutionSettings,
     RECOM_PT_OverscanSettings,
     RECOM_PT_CameraShiftSettings,
+    RECOM_PT_FrameRangeSettings,
     RECOM_PT_MotionBlurSettings,
     RECOM_PT_OutputPresets,
     RECOM_PT_OutputPathSettings,

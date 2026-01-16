@@ -84,6 +84,11 @@ class RECOM_PG_RenderSettings(PropertyGroup):
     )
 
     # Override Settings
+    use_override_settings: BoolProperty(
+        name="Use Override Settings",
+        default=False,
+        description="Apply custom render settings overrides.",
+    )
     override_settings: PointerProperty(type=RECOM_PG_OverrideSettings)
 
     # Misc
@@ -114,11 +119,16 @@ class RECOM_PG_RenderSettings(PropertyGroup):
     )
 
 
+def get_custom_tooltip(self):
+    return f"{self.key}: {self.value}"
+
+
 class RECOM_PG_ExternalSceneInfoItem(PropertyGroup):
     """Container for a single key/value pair extracted from the external scene JSON."""
 
     key: StringProperty(name="Key")
     value: StringProperty(name="Value")
+    tooltip_display: StringProperty(get=get_custom_tooltip)
 
 
 classes = (

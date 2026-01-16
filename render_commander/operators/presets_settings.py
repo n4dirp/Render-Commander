@@ -299,6 +299,17 @@ class RECOM_OT_AddOCIOPreset(AddPresetBase, Operator):
     preset_subdir = Path(ADDON_NAME) / "ocio"
 
 
+class RECOM_OT_AddCustomCommandLinePreset(AddPresetBase, Operator):
+    bl_idname = "recom.add_custom_command_line_preset"
+    bl_label = "Add Custom Command Line Arguments Preset"
+    preset_menu = "RECOM_PT_CustomCommandLineArgumentsPresets"
+    preset_defines = [f"settings = bpy.context.preferences.addons['{base_package}'].preferences"]
+    preset_values = [
+        "settings.custom_command_line_args",
+    ]
+    preset_subdir = Path(ADDON_NAME) / "command_line_arguments"
+
+
 classes = (
     RECOM_OT_AddOverridesPreset,
     RECOM_OT_AddResolutionPreset,
@@ -310,6 +321,7 @@ classes = (
     RECOM_OT_AddCustomExecPreset,
     RECOM_OT_AddAdditionalScriptPreset,
     RECOM_OT_AddOCIOPreset,
+    RECOM_OT_AddCustomCommandLinePreset,
 )
 
 

@@ -43,7 +43,7 @@ class RECOM_PT_RenderPreferences(Panel):
     def draw_header_preset(self, context):
         layout = self.layout
         row = layout.row(align=True)
-        row.operator("recom.open_pref", text="", icon="PREFERENCES", emboss=False)
+        row.operator("recom.open_pref", text="", icon="SETTINGS", emboss=False)
 
         RECOM_PT_RenderPreferencesPresets.draw_panel_header(row)
 
@@ -74,7 +74,9 @@ class RECOM_PT_DeviceSettings(Panel):
 
         prefs = get_addon_preferences(context)
 
-        row = layout.row(align=True)
+        col = layout.column()
+
+        row = col.row(align=True)
         row.use_property_split = True
         row.use_property_decorate = False
 
@@ -82,7 +84,7 @@ class RECOM_PT_DeviceSettings(Panel):
         backend_row.active = not prefs.multiple_backends
         backend_row.prop(prefs, "compute_device_type", text="Backend")
 
-        dev_row = layout.row()
+        dev_row = col.row()
         if prefs.compute_device_type != "NONE":
             devices_to_display_list = prefs.get_devices_for_display()
             box = dev_row.box()
@@ -130,7 +132,7 @@ class RECOM_PT_DeviceIDs(Panel):
 class RECOM_PT_DeviceParallel(Panel):
     bl_label = "Device Parallel"
     bl_idname = "RECOM_PT_device_parallel"
-    bl_parent_id = "RECOM_PT_render_preferences"
+    bl_parent_id = "RECOM_PT_device_settings"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = "Render Commander"
@@ -159,15 +161,11 @@ class RECOM_PT_DeviceParallel(Panel):
 
         prefs = get_addon_preferences(context)
 
-        selected_devices = [
-            d for d in prefs.devices if d.type == prefs.compute_device_type and d.use
-        ]
+        selected_devices = [d for d in prefs.devices if d.type == prefs.compute_device_type and d.use]
         devices_to_display = prefs.get_devices_for_display()
         selected_devices = [d for d in devices_to_display if d.use]
 
-        layout.active = (
-            len(selected_devices) > 1 and prefs.launch_mode != MODE_SINGLE and prefs.device_parallel
-        )
+        layout.active = len(selected_devices) > 1 and prefs.launch_mode != MODE_SINGLE and prefs.device_parallel
 
         row = layout.row()
         row.active = prefs.launch_mode != MODE_LIST
@@ -181,8 +179,8 @@ class RECOM_PT_DeviceParallel(Panel):
         row_bk.prop(prefs, "multiple_backends", text="Multi-Backend")
 
         if any(d.type == "CPU" and d.use for d in prefs.devices):
-            col_cpu = layout.column()
-            col_cpu.prop(prefs, "combine_cpu_with_gpus", text="Append CPU to GPU devices")
+            col_cpu = layout.column(heading="CPU")
+            col_cpu.prop(prefs, "combine_cpu_with_gpus", text="Append to GPU devices")
 
             col_tl = col_cpu.column()
             col_tl.active = prefs.combine_cpu_with_gpus
@@ -205,25 +203,23 @@ class RECOM_PT_RenderOptions(Panel):
         prefs = get_addon_preferences(context)
         settings = context.window_manager.recom_render_settings
 
-        col = layout.column(heading="Automatically")
+        col = layout.column(heading="")
 
         save_row = col.row()
         if settings.use_external_blend:
             save_row.active = False
-        save_row.prop(prefs, "auto_save_before_render", text="Save .Blend File")
+        save_row.prop(prefs, "auto_save_before_render", text="Save Blend File")
 
-        col = col.column(heading="")
-        col.prop(prefs, "auto_open_output_folder", text="Open Output Folder")
-
-        row_sub = col.row(heading="Rendering")
+        row_sub = col.row(heading="")
         row_sub.active = True if not settings.override_settings.output_path_override else False
         row_sub.prop(prefs, "write_still", text="Save Still Render")
 
         col.prop(prefs, "send_desktop_notifications", text="Desktop Notification")
+        col.prop(prefs, "keep_terminal_open", text="Keep Terminal Open")
 
 
 class RECOM_PT_SystemPower(Panel):
-    bl_label = "System Power"
+    bl_label = "Power"
     bl_idname = "RECOM_PT_system_power"
     bl_parent_id = "RECOM_PT_render_preferences"
     bl_space_type = "VIEW_3D"
@@ -270,7 +266,7 @@ class RECOM_PT_SystemPower(Panel):
 
 
 class RECOM_PT_LogToFile(Panel):
-    bl_label = "Render Log to File"
+    bl_label = "Log to File"
     bl_idname = "RECOM_PT_log_to_file"
     bl_parent_id = "RECOM_PT_render_preferences"
     bl_space_type = "VIEW_3D"
@@ -294,38 +290,7 @@ class RECOM_PT_LogToFile(Panel):
         col.prop(prefs, "log_to_file_location", text="Save Location")
 
         if prefs.log_to_file_location == "CUSTOM_PATH":
-            col.prop(
-                prefs,
-                "log_custom_path",
-                text="Logs Folder",
-                placeholder="",
-            )
-
-
-class RECOM_PT_ExternalConsole(Panel):
-    bl_label = "External Terminal"
-    bl_idname = "RECOM_PT_external_console"
-    bl_parent_id = "RECOM_PT_render_preferences"
-    bl_space_type = "VIEW_3D"
-    bl_region_type = "UI"
-    bl_category = "Render Commander"
-    bl_options = {"DEFAULT_CLOSED"}
-
-    def draw_header(self, context):
-        layout = self.layout
-        prefs = get_addon_preferences(context)
-        layout.prop(prefs, "external_terminal", text="")
-
-    def draw(self, context):
-        layout = self.layout
-        layout.use_property_split = True
-        layout.use_property_decorate = False
-        prefs = get_addon_preferences(context)
-        layout.active = prefs.external_terminal
-
-        col = layout.column()
-        col.prop(prefs, "exit_active_session", text="Exit Blender Session")
-        col.prop(prefs, "keep_terminal_open", text="Keep Terminal Open")
+            col.prop(prefs, "log_custom_path", text="", placeholder="Custom Path")
 
 
 class RECOM_PT_CustomExecPresets(PresetPanel, Panel):
@@ -336,7 +301,7 @@ class RECOM_PT_CustomExecPresets(PresetPanel, Panel):
 
 
 class RECOM_PT_CustomExecutable(Panel):
-    bl_label = "Blender Executable"
+    bl_label = "Executable"
     bl_idname = "RECOM_PT_custom_executables"
     bl_parent_id = "RECOM_PT_render_preferences"
     bl_space_type = "VIEW_3D"
@@ -373,8 +338,8 @@ class RECOM_PT_CustomExecutable(Panel):
             prefs,
             "custom_executable_path",
             text="",
-            icon="BLENDER",
-            placeholder="Path to Blender Executable",
+            # icon="BLENDER",
+            placeholder="Blender Path",
         )
 
         if prefs.custom_executable and not prefs.custom_executable_path:
@@ -382,7 +347,7 @@ class RECOM_PT_CustomExecutable(Panel):
 
         info = prefs.custom_executable_version
         if info and "Version:" in info:
-            row_main = layout.row()
+            row_main = col.row()
             col = row_main.column()
             box = col.box()
             row = box.row(align=True)
@@ -417,7 +382,7 @@ class RECOM_PT_OCIOPresets(PresetPanel, Panel):
 
 
 class RECOM_PT_OCIO(Panel):
-    bl_label = "OCIO Environment"
+    bl_label = "OCIO"
     bl_idname = "RECOM_PT_ocio"
     bl_parent_id = "RECOM_PT_render_preferences"
     bl_space_type = "VIEW_3D"
@@ -451,7 +416,20 @@ class RECOM_PT_OCIO(Panel):
         layout.active = prefs.set_ocio
 
         col = layout.column()
-        col.prop(prefs, "ocio_path", text="", icon="FILE", placeholder="Path to OCIO file")
+        col.prop(
+            prefs,
+            "ocio_path",
+            text="",
+            # icon="FILE",
+            placeholder="OCIO Path",
+        )
+
+
+class RECOM_PT_CustomCommandLineArgumentsPresets(PresetPanel, Panel):
+    bl_label = "Custom Command Line Arguments Presets"
+    preset_subdir = Path(ADDON_NAME) / "command_line_arguments"
+    preset_operator = "script.execute_preset"
+    preset_add_operator = "recom.add_custom_command_line_preset"
 
 
 class RECOM_PT_CustomCommandLineArguments(Panel):
@@ -473,6 +451,12 @@ class RECOM_PT_CustomCommandLineArguments(Panel):
         prefs = get_addon_preferences(context)
         layout.prop(prefs, "add_command_line_args", text="")
 
+    def draw_header_preset(self, context):
+        layout = self.layout
+        prefs = get_addon_preferences(context)
+        layout.active = prefs.set_ocio
+        RECOM_PT_CustomCommandLineArgumentsPresets.draw_panel_header(layout)
+
     def draw(self, context):
         layout = self.layout
         layout.use_property_split = True
@@ -481,14 +465,20 @@ class RECOM_PT_CustomCommandLineArguments(Panel):
         prefs = get_addon_preferences(context)
         layout.active = prefs.add_command_line_args
 
-        col = layout.column()
-        col.prop(
+        row = layout.row(align=True)
+        row.prop(
             prefs,
             "custom_command_line_args",
             text="",
             placeholder="Command Line Arguments",
-            icon="CONSOLE",
+            # icon="CONSOLE",
         )
+
+        version = bpy.app.version_string
+        major, minor, _patch = bpy.app.version
+        short_version = f"{major}.{minor}"
+        url = f"https://docs.blender.org/manual/en/{short_version}/advanced/command_line/arguments.html"
+        row.operator("wm.url_open", text="", icon="URL").url = url
 
 
 class RECOM_PT_AdditionalScriptPresets(PresetPanel, Panel):
@@ -507,7 +497,7 @@ class RECOM_UL_ScriptList(UIList):
                 "script_path",
                 text="",
                 emboss=False,
-                icon="FILE_SCRIPT",
+                # icon="FILE_SCRIPT",
                 placeholder="Path to Python Script",
             )
 
@@ -528,7 +518,7 @@ class RECOM_UL_ScriptList(UIList):
 
 
 class RECOM_PT_AdditionalScripts(Panel):
-    bl_label = "Append Scripts"
+    bl_label = "Scripts"
     bl_idname = "RECOM_PT_additional_scripts"
     bl_parent_id = "RECOM_PT_render_preferences"
     bl_space_type = "VIEW_3D"
@@ -552,9 +542,6 @@ class RECOM_PT_AdditionalScripts(Panel):
         layout.active = prefs.append_python_scripts
         RECOM_PT_AdditionalScriptPresets.draw_panel_header(layout)
 
-        # layout.menu("RECOM_MT_scripts", text="", icon="COLLAPSEMENU")
-        # layout.separator(factor=0.25)
-
     def draw(self, context):
         layout = self.layout
 
@@ -573,6 +560,7 @@ class RECOM_PT_AdditionalScripts(Panel):
             prefs,
             "active_script_index",
             rows=4,
+            item_dyntip_propname="script_path",
         )
 
         col = row_main.column()
@@ -585,12 +573,15 @@ class RECOM_PT_AdditionalScripts(Panel):
         sub.enabled = is_post_selected
         sub.operator("recom.script_list_remove_item", icon="REMOVE", text="")
 
-        add_col.separator()
+        col.separator(factor=0.5)
 
-        item_menu_row = add_col.row(align=True)
+        item_menu_row = col.row(align=True)
         item_menu_row.active = is_post_selected
         item_menu_row.alignment = "RIGHT"
         item_menu_row.menu("RECOM_MT_script_options", text="", icon="DOWNARROW_HLT")
+
+        col.separator(factor=0.5)
+        col.menu("RECOM_MT_scripts", text="", icon="COLLAPSEMENU")
 
 
 classes = (
@@ -600,17 +591,17 @@ classes = (
     RECOM_PT_DeviceIDs,
     RECOM_PT_DeviceParallel,
     RECOM_PT_RenderOptions,
-    RECOM_PT_SystemPower,
-    RECOM_PT_LogToFile,
-    RECOM_PT_ExternalConsole,
     RECOM_PT_OCIOPresets,
     RECOM_PT_OCIO,
     RECOM_PT_CustomExecPresets,
     RECOM_PT_CustomExecutable,
+    RECOM_PT_CustomCommandLineArgumentsPresets,
     RECOM_PT_CustomCommandLineArguments,
+    RECOM_PT_LogToFile,
     RECOM_PT_AdditionalScriptPresets,
     RECOM_PT_AdditionalScripts,
     RECOM_UL_ScriptList,
+    RECOM_PT_SystemPower,
 )
 
 

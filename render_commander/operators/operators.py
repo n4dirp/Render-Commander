@@ -4,6 +4,7 @@ import logging
 
 import bpy
 from bpy.types import Operator
+from bpy.props import StringProperty, EnumProperty, BoolProperty
 
 from ..preferences import get_addon_preferences
 from ..utils.helpers import (
@@ -66,10 +67,41 @@ class RECOM_OT_OpenPreferences(Operator):
         return {"FINISHED"}
 
 
+class RECOM_OT_ChangeScriptsDirectory(Operator):
+    """Change the directory for additional scripts"""
+
+    bl_idname = "recom.change_scripts_directory"
+    bl_label = "Select Scripts Directory"
+    bl_description = "Select a new directory containing Python scripts"
+
+    directory: StringProperty(
+        name="Export Directory",
+        description="Directory to read python files",
+        subtype="DIR_PATH",
+    )
+
+    filter_folder: BoolProperty(
+        default=True,
+        options={"HIDDEN", "SKIP_SAVE"},
+    )
+
+    def execute(self, context):
+        prefs = get_addon_preferences(context)
+        # The actual path will be handled in invoke
+        prefs.scripts_directory = self.directory
+        return {"FINISHED"}
+
+    def invoke(self, context, event):
+        wm = context.window_manager
+        wm.fileselect_add(self)
+        return {"RUNNING_MODAL"}
+
+
 classes = (
     RECOM_OT_ContinueSetup,
     RECOM_OT_ReinitializeDevices,
     RECOM_OT_OpenPreferences,
+    RECOM_OT_ChangeScriptsDirectory,
 )
 
 

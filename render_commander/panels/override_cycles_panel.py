@@ -12,11 +12,11 @@ from ..utils.helpers import get_render_engine
 class RECOM_PT_CyclesSetting(Panel):
     bl_label = "Cycles"
     bl_idname = "RECOM_PT_cycles_overrides"
-    bl_parent_id = "RECOM_PT_render_overrides"
+    bl_parent_id = "RECOM_PT_render_settings"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = "Render Commander"
-    # bl_options = {"DEFAULT_CLOSED"}
+    bl_options = {"HIDE_HEADER"}
     bl_order = 0
 
     @classmethod
@@ -81,7 +81,7 @@ class RECOM_PT_SamplesSettings(Panel):
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = "Render Commander"
-    # bl_options = {"DEFAULT_CLOSED"}
+    bl_options = {"DEFAULT_CLOSED"}
 
     @classmethod
     def poll(cls, context):
@@ -117,25 +117,19 @@ class RECOM_PT_SamplesSettings(Panel):
         sub.active = settings.override_settings.cycles.use_adaptive_sampling
         sub_row = sub.row(align=True)
         sub_row.prop(settings.override_settings.cycles, "adaptive_threshold", text="")
-        sub_row.separator(factor=0.5)
         sub_row.menu("RECOM_MT_adaptive_threshold", text="", icon=ICON_OPTION)
 
         samples_col = layout.column(align=True)
         row_samples = samples_col.row(align=True)
         row_samples.prop(settings.override_settings.cycles, "samples", text="Max Samples")
-        row_samples.separator(factor=0.5)
         row_samples.menu("RECOM_MT_samples", text="", icon=ICON_OPTION)
 
         row_samples = samples_col.row(align=True)
-        row_samples.prop(
-            settings.override_settings.cycles, "adaptive_min_samples", text="Min Samples"
-        )
-        row_samples.separator(factor=0.5)
+        row_samples.prop(settings.override_settings.cycles, "adaptive_min_samples", text="Min Samples")
         row_samples.menu("RECOM_MT_adaptive_min_samples", text="", icon=ICON_OPTION)
 
         row_samples = layout.row(align=True)
         row_samples.prop(settings.override_settings.cycles, "time_limit")
-        row_samples.separator(factor=0.5)
         row_samples.menu("RECOM_MT_time_limit", text="", icon=ICON_OPTION)
 
 
@@ -160,8 +154,7 @@ class RECOM_PT_DenoiseSettings(Panel):
         layout.use_property_decorate = False
         settings = context.window_manager.recom_render_settings
         layout.active = (
-            settings.override_settings.cycles.sampling_override
-            and settings.override_settings.cycles.use_denoising
+            settings.override_settings.cycles.sampling_override and settings.override_settings.cycles.use_denoising
         )
 
         col = layout.column()

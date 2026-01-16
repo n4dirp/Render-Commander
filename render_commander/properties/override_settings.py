@@ -84,8 +84,7 @@ class RECOM_PG_CyclesRenderOverrides(PropertyGroup):
     )
     time_limit: FloatProperty(
         name="Time Limit",
-        description="Limit the render time (excluding synchronization time). "
-        "Zero disables the limit",
+        description="Limit the render time (excluding synchronization time). " "Zero disables the limit",
         min=0.0,
         default=0.0,
         step=100.0,
@@ -219,8 +218,7 @@ class RECOM_PG_CyclesRenderOverrides(PropertyGroup):
     )
     blur_glossy: FloatProperty(
         name="Filter Glossy",
-        description="Adaptively blur glossy shaders after blurry bounces, "
-        "to reduce noise at the cost of accuracy",
+        description="Adaptively blur glossy shaders after blurry bounces, " "to reduce noise at the cost of accuracy",
         min=0.0,
         max=10.0,
         default=1.0,
@@ -537,9 +535,7 @@ class RECOM_PG_OverrideSettings(PropertyGroup):
         ],
         default="1.00",
         description=(
-            "Resolution scaling factor\n"
-            ">100% for supersampling (sharper results)\n"
-            "<100% for faster previews"
+            "Resolution scaling factor\n" ">100% for supersampling (sharper results)\n" "<100% for faster previews"
         ),
     )
     custom_render_scale: IntProperty(
@@ -606,14 +602,16 @@ class RECOM_PG_OverrideSettings(PropertyGroup):
         default=0.0,
         soft_min=-1.0,
         soft_max=1.0,
-        description="Horizontal lens shift. Positive = right, negative = left. 1.0 = full sensor width.",
+        precision=3,
+        description="Camera horizontal shift. \nPositive = Right / Negative = Left.",
     )
     camera_shift_y: FloatProperty(
         name="Shift Y",
         default=0.0,
         soft_min=-1.0,
         soft_max=1.0,
-        description="Vertical lens shift. Positive = up, negative = down. 1.0 = full sensor height.",
+        precision=3,
+        description="Camera vertical shift. \nPositive = Up / Negative = Down.",
     )
 
     # File Format

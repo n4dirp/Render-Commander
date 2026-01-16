@@ -5,7 +5,7 @@ from bpy.types import Panel, UIList
 
 from ..utils.constants import *
 from ..preferences import get_addon_preferences
-from ..utils.helpers import logical_width
+from ..utils.helpers import logical_width, get_render_engine
 
 
 class RECOM_PT_RenderHistoryPanel(Panel):
@@ -20,7 +20,17 @@ class RECOM_PT_RenderHistoryPanel(Panel):
     @classmethod
     def poll(cls, context):
         prefs = get_addon_preferences(context)
-        return prefs.visible_panels.history
+        render_engine = get_render_engine(context)
+        return (prefs.initial_setup_complete if render_engine == "CYCLES" else True) and prefs.visible_panels.history
+
+    def draw_header_preset(self, context):
+        layout = self.layout
+        prefs = get_addon_preferences(context)
+
+        row = layout.row(align=True)
+        row.active = len(prefs.render_history) > 0
+        # row.menu("RECOM_MT_render_history", text="", icon="COLLAPSEMENU")
+        layout.separator(factor=0.25)
 
     def draw(self, context):
         layout = self.layout
@@ -44,12 +54,11 @@ class RECOM_PT_RenderHistoryPanel(Panel):
             rows=4,
         )
 
-        op_col = row.column()
-        op_col.active = len(prefs.render_history) > 0
-        op_col.menu("RECOM_MT_render_history", text="", icon="COLLAPSEMENU")
-        op_col.separator(factor=0.5)
-
-        op_col.menu("RECOM_MT_render_history_item", text="", icon="DOWNARROW_HLT")
+        menu_row = row.column(align=True)
+        menu_row.active = len(prefs.render_history) > 0
+        menu_row.menu("RECOM_MT_render_history_item", text="", icon="DOWNARROW_HLT")
+        menu_row.separator()
+        menu_row.menu("RECOM_MT_render_history", text="", icon="COLLAPSEMENU")
 
 
 class RECOM_PT_RenderDetailsPanel(Panel):
@@ -64,11 +73,16 @@ class RECOM_PT_RenderDetailsPanel(Panel):
     @classmethod
     def poll(cls, context):
         prefs = get_addon_preferences(context)
-        return (
-            prefs.render_history
-            and len(prefs.render_history) > 0
-            and prefs.visible_panels.render_details
-        )
+        return prefs.render_history and len(prefs.render_history) > 0 and prefs.visible_panels.render_details
+
+    def draw_header_preset(self, context):
+        layout = self.layout
+        prefs = get_addon_preferences(context)
+
+        row = layout.row()
+        row.active = len(prefs.render_history) > 0
+        # row.menu("RECOM_MT_render_history_item", text="", icon="DOWNARROW_HLT")
+        layout.separator(factor=0.25)
 
     def draw(self, context):
         layout = self.layout
@@ -94,9 +108,7 @@ class RECOM_PT_RenderDetailsPanel(Panel):
             col.label(text=f"Mode: {active_item.launch_mode}")
             col.label(text=f"Engine: {active_item.render_engine}")
             col.label(text=f"Frame: {active_item.frames.replace(' - ', '-')}")
-            col.label(
-                text=f"Resolution: {active_item.resolution_x} x {active_item.resolution_y} px"
-            )
+            col.label(text=f"Resolution: {active_item.resolution_x} x {active_item.resolution_y} px")
             col.label(text=f"Samples: {active_item.samples}")
             col.label(text=f"Format: {active_item.file_format}")
             col.label(text=f"Output Folder: {active_item.output_folder}")
@@ -105,11 +117,17 @@ class RECOM_PT_RenderDetailsPanel(Panel):
 
 class RECOM_UL_RenderHistory(UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
-        row = layout.row(align=True)
+        split = layout.split(factor=0.6)
+        col1 = split.column()
+        col2 = split.column()
+
+        row = col1.row(align=True)
+        # row.label(text="", icon="FILE_BLEND")
         row.label(text=item.blend_file_name)
-        sub_row = layout.row(align=True)
+
+        sub_row = col2.row(align=True)
         sub_row.active = False
-        sub_row.alignment = "RIGHT"
+        # sub_row.alignment = "RIGHT"
         sub_row.label(text=item.render_id)
 
     def filter_items(self, context, data, propname):

@@ -31,6 +31,11 @@ class RECOM_PT_CyclesSetup(Panel):
         prefs = get_addon_preferences(context)
 
         col = layout.column()
+
+        info_box = col.column()
+        info_box.active = False
+        info_box.label(text="Initial Setup", icon="INFO")
+        col.separator(factor=0.5)
         devices_box = col.box()
 
         col_box = devices_box.column()

@@ -1,4 +1,4 @@
-# background_render.py helper
+# ./operators/render/generate_scripts.py
 
 import json
 import logging
@@ -27,27 +27,55 @@ def _generate_base_script(
     """Generate common script parts for both single and parallel rendering."""
 
     settings = context.window_manager.recom_render_settings
+    script_lines = []
 
     # Start Script
-    script_lines = [
-        f"# Generated Script - Render {settings.render_id}",
-        "",
-        "import bpy",
-        "",
-    ]
+    script_lines.extend(
+        [
+            f"# Render Commander - Render ID: {settings.render_id}",
+            "",
+            "import bpy",
+            "",
+        ]
+    )
 
     if start_msg:
-        script_lines.extend(
-            [
-                f'print(f"\\n{start_msg}")',
-                "",
-            ]
-        )
+        msg_lines = start_msg.splitlines()
+        script_lines.append(f'print("{start_msg}")')
 
-    # Print total render time
+    # Add render time tracking
+    _add_render_time_tracking(prefs, script_lines)
+
+    # Apply motion blur settings
+    _apply_motion_blur_settings(settings, script_lines)
+
+    # Apply frame settings
+    _apply_frame_settings(is_animation, frame_start, frame_end, frame_step, script_lines)
+
+    # Apply resolution and scale settings
+    _apply_resolution_settings(context, settings, script_lines)
+
+    # Apply output format settings
+    _apply_output_format_settings(settings, script_lines)
+
+    # Apply compositing settings
+    _apply_compositing_settings(settings, script_lines)
+
+    # Apply render engine specific settings
+    render_engine = get_render_engine(context)
+    if render_engine == RE_CYCLES:
+        _apply_cycles_settings(context, prefs, settings, selected_ids, script_lines)
+    elif render_engine in {RE_EEVEE_NEXT, RE_EEVEE}:
+        _apply_eevee_settings(settings, script_lines)
+
+    return script_lines
+
+
+def _add_render_time_tracking(prefs, script_lines):
+    """Add script lines for tracking render time."""
     if prefs.launch_mode == MODE_SEQ:
         script_lines.extend(_load_template_script("render_time.py"))
-
+        script_lines.append("")
     elif prefs.launch_mode == MODE_LIST:
         script_lines.extend(
             [
@@ -58,7 +86,9 @@ def _generate_base_script(
             ]
         )
 
-    # Apply motion blur settings
+
+def _apply_motion_blur_settings(settings, script_lines):
+    """Apply motion blur settings."""
     if settings.override_settings.motion_blur_override:
         script_lines.extend(
             [
@@ -69,7 +99,9 @@ def _generate_base_script(
             ]
         )
 
-    # Apply frame settings
+
+def _apply_frame_settings(is_animation, frame_start, frame_end, frame_step, script_lines):
+    """Apply frame start, end, and step settings."""
     if is_animation:
         script_lines.extend(
             [
@@ -83,7 +115,9 @@ def _generate_base_script(
         script_lines.append(f"bpy.context.scene.frame_set({frame_start})")
         script_lines.append("")
 
-    # Apply resolution resolution and scale
+
+def _apply_resolution_settings(context, settings, script_lines):
+    """Apply resolution, scale, camera shift, and overscan settings."""
     if settings.override_settings.format_override:
         if settings.override_settings.resolution_override:
             resolution_mode = settings.override_settings.resolution_mode
@@ -123,8 +157,7 @@ def _generate_base_script(
 
         # Apply camera shift settings
         set_camera_shift = settings.override_settings.camera_shift_override and (
-            settings.override_settings.camera_shift_x != 0.0
-            or settings.override_settings.camera_shift_y != 0.0
+            settings.override_settings.camera_shift_x != 0.0 or settings.override_settings.camera_shift_y != 0.0
         )
         if set_camera_shift:
             script_lines.extend(
@@ -152,9 +185,7 @@ def _generate_base_script(
 
             else:  # PIXELS
                 if settings.override_settings.overscan_uniform:
-                    script_lines.append(
-                        f"overscan_x = overscan_y = {settings.override_settings.overscan_width}"
-                    )
+                    script_lines.append(f"overscan_x = overscan_y = {settings.override_settings.overscan_width}")
                 else:
                     script_lines.extend(
                         [
@@ -206,8 +237,23 @@ def _generate_base_script(
                 ]
             )
 
-    # Apply output format settings
+
+def _apply_output_format_settings(settings, script_lines):
+    """Apply output format settings."""
     if settings.override_settings.file_format_override:
+        if settings.override_settings.file_format == "OPEN_EXR_MULTILAYER":
+            media_type_val = "MULTI_LAYER_IMAGE"
+        else:
+            media_type_val = "IMAGE"
+
+        # Blender 5.0 - New media_type
+        script_lines.extend(
+            [
+                "if bpy.app.version > (5, 0, 0):",
+                f"    bpy.context.scene.render.image_settings.media_type = '{media_type_val}'",
+            ]
+        )
+
         script_lines.append(
             f"bpy.context.scene.render.image_settings.file_format = '{settings.override_settings.file_format}'"
         )
@@ -231,7 +277,9 @@ def _generate_base_script(
             )
         script_lines.append("")
 
-    # Apply compositing settings
+
+def _apply_compositing_settings(settings, script_lines):
+    """Apply compositing settings."""
     if settings.override_settings.compositor_override:
         script_lines.extend(
             [
@@ -243,10 +291,7 @@ def _generate_base_script(
                 "",
             ]
         )
-        if (
-            settings.override_settings.compositor_disable_output_files
-            and settings.override_settings.use_compositor
-        ):
+        if settings.override_settings.compositor_disable_output_files and settings.override_settings.use_compositor:
             script_lines.extend(
                 [
                     "for node in bpy.context.scene.node_tree.nodes:",
@@ -256,37 +301,37 @@ def _generate_base_script(
                 ]
             )
 
-    # Apply render engine specific settings
-    render_engine = get_render_engine(context)
-    if render_engine == RE_CYCLES:
-        _apply_cycles_settings(context, prefs, settings, selected_ids, script_lines)
-    elif render_engine in {RE_EEVEE_NEXT, RE_EEVEE}:
-        _apply_eevee_settings(settings, script_lines)
-
-    return script_lines
-
 
 def _apply_cycles_settings(context, prefs, settings, selected_ids, script_lines):
     """Apply Cycles-specific rendering settings."""
     override_settings = settings.override_settings
     cycles_backend = "NONE" if prefs.compute_device_type == "CPU" else prefs.compute_device_type
+    formatted_ids = json.dumps(selected_ids, indent=4).replace("\n", "\n    ")
 
     script_lines.extend(
         [
             f"if bpy.context.scene.render.engine == '{RE_CYCLES}':",
             "    preferences = bpy.context.preferences.addons['cycles'].preferences",
             f"    preferences.compute_device_type = '{cycles_backend}'",
-            f"    selected_ids = {json.dumps(selected_ids)}",
+            f"    selected_ids = {formatted_ids}",
             "    for device in preferences.devices:",
             "        device.use = device.id in selected_ids",
             "",
         ]
     )
+    script_lines.extend(
+        [
+            "    enabled_devices = [d for d in preferences.devices if d.use]",
+            "    if enabled_devices:",
+            "        print('Devices:' + enabled_devices[0].name + ' (' + enabled_devices[0].type + ') [' + enabled_devices[0].id + ']')",
+            "        for d in enabled_devices[1:]:",
+            "            print('\\t' + d.name + ' (' + d.type + ') [' + d.id + ']')",
+            "",
+        ]
+    )
 
     if override_settings.cycles.device_override:
-        script_lines.append(
-            f"    bpy.context.scene.cycles.device = '{override_settings.cycles.device}'"
-        )
+        script_lines.append(f"    bpy.context.scene.cycles.device = '{override_settings.cycles.device}'")
         script_lines.append("")
 
     _apply_cycles_sampling_settings(override_settings, script_lines)

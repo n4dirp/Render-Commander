@@ -19,7 +19,7 @@ class RECOM_MT_ResolvedPath(Menu):
         settings = context.window_manager.recom_render_settings
         prefs = get_addon_preferences(context)
 
-        layout.operator("recom.import_output_path", text="Sync Output Path", icon=ICON_SYNC)
+        layout.operator("recom.import_output_path", text="Import Output Path", icon=ICON_SYNC)
         layout.separator()
 
         layout.prop(prefs, "path_preview", text="Show Resolved Path")
@@ -77,15 +77,11 @@ class RECOM_MT_ExternalBlendOptions(Menu):
         op = layout.operator("recom.open_blend_file", text="Open in Blender", icon="FILE_BLEND")
         op.file_path = file_path
 
-        op_open_in_new_session = layout.operator(
-            "recom.open_in_new_blender", text="Open in New Instance"
-        )
+        op_open_in_new_session = layout.operator("recom.open_in_new_blender", text="Open in New Instance")
         op_open_in_new_session.file_path = file_path
         layout.separator()
 
-        op_dir = layout.operator(
-            "recom.open_blend_directory", text="Open Blend File Folder", icon="FOLDER_REDIRECT"
-        )
+        op_dir = layout.operator("recom.open_blend_directory", text="Open Blend File Folder", icon="FOLDER_REDIRECT")
         op_dir.file_path = file_path
         layout.separator()
 
@@ -127,6 +123,11 @@ class RECOM_MT_ResolutionX(Menu):
             if i < section_count - 1:
                 layout.separator()
 
+        layout.separator()
+        swap_row = layout.row()
+        swap_row.active = settings.override_settings.resolution_override
+        swap_row.operator("recom.swap_resolution", text=f"Swap Height", icon="UV_SYNC_SELECT")
+
 
 class RECOM_MT_ResolutionY(Menu):
     bl_idname = "RECOM_MT_resolution_y"
@@ -160,6 +161,11 @@ class RECOM_MT_ResolutionY(Menu):
             if i < section_count - 1:
                 layout.separator()
 
+        layout.separator()
+        swap_row = layout.row()
+        swap_row.active = settings.override_settings.resolution_override
+        swap_row.operator("recom.swap_resolution", text=f"Swap Width", icon="UV_SYNC_SELECT")
+
 
 class RECOM_MT_AdaptiveThreshold(Menu):
     bl_idname = "RECOM_MT_adaptive_threshold"
@@ -174,7 +180,7 @@ class RECOM_MT_AdaptiveThreshold(Menu):
         layout.label(text="Set Adaptive Threshold")
         layout.separator()
 
-        thresholds = [0.0050, 0.0100, 0.0150, 0.0200, 0.0300, 0.0500, 0.1000]
+        thresholds = [0.0050, 0.0100, 0.0150, 0.0250, 0.0500, 0.1000]
         for val in thresholds:
             icon = "DOT" if f"{val:.4f}" == current else "BLANK1"
             op = layout.operator("recom.set_adaptive_threshold", text=f"{val:.4f}", icon=icon)
@@ -316,7 +322,7 @@ class RECOM_MT_CyclesRenderDevices(Menu):
             text="Import Settings from Cycles",
             icon=ICON_SYNC,
         )
-        layout.separator()
+        # layout.separator()
         layout.operator(
             "recom.reinitialize_devices",
             text="Refresh Device List",
@@ -333,9 +339,12 @@ class RECOM_MT_Scripts(Menu):
     def draw(self, context):
         layout = self.layout
 
-        current_file = Path(__file__).resolve()
-        addon_root = current_file.parent.parent
-        scripts_dir = addon_root / "scripts"
+        prefs = get_addon_preferences(context)
+        scripts_dir = (
+            Path(prefs.scripts_directory)
+            if prefs.scripts_directory
+            else Path(__file__).resolve().parent.parent / "scripts"
+        )
 
         tittle_row = layout.row()
         tittle_row.active = False
@@ -343,12 +352,26 @@ class RECOM_MT_Scripts(Menu):
         layout.separator()
 
         if scripts_dir.exists():
-            for script_path in scripts_dir.rglob("*.py"):
-                relative_path = script_path.relative_to(scripts_dir)
-                clean_name = str(relative_path.with_suffix(""))
-                display_name = (" - ".join(relative_path.parts)).replace("_", " ").title()
-                op = layout.operator("recom.add_script_from_menu", text=display_name, icon="SCRIPT")
-                op.script_path = str(script_path)
+            # Convert to list to check length
+            scripts = list(scripts_dir.rglob("*.py"))
+
+            if scripts:
+                # Optional: Sort the list so menu items are always in the same order
+                scripts.sort()
+
+                for script_path in scripts:
+                    relative_path = script_path.relative_to(scripts_dir)
+
+                    # Remove extension and format name
+                    clean_parts = relative_path.with_suffix("").parts
+                    display_name = (" - ".join(clean_parts)).replace("_", " ").title()
+
+                    op = layout.operator("recom.add_script_from_menu", text=display_name, icon="SCRIPT")
+                    op.script_path = str(script_path)
+
+                # Add separator at the end because the list was not empty
+                layout.separator()
+        layout.operator("recom.change_scripts_directory", text="Change Directory...", icon="FILE_FOLDER")
 
 
 class RECOM_MT_ScriptOptions(Menu):
@@ -398,16 +421,12 @@ class RECOM_MT_ScriptOptions(Menu):
 
         move_up_row = layout.row(align=True)
         move_up_row.active = script_index > 0
-        move_up_op = move_up_row.operator(
-            "recom.script_list_move_item", icon="TRIA_UP", text="Move Up"
-        )
+        move_up_op = move_up_row.operator("recom.script_list_move_item", icon="TRIA_UP", text="Move Up")
         move_up_op.direction = "UP"
 
         move_down_row = layout.row(align=True)
         move_down_row.active = script_index < last_index
-        move_down_op = move_down_row.operator(
-            "recom.script_list_move_item", icon="TRIA_DOWN", text="Move Down"
-        )
+        move_down_op = move_down_row.operator("recom.script_list_move_item", icon="TRIA_DOWN", text="Move Down")
         move_down_op.direction = "DOWN"
 
         layout.separator()
@@ -423,9 +442,9 @@ class RECOM_MT_CustomVariables(Menu):
         layout = self.layout
         prefs = get_addon_preferences(context)
 
-        is_variable_selected = len(
+        is_variable_selected = len(prefs.custom_variables) > 0 and prefs.active_custom_variable_index < len(
             prefs.custom_variables
-        ) > 0 and prefs.active_custom_variable_index < len(prefs.custom_variables)
+        )
 
         # Add move buttons
         if not is_variable_selected or len(prefs.custom_variables) < 1:
@@ -435,15 +454,11 @@ class RECOM_MT_CustomVariables(Menu):
         last_index = len(prefs.custom_variables) - 1
 
         move_up_row = layout.column(align=True)
-        move_up_button = move_up_row.operator(
-            "recom.move_custom_variable_up", text="Move Up", icon="TRIA_UP"
-        )
+        move_up_button = move_up_row.operator("recom.move_custom_variable_up", text="Move Up", icon="TRIA_UP")
         move_up_row.enabled = current_index > 0
 
         move_down_row = layout.column(align=True)
-        move_down_button = move_down_row.operator(
-            "recom.move_custom_variable_down", text="Move Down", icon="TRIA_DOWN"
-        )
+        move_down_button = move_down_row.operator("recom.move_custom_variable_down", text="Move Down", icon="TRIA_DOWN")
         move_down_row.enabled = current_index < last_index
 
 
@@ -454,7 +469,7 @@ class RECOM_MT_CustomBlender(Menu):
     def draw(self, context):
         layout = self.layout
 
-        layout.operator("recom.launch_custom_blender", text="Run Blender")
+        layout.operator("recom.launch_custom_blender", text="Run")
         # layout.separator()
         layout.operator("recom.check_blender_version", text="Version Details...")
 
@@ -474,9 +489,7 @@ class RECOM_MT_RenderHistoryItem(Menu):
             return
 
         active_item = render_history[prefs.active_render_history_index]
-        blend_filename = (
-            Path(active_item.blend_path).name if active_item.blend_path else "Unknown Blend File"
-        )
+        blend_filename = Path(active_item.blend_path).name if active_item.blend_path else "Unknown Blend File"
         blend_exists = active_item.blend_path and Path(active_item.blend_path).exists()
 
         blend_col = layout.column(align=True)
@@ -491,14 +504,10 @@ class RECOM_MT_RenderHistoryItem(Menu):
 
         # Open Blend File
         # if blend_exists:
-        op_open_blend_file = blend_col.operator(
-            "recom.open_blend_file", text="Open in Blender", icon="FILE_BLEND"
-        )
+        op_open_blend_file = blend_col.operator("recom.open_blend_file", text="Open in Blender", icon="FILE_BLEND")
         op_open_blend_file.file_path = active_item.blend_path
 
-        op_open_in_new_session = blend_col.operator(
-            "recom.open_in_new_blender", text="Open in New Instance"
-        )
+        op_open_in_new_session = blend_col.operator("recom.open_in_new_blender", text="Open in New Instance")
         op_open_in_new_session.file_path = active_item.blend_path
         blend_col.separator()
 
@@ -514,14 +523,10 @@ class RECOM_MT_RenderHistoryItem(Menu):
         op_open_blend_folder.folder_path = str(Path(active_item.blend_path).parent)
 
         if active_item.output_folder and Path(active_item.output_folder).exists():
-            op_open_output_folder = layout.operator(
-                "recom.open_output_folder", text="Open Output Folder"
-            )
+            op_open_output_folder = layout.operator("recom.open_output_folder", text="Open Output Folder")
             op_open_output_folder.folder_path = active_item.output_folder
         layout.separator()
-        remove_op = layout.operator(
-            "recom.remove_render_history_item", text="Remove from History", icon="TRASH"
-        )
+        remove_op = layout.operator("recom.remove_render_history_item", text="Remove from History", icon="TRASH")
 
 
 class RECOM_MT_RenderHistory(Menu):
@@ -532,17 +537,14 @@ class RECOM_MT_RenderHistory(Menu):
         layout = self.layout
         prefs = get_addon_preferences(context)
 
-        if len(prefs.render_history) > 0:
-            layout.operator(
-                "recom.clean_render_history",
-                text="Clear Render History List...",
-                icon="TRASH",
-            )
-            layout.separator()
-        else:
-            layout.active = False
+        layout.enabled = True if prefs.render_history else False
+        layout.operator(
+            "recom.clean_render_history",
+            text="Clear Render History List...",
+            icon="TRASH",
+        )
 
-        layout.prop(prefs.visible_panels, "render_details", text="Show Render Details")
+        # layout.prop(prefs.visible_panels, "render_details", text="Show Render Details")
 
 
 classes = (

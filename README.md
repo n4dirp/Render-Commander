@@ -2,9 +2,9 @@
 
 Blender add‑on for background rendering with multi‑GPU support.
 
-This addon provides a simple and intuitive UI to configure a set of common render settings.
-It compiles all selected options into a temporary Python file, which is then attached to a Blender command-line render execution.
-This approach enables fast, efficient, and fully automated background renders without manual setup.
+The add-on provides a simple and intuitive UI to configure render jobs and device-parallel execution.
+All selected options are compiled into fully generated render executables, allowing you to either launch renders immediately or export them for later use.
+
 
 <img src="images/render_launcher.png" alt="Render-Commander Panel" width="320">
 

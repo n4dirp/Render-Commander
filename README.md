@@ -8,14 +8,6 @@ All selected options are compiled into fully generated render executables, allow
 
 <img src="images/render_launcher.png" alt="Render-Commander Panel" width="320">
 
-## Table of Contents
-
-1. [Features](#features)  
-2. [Screenshots](#screenshots)  
-3. [Installation](#installation)  
-4. [Usage](#usage)  
-5. [Build from Source](#build-from-source)  
-
 ## Features
 
 ### Device-Parallel Rendering

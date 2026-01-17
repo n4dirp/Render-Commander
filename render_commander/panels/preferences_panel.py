@@ -165,26 +165,30 @@ class RECOM_PT_DeviceParallel(Panel):
         devices_to_display = prefs.get_devices_for_display()
         selected_devices = [d for d in devices_to_display if d.use]
 
-        layout.active = len(selected_devices) > 1 and prefs.launch_mode != MODE_SINGLE and prefs.device_parallel
+        layout.active = prefs.launch_mode != MODE_SINGLE and prefs.device_parallel
+        parallel_col = layout.column()
+        parallel_col.active = len(selected_devices) > 1 and prefs.launch_mode != MODE_SINGLE and prefs.device_parallel
 
-        row = layout.row()
+        row = parallel_col.row()
         row.active = prefs.launch_mode != MODE_LIST
         row.prop(prefs, "frame_allocation", expand=True, text="Frame Allocation")
 
-        col = layout.column()
+        col = parallel_col.column()
         col.prop(prefs, "parallel_delay", text="Start Delay")
+
+        if any(d.type == "CPU" and d.use for d in prefs.devices):
+            parallel_col.separator(factor=0.25)
+
+            col_cpu = parallel_col.column(heading="CPU")
+            col_cpu.prop(prefs, "combine_cpu_with_gpus", text="Separated Job", invert_checkbox=True)
+
+            col_tl = col_cpu.column()
+            # col_tl.active = prefs.combine_cpu_with_gpus
+            col_tl.prop(prefs, "cpu_threads_limit", text="Threads")
 
         row_bk = layout.column()
         row_bk.active = prefs.launch_mode != MODE_SINGLE
         row_bk.prop(prefs, "multiple_backends", text="Multi-Backend")
-
-        if any(d.type == "CPU" and d.use for d in prefs.devices):
-            col_cpu = layout.column(heading="CPU")
-            col_cpu.prop(prefs, "combine_cpu_with_gpus", text="Append to GPU devices")
-
-            col_tl = col_cpu.column()
-            col_tl.active = prefs.combine_cpu_with_gpus
-            col_tl.prop(prefs, "cpu_threads_limit", text="Threads")
 
 
 class RECOM_PT_RenderOptions(Panel):

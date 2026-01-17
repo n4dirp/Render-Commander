@@ -305,7 +305,35 @@ def _apply_compositing_settings(settings, script_lines):
 def _apply_cycles_settings(context, prefs, settings, selected_ids, script_lines):
     """Apply Cycles-specific rendering settings."""
     override_settings = settings.override_settings
-    cycles_backend = "NONE" if prefs.compute_device_type == "CPU" else prefs.compute_device_type
+
+    if prefs.multiple_backends and prefs.launch_mode != MODE_SINGLE and prefs.device_parallel:
+        # Get all device types for the selected IDs (not using global preference)
+        device_types = set()
+        for dev_id in selected_ids:
+            for device in prefs.devices:
+                if device.id == dev_id and device.use:  # Only use enabled devices
+                    device_types.add(device.type)
+                    break
+
+        # Determine correct backend based on actual devices used
+        if not device_types:  # No valid devices found
+            cycles_backend = "NONE"
+        else:
+            """
+            if len(device_types) > 1:
+                # Multiple device types in a single chunk - this isn't supported by Cycles.
+                # Fall back to CPU as a safe option (shouldn't happen with proper setup)
+                cycles_backend = "NONE"
+            else:
+                backend_type = next(iter(device_types))
+                cycles_backend = "NONE" if backend_type == "CPU" else backend_type
+            """
+
+            backend_type = next(iter(device_types))
+            cycles_backend = "NONE" if backend_type == "CPU" else backend_type
+    else:
+        cycles_backend = "NONE" if prefs.compute_device_type == "CPU" else prefs.compute_device_type
+
     formatted_ids = json.dumps(selected_ids, indent=4).replace("\n", "\n    ")
 
     script_lines.extend(
@@ -319,6 +347,7 @@ def _apply_cycles_settings(context, prefs, settings, selected_ids, script_lines)
             "",
         ]
     )
+    # Print Devices
     script_lines.extend(
         [
             "    enabled_devices = [d for d in preferences.devices if d.use]",

@@ -494,7 +494,7 @@ class RECOM_Preferences(AddonPreferences):
     combine_cpu_with_gpus: BoolProperty(
         name="Combine CPU with GPUs",
         default=True,
-        description="Enable the CPU to be used alongside GPUs devices during parallel rendering.",
+        description="Create a dedicated CPU-only render job and exclude the CPU from all other render jobs.",
     )
     cpu_threads_limit: IntProperty(
         name="CPU Threads Limit",

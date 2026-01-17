@@ -9,6 +9,7 @@ import tempfile
 import time
 import stat
 import shlex
+import shutil
 
 from datetime import datetime
 from pathlib import Path
@@ -805,7 +806,7 @@ class RECOM_OT_BackgroundRender(Operator):
 
         cmd_str = " ".join(cmd_parts)
 
-        shell_content.extend(["", f"echo Executing Render: {blend_name} ({render_id} - worker{process_id})"])
+        shell_content.extend(["", f'echo "Executing Render: {blend_name} ({render_id} - worker{process_id})"'])
         if prefs.log_to_file:
             shell_content.append('echo Log written to: "%RC_LOG%"')
         shell_content.append("")
@@ -814,7 +815,7 @@ class RECOM_OT_BackgroundRender(Operator):
         # Pause/Cleanup logic
         if prefs.keep_terminal_open:
             shell_content.append("pause" if _IS_WINDOWS else 'read -p "Press enter to exit..."')
-
+        
         if self.action_type == "RENDER":
             shell_content.append("")
             shell_content.append('(goto) 2>nul & del "%~f0" && exit' if _IS_WINDOWS else 'rm -- "$0"')
@@ -921,7 +922,9 @@ class RECOM_OT_BackgroundRender(Operator):
         log.info(f"Executing script: {script_path}")
         settings = context.window_manager.recom_render_settings
 
-        # Auto open output
+        script_str = str(Path(script_path).resolve())
+
+        # Auto open output folder
         if prefs.auto_open_output_folder and settings.render_output_folder_path and not settings.folder_opened:
             settings.folder_opened = True
 
@@ -929,24 +932,31 @@ class RECOM_OT_BackgroundRender(Operator):
                 open_folder(settings.render_output_folder_path)
 
             bpy.app.timers.register(delayed_open, first_interval=OPEN_FOLDER_DELAY)
+        
+        try:
+            if _IS_WINDOWS:
+                try:
+                    os.startfile(script_str)
+                except OSError:
+                    subprocess.Popen(["start", "", script_str], shell=True)
 
-        if _IS_WINDOWS:
-            try:
-                os.startfile(script_path)
-            except:
-                subprocess.Popen(["start", "", str(script_path)], shell=True)
-        elif _IS_MACOS:
-            subprocess.run(["open", str(script_path)])
-        elif _IS_LINUX:
-            term_cmd = self._get_linux_terminal_command(prefs)
-            if prefs.external_terminal and term_cmd:
-                subprocess.Popen(f'{term_cmd} "{str(script_path)}"', shell=True)
-            else:
-                subprocess.Popen([str(script_path)], shell=True)
+            elif _IS_MACOS:
+                subprocess.Popen(["open", "-a", "Terminal", script_str])
+
+            elif _IS_LINUX:
+                try:
+                    # Try executing directly
+                    subprocess.Popen([script_str])
+                except PermissionError:
+                    # Fallback to xdg-open if direct execution fails
+                    subprocess.Popen(["xdg-open", script_str])
+        except Exception as e:
+            msg = f"Failed to launch script: {e}"
+            log.error(msg)
+            self.report({"ERROR"}, msg)
 
     def _get_linux_terminal_command(self, prefs):
-        if not prefs.external_terminal:
-            return ""
+
         term_map = {
             "GNOME": "gnome-terminal --",
             "XFCE": "xfce4-terminal -x",
@@ -954,7 +964,35 @@ class RECOM_OT_BackgroundRender(Operator):
             "XTERM": "xterm -e",
             "TERMINATOR": "terminator -x",
         }
-        return term_map.get(prefs.linux_terminal, "x-terminal-emulator -e")
+
+        DEFAULT_TERMINAL = "xterm"
+
+        # Helper to check if the binary exists (ignoring flags like '--' or '-e')
+        def is_installed(cmd_str):
+            if not cmd_str:
+                return False
+            binary = cmd_str.split()[0]
+            return shutil.which(binary) is not None
+
+
+        if prefs.set_linux_terminal:
+            terminal_cmd = term_map.get(prefs.linux_terminal, DEFAULT_TERMINAL)
+        else:
+            # Auto-detect: Find the first available terminal from the map
+            terminal_cmd = next(
+                (t for t in term_map.values() if is_installed(t)), DEFAULT_TERMINAL
+            )
+
+        # Final verification
+        if not is_installed(terminal_cmd):
+            # Fallback to x-terminal-emulator if preferred specific fails, or standard xterm
+            if shutil.which("x-terminal-emulator"):
+                terminal_cmd = "x-terminal-emulator -e"
+            else:
+                log.warning(f"Preferred terminal '{terminal_cmd}' not found. Falling back to {DEFAULT_TERMINAL}.")
+                terminal_cmd = DEFAULT_TERMINAL
+
+        return terminal_cmd
 
     # SHARED HELPERS (Frame parsing, etc)
 

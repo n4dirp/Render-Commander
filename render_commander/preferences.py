@@ -325,9 +325,17 @@ class RECOM_Preferences(AddonPreferences):
         devices_to_display = []
 
         if self.multiple_backends and self.device_parallel and self.launch_mode != "SINGLE_FRAME":
-            # Show all devices, regardless of backend
+            # Show all devices, but order with CPU first
+            cpu_devices = []
+            non_cpu_devices = []
+
             for dev_entry in self.devices:
-                devices_to_display.append(dev_entry)
+                if dev_entry.type == "CPU":
+                    cpu_devices.append(dev_entry)
+                else:
+                    non_cpu_devices.append(dev_entry)
+
+            devices_to_display = cpu_devices + non_cpu_devices
         else:
             # Original logic: filter based on compute_device_type
             for dev_entry in self.devices:

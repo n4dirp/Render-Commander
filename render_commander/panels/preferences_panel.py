@@ -52,7 +52,7 @@ class RECOM_PT_RenderPreferences(Panel):
 
 
 class RECOM_PT_DeviceSettings(Panel):
-    bl_label = "Cycles Render Devices"
+    bl_label = "Render Devices"
     bl_idname = "RECOM_PT_device_settings"
     bl_parent_id = "RECOM_PT_render_preferences"
     bl_space_type = "VIEW_3D"
@@ -81,7 +81,7 @@ class RECOM_PT_DeviceSettings(Panel):
         row.use_property_decorate = False
 
         backend_row = row.row()
-        backend_row.active = not prefs.multiple_backends
+        backend_row.active = False if (prefs.device_parallel and prefs.multiple_backends) else True
         backend_row.prop(prefs, "compute_device_type", text="Backend")
 
         dev_row = col.row()
@@ -95,7 +95,7 @@ class RECOM_PT_DeviceSettings(Panel):
 
 
 class RECOM_PT_DeviceIDs(Panel):
-    bl_label = "Device IDs"
+    bl_label = "Device ID"
     bl_idname = "RECOM_PT_device_ids"
     bl_parent_id = "RECOM_PT_device_settings"
     bl_space_type = "VIEW_3D"
@@ -173,11 +173,12 @@ class RECOM_PT_DeviceParallel(Panel):
         row.active = prefs.launch_mode != MODE_LIST
         row.prop(prefs, "frame_allocation", expand=True, text="Frame Allocation")
 
+        parallel_col.separator(factor=0.4)
         col = parallel_col.column()
         col.prop(prefs, "parallel_delay", text="Start Delay")
 
         if any(d.type == "CPU" and d.use for d in prefs.devices):
-            parallel_col.separator(factor=0.25)
+            parallel_col.separator(factor=0.4)
 
             col_cpu = parallel_col.column(heading="CPU")
             col_cpu.prop(prefs, "combine_cpu_with_gpus", text="Separated Job", invert_checkbox=True)

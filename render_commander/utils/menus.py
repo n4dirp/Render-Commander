@@ -329,7 +329,7 @@ class RECOM_MT_CyclesRenderDevices(Menu):
             icon="FILE_REFRESH",
         )
         layout.separator()
-        layout.prop(prefs.visible_panels, "cycles_device_ids", text="Show Device IDs")
+        layout.prop(prefs.visible_panels, "cycles_device_ids", text="Show Device ID")
 
 
 class RECOM_MT_Scripts(Menu):

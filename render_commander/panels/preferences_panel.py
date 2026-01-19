@@ -81,7 +81,9 @@ class RECOM_PT_DeviceSettings(Panel):
         row.use_property_decorate = False
 
         backend_row = row.row()
-        backend_row.active = False if (prefs.device_parallel and prefs.multiple_backends) else True
+        backend_row.active = (
+            False if (prefs.device_parallel and prefs.multiple_backends and prefs.launch_mode != MODE_SINGLE) else True
+        )
         backend_row.prop(prefs, "compute_device_type", text="Backend")
 
         dev_row = col.row()
@@ -208,19 +210,21 @@ class RECOM_PT_RenderOptions(Panel):
         prefs = get_addon_preferences(context)
         settings = context.window_manager.recom_render_settings
 
-        col = layout.column(heading="")
-
+        col = layout.column(heading="Auto-Save")
         save_row = col.row()
         if settings.use_external_blend:
             save_row.active = False
-        save_row.prop(prefs, "auto_save_before_render", text="Save Blend File")
+        save_row.prop(prefs, "auto_save_before_render", text="Blend File")
 
         row_sub = col.row(heading="")
         row_sub.active = True if not settings.override_settings.output_path_override else False
-        row_sub.prop(prefs, "write_still", text="Save Still Render")
+        row_sub.prop(prefs, "write_still", text="Still Render")
 
-        col.prop(prefs, "send_desktop_notifications", text="Desktop Notification")
-        col.prop(prefs, "keep_terminal_open", text="Keep Terminal Open")
+        terminal_col = layout.row(heading="Terminal")
+        terminal_col.prop(prefs, "keep_terminal_open", text="Keep Open")
+
+        col = layout.column()
+        col.prop(prefs, "send_desktop_notifications", text="Notification")
 
 
 class RECOM_PT_SystemPower(Panel):

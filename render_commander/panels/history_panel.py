@@ -68,7 +68,7 @@ class RECOM_PT_RenderDetailsPanel(Panel):
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = "Render Commander"
-    # bl_options = {"DEFAULT_CLOSED"}
+    bl_options = {"DEFAULT_CLOSED"}
 
     @classmethod
     def poll(cls, context):

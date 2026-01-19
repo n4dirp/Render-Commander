@@ -107,8 +107,8 @@ class RECOM_PT_RenderOptionsPopup(Panel):
         prefs = get_addon_preferences(context)
 
         col = layout.column(heading="Launch Options")
-        col.prop(prefs, "exit_active_session", text="Exit Blender Session")
         col.prop(prefs, "auto_open_output_folder", text="Open Output Folder")
+        col.prop(prefs, "exit_active_session", text="Exit Blender Session")
 
 
 class RECOM_PT_ExportOptionsPopup(Panel):
@@ -124,7 +124,8 @@ class RECOM_PT_ExportOptionsPopup(Panel):
         prefs = get_addon_preferences(context)
 
         col = layout.column(heading="Export Options")
-        col.prop(prefs, "auto_open_exported_folder", text="Open Exported Folder")
+        col.prop(prefs, "auto_open_exported_folder", text="Open Scripts Folder")
+        col.prop(prefs, "export_master_script", text="Export Master Script")
 
         col = layout.column(heading="Save location")
         col.prop(prefs, "export_output_target", text="")

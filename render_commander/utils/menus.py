@@ -107,6 +107,11 @@ class RECOM_MT_ResolutionX(Menu):
         layout.label(text="Set Width")
         layout.separator()
 
+        swap_row = layout.row()
+        swap_row.active = settings.override_settings.resolution_override
+        swap_row.operator("recom.swap_resolution", text=f"Height Swap", icon="UV_SYNC_SELECT")
+        layout.separator()
+
         sections = {
             "Landscape": [7680, 5120, 3840, 2560, 1280, 854, 640],
             "Portait": [2160, 1920, 720, 480, 360],
@@ -122,11 +127,6 @@ class RECOM_MT_ResolutionX(Menu):
 
             if i < section_count - 1:
                 layout.separator()
-
-        layout.separator()
-        swap_row = layout.row()
-        swap_row.active = settings.override_settings.resolution_override
-        swap_row.operator("recom.swap_resolution", text=f"Swap Height", icon="UV_SYNC_SELECT")
 
 
 class RECOM_MT_ResolutionY(Menu):
@@ -145,6 +145,11 @@ class RECOM_MT_ResolutionY(Menu):
         layout.label(text="Set Height")
         layout.separator()
 
+        swap_row = layout.row()
+        swap_row.active = settings.override_settings.resolution_override
+        swap_row.operator("recom.swap_resolution", text=f"Width Swap", icon="UV_SYNC_SELECT")
+        layout.separator()
+
         sections = {
             "Landscape": [4320, 2880, 2160, 1440, 720, 480],
             "Portait": [3840, 2560, 1920, 1350, 1280, 960, 640],
@@ -160,11 +165,6 @@ class RECOM_MT_ResolutionY(Menu):
 
             if i < section_count - 1:
                 layout.separator()
-
-        layout.separator()
-        swap_row = layout.row()
-        swap_row.active = settings.override_settings.resolution_override
-        swap_row.operator("recom.swap_resolution", text=f"Swap Width", icon="UV_SYNC_SELECT")
 
 
 class RECOM_MT_AdaptiveThreshold(Menu):
@@ -544,7 +544,7 @@ class RECOM_MT_RenderHistory(Menu):
             icon="TRASH",
         )
 
-        # layout.prop(prefs.visible_panels, "render_details", text="Show Render Details")
+        layout.prop(prefs.visible_panels, "render_details", text="Show Render Details")
 
 
 classes = (

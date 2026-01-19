@@ -546,9 +546,18 @@ class RECOM_OT_BackgroundRender(Operator):
         if not generated_script_paths:
             return {"CANCELLED"}
 
-        master_script_path = self._create_master_script(
-            context, prefs, settings, blend_file, target_dir, generated_script_paths
-        )
+        master_script_path = None
+        if self.action_type == "RENDER":
+            # Always create master script for render action
+            master_script_path = self._create_master_script(
+                context, prefs, settings, blend_file, target_dir, generated_script_paths
+            )
+        elif self.action_type == "EXPORT" and prefs.export_master_script:
+            # Only create master script when multiple chunks (parallel rendering) is needed
+            if len(chunks) > 1:
+                master_script_path = self._create_master_script(
+                    context, prefs, settings, blend_file, target_dir, generated_script_paths
+                )
 
         if self.action_type == "RENDER" and master_script_path:
             try:
@@ -815,7 +824,7 @@ class RECOM_OT_BackgroundRender(Operator):
         # Pause/Cleanup logic
         if prefs.keep_terminal_open:
             shell_content.append("pause" if _IS_WINDOWS else 'read -p "Press enter to exit..."')
-        
+
         if self.action_type == "RENDER":
             shell_content.append("")
             shell_content.append('(goto) 2>nul & del "%~f0" && exit' if _IS_WINDOWS else 'rm -- "$0"')
@@ -932,7 +941,7 @@ class RECOM_OT_BackgroundRender(Operator):
                 open_folder(settings.render_output_folder_path)
 
             bpy.app.timers.register(delayed_open, first_interval=OPEN_FOLDER_DELAY)
-        
+
         try:
             if _IS_WINDOWS:
                 try:
@@ -956,7 +965,6 @@ class RECOM_OT_BackgroundRender(Operator):
             self.report({"ERROR"}, msg)
 
     def _get_linux_terminal_command(self, prefs):
-
         term_map = {
             "GNOME": "gnome-terminal --",
             "XFCE": "xfce4-terminal -x",
@@ -974,14 +982,11 @@ class RECOM_OT_BackgroundRender(Operator):
             binary = cmd_str.split()[0]
             return shutil.which(binary) is not None
 
-
         if prefs.set_linux_terminal:
             terminal_cmd = term_map.get(prefs.linux_terminal, DEFAULT_TERMINAL)
         else:
             # Auto-detect: Find the first available terminal from the map
-            terminal_cmd = next(
-                (t for t in term_map.values() if is_installed(t)), DEFAULT_TERMINAL
-            )
+            terminal_cmd = next((t for t in term_map.values() if is_installed(t)), DEFAULT_TERMINAL)
 
         # Final verification
         if not is_installed(terminal_cmd):

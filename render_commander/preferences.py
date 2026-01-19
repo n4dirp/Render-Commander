@@ -49,17 +49,40 @@ enum_device_type = (
 )
 
 
+# Helper functions
+def get_addon_preferences(context):
+    return context.preferences.addons[__package__].preferences
+
+
+def get_prevent_sleep_description():
+    if _IS_WINDOWS:
+        return (
+            "Keep the computer awake while rendering.\n" "Uses Windows system flags to disable sleep and hibernation."
+        )
+    elif _IS_MACOS:
+        return "Keep the computer awake while rendering.\n" "Uses the 'caffeinate' utility to block sleep."
+    elif _IS_LINUX:
+        return "Keep the computer awake while rendering.\n" "Uses 'systemd-inhibit' to prevent suspend."
+    else:
+        return "Keep the computer awake while rendering."
+
+
+# Device settings
 class RECOM_PG_DeviceSettings(PropertyGroup):
     id: StringProperty(name="ID")
     name: StringProperty(name="Name")
-    use: BoolProperty(name="Use", default=False)
-    type: EnumProperty(name="Type", items=enum_device_type, default="CPU")
+    use: BoolProperty(
+        name="Use",
+        default=False,
+    )
+    type: EnumProperty(
+        name="Type",
+        items=enum_device_type,
+        default="CPU",
+    )
 
 
-class RECOM_PG_RecentFile(PropertyGroup):
-    path: StringProperty(name="Blend File Path")
-
-
+# Scripts entries for appending during rendering
 class RECOM_PG_ScriptEntry(PropertyGroup):
     script_path: StringProperty(
         name="Script Path",
@@ -79,6 +102,7 @@ class RECOM_PG_ScriptEntry(PropertyGroup):
     )
 
 
+# Custom path variables for output paths
 class RECOM_PG_CustomVariable(PropertyGroup):
     name: StringProperty(
         name="Name",
@@ -97,6 +121,7 @@ class RECOM_PG_CustomVariable(PropertyGroup):
     )
 
 
+# Render History
 class RECOM_PG_RenderHistoryItem(PropertyGroup):
     blend_path: StringProperty(name="Blend Path", default="")
     blend_dir: StringProperty(name="Blend Path", default="")
@@ -115,69 +140,118 @@ class RECOM_PG_RenderHistoryItem(PropertyGroup):
     file_format: StringProperty(name="File Format", default="")
 
 
+class RECOM_PG_RecentFile(PropertyGroup):
+    path: StringProperty(name="Blend File Path")
+
+
+# Visibility settings for addon panels
 class RECOM_PG_VisiblePanels(PropertyGroup):
     external_scene: BoolProperty(
-        name="Show External Scene",
+        name="External Scene",
         default=True,
         update=lambda self, context: redraw_ui(),
     )
-    external_scene_details: BoolProperty(default=True, name="External Scene")
+    external_scene_details: BoolProperty(
+        default=True,
+        name="External Scene",
+    )
 
     override_settings: BoolProperty(
-        name="Show Override Settings",
+        name="Override Settings",
         default=True,
         update=lambda self, context: redraw_ui(),
     )
-    frame_range: BoolProperty(default=True, name="Frame Range")
-    resolution: BoolProperty(default=True, name="Resolution")
-    overscan: BoolProperty(default=True, name="Overscan")
-    camera_shift: BoolProperty(default=False, name="Camera Shift")
-    motion_blur: BoolProperty(default=True, name="Motion Blur")
-    output_path: BoolProperty(default=True, name="Output Path")
-    file_format: BoolProperty(default=True, name="Output Format")
-    compositor: BoolProperty(default=False, name="Compositor")
-    compute_device: BoolProperty(default=False, name="Compute Device")
-    samples: BoolProperty(default=True, name="Sampling")
-    light_paths: BoolProperty(default=False, name="Light Paths")
-    performance: BoolProperty(default=False, name="Performance")
+    frame_range: BoolProperty(
+        default=True,
+        name="Frame Range",
+    )
+    resolution: BoolProperty(
+        default=True,
+        name="Resolution",
+    )
+    overscan: BoolProperty(
+        default=True,
+        name="Overscan",
+    )
+    camera_shift: BoolProperty(
+        default=False,
+        name="Camera Shift",
+    )
+    motion_blur: BoolProperty(
+        default=True,
+        name="Motion Blur",
+    )
+    output_path: BoolProperty(
+        default=True,
+        name="Output Path",
+    )
+    file_format: BoolProperty(
+        default=True,
+        name="Output Format",
+    )
+    compositor: BoolProperty(
+        default=False,
+        name="Compositor",
+    )
+    compute_device: BoolProperty(
+        default=False,
+        name="Compute Device",
+    )
+    samples: BoolProperty(
+        default=True,
+        name="Sampling",
+    )
+    light_paths: BoolProperty(
+        default=False,
+        name="Light Paths",
+    )
+    performance: BoolProperty(
+        default=False,
+        name="Performance",
+    )
 
     preferences: BoolProperty(
-        name="Show Render Preferences",
+        name="Render Preferences",
         default=True,
         update=lambda self, context: redraw_ui(),
     )
-    cycles_device_ids: BoolProperty(default=False, name="Device IDs")
-    system_power: BoolProperty(default=False, name="System Power")
-    ocio: BoolProperty(default=False, name="OCIO Environment")
-    blender_executable: BoolProperty(default=True, name="Blender Executable")
-    command_line_arguments: BoolProperty(default=True, name="Command Line Arguments")
-    append_scripts: BoolProperty(default=True, name="Append Scripts")
+    cycles_device_ids: BoolProperty(
+        default=False,
+        name="Device IDs",
+    )
+    system_power: BoolProperty(
+        default=False,
+        name="Power",
+    )
+    ocio: BoolProperty(
+        default=False,
+        name="OCIO",
+    )
+    blender_executable: BoolProperty(
+        default=True,
+        name="Executable",
+    )
+    command_line_arguments: BoolProperty(
+        default=True,
+        name="Arguments",
+    )
+    append_scripts: BoolProperty(
+        default=True,
+        name="Scripts",
+    )
 
     history: BoolProperty(
-        name="Show Render History",
+        name="Render History",
         default=False,
         update=lambda self, context: redraw_ui(),
     )
-    render_details: BoolProperty(default=False, name="History Entry Info")
+    render_details: BoolProperty(
+        default=False,
+        name="History Entry Info",
+    )
 
 
-def get_addon_preferences(context):
-    return context.preferences.addons[__package__].preferences
-
-
-def get_prevent_sleep_description():
-    if sys.platform == "win32":
-        return (
-            "Keep the computer awake while rendering.\n" "Uses Windows system flags to disable sleep and hibernation."
-        )
-    elif sys.platform == "darwin":
-        return "Keep the computer awake while rendering.\n" "Uses the 'caffeinate' utility to block sleep."
-    elif sys.platform.startswith("linux"):
-        return "Keep the computer awake while rendering.\n" "Uses 'systemd-inhibit' to prevent suspend."
-    else:
-        return "Keep the computer awake while rendering."
-
-
+# Main addon preferences class
 class RECOM_Preferences(AddonPreferences):
     """Preferences for the addon settings"""
 
@@ -216,15 +290,15 @@ class RECOM_Preferences(AddonPreferences):
         ) = self.get_device_types_cache()
         items = [("NONE", "None", "Don't use compute device", 0)]
         if has_cuda:
-            items.append(("CUDA", "CUDA", "Use CUDA for GPU acceleration", 1))
+            items.append(("CUDA", "CUDA", "Use NVIDIA CUDA for GPU acceleration", 1))
         if has_optix:
-            items.append(("OPTIX", "OptiX", "Use OptiX for GPU acceleration", 3))
+            items.append(("OPTIX", "OptiX", "Use NVIDIA OptiX for GPU acceleration", 3))
         if has_hip:
-            items.append(("HIP", "HIP", "Use HIP for GPU acceleration", 4))
+            items.append(("HIP", "HIP", "Use AMD HIP for GPU acceleration", 4))
         if has_metal:
-            items.append(("METAL", "Metal", "Use Metal for GPU acceleration", 5))
+            items.append(("METAL", "Metal", "Use Apple Metal for GPU acceleration", 5))
         if has_oneapi:
-            items.append(("ONEAPI", "oneAPI", "Use oneAPI for GPU acceleration", 6))
+            items.append(("ONEAPI", "oneAPI", "Use Intel oneAPI for GPU acceleration", 6))
         return items
 
     compute_device_type: EnumProperty(
@@ -462,6 +536,8 @@ class RECOM_Preferences(AddonPreferences):
         self.update_device_entries(device_list, compute_device_type_str_enum_val)
         return device_list
 
+    # === RENDER OPTIONS AND BEHAVIOR PROPERTIES ===
+
     # Device parallel
     device_parallel: BoolProperty(
         name="Parallel Device Rendering",
@@ -695,7 +771,7 @@ class RECOM_Preferences(AddonPreferences):
     )
     keep_terminal_open: BoolProperty(
         name="Keep Terminal Open",
-        description="Keep the external terminal window open after the render finishes.",
+        description="Keep the terminal window open after the render finishes.",
         default=True,
     )
     exit_active_session: BoolProperty(
@@ -704,7 +780,7 @@ class RECOM_Preferences(AddonPreferences):
         default=False,
     )
 
-    # Render log to file
+    # Render logging
     log_to_file: BoolProperty(
         name="Log to File",
         default=False,
@@ -713,7 +789,7 @@ class RECOM_Preferences(AddonPreferences):
     log_to_file_location: EnumProperty(
         name="",
         items=[
-            ("EXECUTION_FILES", "Execution Files Path", "Save logs in the execution files folder."),
+            ("EXECUTION_FILES", "Scripts Path", "Save logs in the execution files folder."),
             ("BLEND_PATH", "Blend File Path", "Save logs in the same directory as the blend file."),
             ("CUSTOM_PATH", "Custom", "Specify a custom directory for log files."),
         ],
@@ -730,7 +806,7 @@ class RECOM_Preferences(AddonPreferences):
         description="Directory to save log files when using custom location",
     )
 
-    # Compact variables groups in output path variables
+    # Output path variables groups
     show_file_info: BoolProperty(name="Show Variables", default=False)
     show_camera_info: BoolProperty(name="Show Variables", default=False)
     show_render_info: BoolProperty(name="Show Variables", default=False)
@@ -756,6 +832,8 @@ class RECOM_Preferences(AddonPreferences):
         while len(self.recent_blend_files) > 20:
             self.recent_blend_files.remove(0)
 
+    # Render Options
+
     def _sanitize_filename(self, context):
         value = self.default_render_filename
         cleaned = "".join(c for c in value if c.isalnum() or c in "_- ")
@@ -770,7 +848,6 @@ class RECOM_Preferences(AddonPreferences):
         update=_sanitize_filename,
     )
 
-    # Render Options
     auto_save_before_render: BoolProperty(
         name="Auto‑Save Before Render",
         description="Save the current blend file automatically before launching a background render.",
@@ -827,6 +904,7 @@ class RECOM_Preferences(AddonPreferences):
         default=0,
     )
 
+    # Command line arguments
     add_command_line_args: BoolProperty(
         name="Use Command Line Arguments",
         description="Add additional command line arguments for render.",
@@ -839,7 +917,7 @@ class RECOM_Preferences(AddonPreferences):
         update=lambda self, context: redraw_ui(),
     )
 
-    # OCIO
+    # OCIO config
     set_ocio: BoolProperty(
         name="OCIO Environment Variable",
         description="Enable custom OCIO config for renders",
@@ -852,7 +930,7 @@ class RECOM_Preferences(AddonPreferences):
         update=lambda self, context: redraw_ui(),
     )
 
-    # Linux
+    # Linux specific default applications
     linux_terminal: EnumProperty(
         name="",
         items=[
@@ -883,13 +961,12 @@ class RECOM_Preferences(AddonPreferences):
         default="XDG_OPEN",
     )
 
-    # System Power
+    # System power management
     set_system_power: BoolProperty(
         name="System Power",
         description="Enable system power options for rendering.",
         default=False,
     )
-
     prevent_sleep: BoolProperty(
         name="Prevent Computer Sleep",
         description=get_prevent_sleep_description(),
@@ -936,7 +1013,10 @@ class RECOM_Preferences(AddonPreferences):
         description="Dynamically resolve and display the full output path with variables replaced.",
         # update=on_output_path_changed,
     )
-    preset_installed: BoolProperty(default=False, description="Indicates if default presets have been installed.")
+    preset_installed: BoolProperty(
+        default=False,
+        description="Indicates if default presets have been installed.",
+    )
     initial_setup_complete: BoolProperty(
         name="Cycles Render Devices Setup Complete",
         description="Indicates if the initial device configuration has been completed.",
@@ -1010,13 +1090,12 @@ class RECOM_Preferences(AddonPreferences):
     render_history: CollectionProperty(type=RECOM_PG_RenderHistoryItem)
     active_render_history_index: IntProperty(default=-1, name="Active Render History Index")
 
-    # Export Options
+    # Export options properties
     auto_open_exported_folder: BoolProperty(
         name="Open Exported Folder",
         description="Open the folder that contains the exported script/files after export",
         default=False,
     )
-
     export_output_target: EnumProperty(
         name="Export Folder Target",
         description="Where the exported files will be saved",
@@ -1027,23 +1106,31 @@ class RECOM_Preferences(AddonPreferences):
         ],
         default="SELECT_DIR",
     )
-
     custom_export_path: StringProperty(
         name="Custom Export Path",
         description="Manually set the folder to open after export",
         subtype="DIR_PATH",
         default="",
+        update=lambda self, context: redraw_ui(),
+    )
+    export_master_script: BoolProperty(
+        name="Export Master Script",
+        description="Whether to include master script (only exports worker scripts when disabled)",
+        default=True,
     )
 
+    # Scripts directory properties
     scripts_directory: StringProperty(
         name="Scripts Directory",
         description="Directory containing additional Python scripts.",
         default="",
         subtype="DIR_PATH",
     )
+
+    # Panel visibility settings
     visible_panels: PointerProperty(type=RECOM_PG_VisiblePanels)
 
-    # Preference Groups
+    # Preference groups for UI organization
     group_box_visible_panels: BoolProperty(name="Display Preferences", default=False)
     group_box_custom_variables: BoolProperty(name="Display Preferences", default=False)
     group_box_default_filename: BoolProperty(name="Display Preferences", default=False)
@@ -1066,11 +1153,7 @@ class RECOM_Preferences(AddonPreferences):
         visible_panels_header_row.label(text="Visible Panels")
 
         if self.group_box_visible_panels:
-            # visible_panels_box.prop(self, "show_layout_options", text="Layout Buttons")
-            # visible_panels_box.separator()
-
             visible_panels_box.label(text="General")
-
             main_panels_col = visible_panels_box.column(heading="")
             main_panels_col.prop(self.visible_panels, "external_scene", text="External Scene")
             main_panels_col.prop(self.visible_panels, "override_settings", text="Override Settings")
@@ -1079,8 +1162,6 @@ class RECOM_Preferences(AddonPreferences):
 
             visible_panels_box.label(text="Override Settings")
             override_settings_box = visible_panels_box.column(heading="")
-
-            # Cycles
             cycles_settings_box = override_settings_box.column(heading="Render")
             cycles_settings_box.prop(self.visible_panels, "compute_device", text="Compute Device")
             cycles_settings_box.prop(self.visible_panels, "light_paths", text="Light Paths")
@@ -1098,13 +1179,12 @@ class RECOM_Preferences(AddonPreferences):
             output_settings_box.prop(self.visible_panels, "file_format", text="File Format")
 
             visible_panels_box.label(text="Preferences")
-
             preferences_box = visible_panels_box.column(heading="")
-            preferences_box.prop(self.visible_panels, "system_power")
-            preferences_box.prop(self.visible_panels, "blender_executable")
             preferences_box.prop(self.visible_panels, "ocio")
+            preferences_box.prop(self.visible_panels, "blender_executable")
             preferences_box.prop(self.visible_panels, "command_line_arguments")
             preferences_box.prop(self.visible_panels, "append_scripts")
+            preferences_box.prop(self.visible_panels, "system_power")
 
         # Default Filename
         col.separator(factor=0.25)
@@ -1136,13 +1216,7 @@ class RECOM_Preferences(AddonPreferences):
             custom_vars_row = custom_vars_box.row()
             variables_list_box = custom_vars_row.column()
             listbox = variables_list_box.template_list(
-                "RECOM_UL_custom_variables",
-                "",
-                self,
-                "custom_variables",
-                self,
-                "active_custom_variable_index",
-                rows=4,
+                "RECOM_UL_custom_variables", "", self, "custom_variables", self, "active_custom_variable_index", rows=4
             )
 
             if self.active_custom_variable_index >= 0:
@@ -1163,7 +1237,7 @@ class RECOM_Preferences(AddonPreferences):
 
             remove_variable_button = add_remove_box.column(align=True)
             remove_variable_button.active = is_variable_selected
-            remove_variable_button.operator("cbl.remove_custom_variable", text="", icon="REMOVE")  # placeholder
+            remove_variable_button.operator("cbl.remove_custom_variable", text="", icon="REMOVE")
             variable_controls_box.separator(factor=0.5)
 
             variable_menu_row = variable_controls_box.row()
@@ -1218,6 +1292,7 @@ class RECOM_Preferences(AddonPreferences):
             development_box.separator()
             temp_files_row = development_box.row(align=True)
             temp_files_row.operator("recom.clean_temp_files", icon="TRASH")
+            temp_files_row.separator()
             temp_files_row.operator("recom.open_temp_dir", text="", icon="FOLDER_REDIRECT")
 
 
@@ -1226,7 +1301,6 @@ class RECOM_UL_custom_variables(UIList):
 
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index, flt_flag):
         if self.layout_type in {"DEFAULT", "COMPACT"}:
-            # Show name and token side‑by‑side
             row = layout.row(align=True)
             row.prop(item, "name", text="", emboss=False, placeholder="Name")
             row.prop(item, "token", text="", emboss=False, placeholder="Token")

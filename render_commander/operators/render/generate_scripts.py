@@ -42,6 +42,7 @@ def _generate_base_script(
     if start_msg:
         msg_lines = start_msg.splitlines()
         script_lines.append(f'print("{start_msg}")')
+        script_lines.append("")
 
     # Add render time tracking
     _add_render_time_tracking(prefs, script_lines)
@@ -90,6 +91,7 @@ def _add_render_time_tracking(prefs, script_lines):
 def _apply_motion_blur_settings(settings, script_lines):
     """Apply motion blur settings."""
     if settings.override_settings.motion_blur_override:
+        script_lines.append("# Motion Blur Settings")
         script_lines.extend(
             [
                 f"bpy.context.scene.render.use_motion_blur = {settings.override_settings.use_motion_blur}",
@@ -102,6 +104,7 @@ def _apply_motion_blur_settings(settings, script_lines):
 
 def _apply_frame_settings(is_animation, frame_start, frame_end, frame_step, script_lines):
     """Apply frame start, end, and step settings."""
+    script_lines.append("# Frame Settings")
     if is_animation:
         script_lines.extend(
             [
@@ -119,6 +122,8 @@ def _apply_frame_settings(is_animation, frame_start, frame_end, frame_step, scri
 def _apply_resolution_settings(context, settings, script_lines):
     """Apply resolution, scale, camera shift, and overscan settings."""
     if settings.override_settings.format_override:
+        script_lines.append("# Format Settings")
+
         if settings.override_settings.resolution_override:
             resolution_mode = settings.override_settings.resolution_mode
             if resolution_mode == "SET_WIDTH":
@@ -241,6 +246,8 @@ def _apply_resolution_settings(context, settings, script_lines):
 def _apply_output_format_settings(settings, script_lines):
     """Apply output format settings."""
     if settings.override_settings.file_format_override:
+        script_lines.append("# File Format Settings")
+
         if settings.override_settings.file_format == "OPEN_EXR_MULTILAYER":
             media_type_val = "MULTI_LAYER_IMAGE"
         else:
@@ -281,6 +288,8 @@ def _apply_output_format_settings(settings, script_lines):
 def _apply_compositing_settings(settings, script_lines):
     """Apply compositing settings."""
     if settings.override_settings.compositor_override:
+        script_lines.append("# Compositor Settings")
+
         script_lines.extend(
             [
                 "if bpy.app.version < (5, 0, 0):",
@@ -305,6 +314,8 @@ def _apply_compositing_settings(settings, script_lines):
 def _apply_cycles_settings(context, prefs, settings, selected_ids, script_lines):
     """Apply Cycles-specific rendering settings."""
     override_settings = settings.override_settings
+
+    script_lines.append("# Cycles Settings")
 
     if prefs.multiple_backends and prefs.launch_mode != MODE_SINGLE and prefs.device_parallel:
         # Get all device types for the selected IDs (not using global preference)
@@ -463,6 +474,8 @@ def _apply_eevee_settings(settings, script_lines):
     if not override_settings.eevee_override:
         return
 
+    script_lines.append("# EEVEE Settings")
+
     eevee = override_settings.eevee
     lines = [
         f"if bpy.context.scene.render.engine in {{'{RE_EEVEE_NEXT}', '{RE_EEVEE}'}}:",
@@ -510,6 +523,7 @@ def _add_notification_script(context, prefs, script_lines):
         )
 
         script_lines.extend(notification_content.splitlines())
+        script_lines.append("")
 
 
 def _add_prevent_sleep_commands(context, prefs, script_lines):
@@ -521,3 +535,4 @@ def _add_prevent_sleep_commands(context, prefs, script_lines):
     )
 
     script_lines.extend(prevent_sleep_content.splitlines())
+    script_lines.append("")

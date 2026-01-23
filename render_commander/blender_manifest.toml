@@ -1,6 +1,6 @@
 schema_version = "1.0.0"
 id = "render_commander"
-version = "0.9.97"
+version = "0.9.99"
 name = "Render Commander"
 tagline = "Background render launcher for Cycles & EEVEE"
 maintainer = "Nadir Perazzo"
@@ -13,6 +13,7 @@ license = [
 ]
 platforms = ["windows-x64", "linux-x64"]
 wheels = [
+  # Wheels for notifications on Windows
   "./wheels/typing_extensions-4.15.0-py3-none-any.whl",
   "./wheels/win11toast-0.36.2-py3-none-any.whl",
   "./wheels/winrt_runtime-3.2.1-cp311-cp311-win_amd64.whl",

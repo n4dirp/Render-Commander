@@ -1115,7 +1115,7 @@ class RECOM_Preferences(AddonPreferences):
     )
     export_master_script: BoolProperty(
         name="Export Master Script",
-        description="Whether to include master script (only exports worker scripts when disabled)",
+        description="For parallel rendering, exports an additional master script to launch multiple workers.",
         default=True,
     )
 
@@ -1293,7 +1293,7 @@ class RECOM_Preferences(AddonPreferences):
             temp_files_row = development_box.row(align=True)
             temp_files_row.operator("recom.clean_temp_files", icon="TRASH")
             temp_files_row.separator()
-            temp_files_row.operator("recom.open_temp_dir", text="", icon="FOLDER_REDIRECT")
+            temp_files_row.operator("recom.open_temp_dir", text="", icon="FILE_FOLDER")
 
 
 class RECOM_UL_custom_variables(UIList):

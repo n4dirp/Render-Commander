@@ -1,4 +1,5 @@
-# Prevent System Sleep
+# Sleep Prevention Logic
+
 import subprocess
 import atexit
 import sys

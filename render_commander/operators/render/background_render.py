@@ -51,8 +51,6 @@ _IS_WINDOWS = sys.platform == "win32"
 _IS_MACOS = sys.platform == "darwin"
 _IS_LINUX = sys.platform.startswith("linux")
 
-EXPORT_FOLDER = "render_scripts"
-
 
 @dataclass
 class RenderJobChunk:
@@ -127,7 +125,7 @@ class RECOM_OT_ExportRenderScript(Operator):
             bpy.ops.recom.background_render(action_type="EXPORT", directory=self.directory)
 
             settings = context.window_manager.recom_render_settings
-            target_dir = Path(self.directory) / EXPORT_FOLDER
+            target_dir = Path(self.directory) / EXPORT_SCRIPTS_FOLDER_NAME
 
             self.report({"INFO"}, f"Render scripts exported ({settings.render_id}): '{str(target_dir)}'")
         except Exception as exc:
@@ -509,7 +507,7 @@ class RECOM_OT_BackgroundRender(Operator):
         """Unified method to generate scripts for all chunks and execute them."""
 
         if self.action_type == "EXPORT":
-            target_dir = Path(self.directory) / EXPORT_FOLDER
+            target_dir = Path(self.directory) / EXPORT_SCRIPTS_FOLDER_NAME
         else:
             target_dir = get_addon_temp_dir(prefs)
 
@@ -596,6 +594,7 @@ class RECOM_OT_BackgroundRender(Operator):
 
         # Parallelism specific flags (Placeholder/Overwrite)
         if prefs.device_parallel and prefs.launch_mode == MODE_SEQ:
+            script_lines.append("# Parallel Render Settings")
             if prefs.frame_allocation == "FRAME_SPLIT":
                 script_lines.extend(
                     [
@@ -626,11 +625,28 @@ class RECOM_OT_BackgroundRender(Operator):
         # Helper to set path and add render call
         def add_render_cmd(frame, is_anim, write_still):
             out_path = self._resolve_and_update_settings(context, prefs, scene, settings, frame, blend_file)
-            script_lines.append(f"bpy.context.scene.render.filepath = r'{out_path}'")
-            if is_anim:
-                script_lines.append("bpy.ops.render.render(animation=True)")
-            else:
-                script_lines.append(f"bpy.ops.render.render(animation=False, write_still={write_still})")
+
+            script_lines.extend(
+                [
+                    "# Output Settings",
+                    f"bpy.context.scene.render.filepath = r'{out_path}'",
+                    "",
+                ]
+            )
+
+            # Add notification
+            if chunk.process_index == 0:
+                _add_notification_script(context, prefs, script_lines)
+
+            script_lines.extend(
+                [
+                    "# Start Render",
+                    "bpy.ops.render.render(animation=True)"
+                    if is_anim
+                    else f"bpy.ops.render.render(animation=False, write_still={write_still})",
+                    "",
+                ]
+            )
 
         if chunk.is_animation_call:
             # Mode: Sequence
@@ -643,7 +659,9 @@ class RECOM_OT_BackgroundRender(Operator):
         else:
             # Mode: List (list of frames)
             for frame in chunk.frames:
+                script_lines.append("# Set Frame List")
                 script_lines.append(f"bpy.context.scene.frame_set({frame})")
+
                 add_render_cmd(frame, False, prefs.write_still)
 
             # Add timing for list mode
@@ -652,7 +670,7 @@ class RECOM_OT_BackgroundRender(Operator):
                     "",
                     "end_time = time.time()",
                     "total_seconds = end_time - start_time",
-                    "print(f'Total Render Time: {total_seconds:.2f} seconds')",
+                    'print(f"Total Render Time: {total_seconds:.2f} seconds")',
                     "",
                 ]
             )
@@ -666,7 +684,7 @@ class RECOM_OT_BackgroundRender(Operator):
                 hist.output_folder = settings.render_output_folder_path
                 hist.output_filename = settings.render_output_filename
 
-            _add_notification_script(context, prefs, script_lines)
+            # _add_notification_script(context, prefs, script_lines)
 
         # Parallel Sync Logic
         requires_sync = (
@@ -1206,7 +1224,7 @@ class RECOM_OT_BackgroundRender(Operator):
 
         log_folder = Path(blend_file).parent
         if prefs.log_to_file_location == "BLEND_PATH" and prefs.save_to_log_folder:
-            log_folder = log_folder / "logs"
+            log_folder = log_folder / RENDER_LOGS_FOLDER_NAME
             log_folder.mkdir(exist_ok=True)
 
         elif prefs.log_to_file_location == "CUSTOM_PATH":

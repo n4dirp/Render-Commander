@@ -6,6 +6,7 @@ import bpy
 from bpy.types import Operator
 from bpy.props import StringProperty, EnumProperty, BoolProperty
 
+from ..utils.constants import *
 from ..preferences import get_addon_preferences
 from ..utils.helpers import (
     redraw_ui,
@@ -97,11 +98,107 @@ class RECOM_OT_ChangeScriptsDirectory(Operator):
         return {"RUNNING_MODAL"}
 
 
+class RECOM_OT_RenderImage(Operator):
+    """Render single image with MODE_SINGLE"""
+
+    bl_idname = "recom.render_image"
+    bl_label = "Render Image"
+    bl_description = "Render a single frame (image)"
+
+    def execute(self, context):
+        prefs = get_addon_preferences(context)
+
+        old_launch_mode = prefs.launch_mode
+        prefs.launch_mode = MODE_SINGLE
+
+        try:
+            bpy.ops.recom.background_render(action_type="RENDER")
+        except Exception as e:
+            prefs.launch_mode = old_launch_mode
+            self.report({"ERROR"}, f"{e}")
+            return {"CANCELLED"}
+
+        return {"FINISHED"}
+
+
+class RECOM_OT_RenderAnimation(Operator):
+    """Render animation with MODE_SEQ"""
+
+    bl_idname = "recom.render_animation"
+    bl_label = "Render Animation"
+    bl_description = "Render a full frame range (animation)"
+
+    def execute(self, context):
+        prefs = get_addon_preferences(context)
+
+        old_launch_mode = prefs.launch_mode
+        prefs.launch_mode = MODE_SEQ
+
+        try:
+            bpy.ops.recom.background_render(action_type="RENDER")
+        except Exception as e:
+            prefs.launch_mode = old_launch_mode
+            self.report({"ERROR"}, f"{e}")
+            return {"CANCELLED"}
+
+        return {"FINISHED"}
+
+
+class RECOM_OT_ExportImage(Operator):
+    """Export render script for single image"""
+
+    bl_idname = "recom.export_image"
+    bl_label = "Export Render Image Script"
+    bl_description = "Export a render script for a single frame"
+
+    def execute(self, context):
+        prefs = get_addon_preferences(context)
+
+        old_launch_mode = prefs.launch_mode
+        prefs.launch_mode = MODE_SINGLE
+
+        try:
+            bpy.ops.recom.export_render_script("INVOKE_DEFAULT")
+            prefs.launch_mode = old_launch_mode
+        except Exception as e:
+            prefs.launch_mode = old_launch_mode
+            self.report({"ERROR"}, f"{e}")
+            return {"CANCELLED"}
+        return {"FINISHED"}
+
+
+class RECOM_OT_ExportAnimation(Operator):
+    """Export render script for animation"""
+
+    bl_idname = "recom.export_animation"
+    bl_label = "Export Render Animation Script"
+    bl_description = "Export a render script for an animation"
+
+    def execute(self, context):
+        prefs = get_addon_preferences(context)
+
+        old_launch_mode = prefs.launch_mode
+        prefs.launch_mode = MODE_SEQ
+
+        try:
+            bpy.ops.recom.export_render_script("INVOKE_DEFAULT")
+            prefs.launch_mode = old_launch_mode
+        except Exception as e:
+            prefs.launch_mode = old_launch_mode
+            self.report({"ERROR"}, f"{e}")
+            return {"CANCELLED"}
+        return {"FINISHED"}
+
+
 classes = (
     RECOM_OT_ContinueSetup,
     RECOM_OT_ReinitializeDevices,
     RECOM_OT_OpenPreferences,
     RECOM_OT_ChangeScriptsDirectory,
+    RECOM_OT_RenderImage,
+    RECOM_OT_RenderAnimation,
+    RECOM_OT_ExportImage,
+    RECOM_OT_ExportAnimation,
 )
 
 

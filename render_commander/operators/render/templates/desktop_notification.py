@@ -1,4 +1,5 @@
-# Desktop Notification
+# Notification Logic
+
 import subprocess
 import atexit
 import sys
@@ -57,9 +58,7 @@ def _send_win11toast_notification(title, message, output_dir_path, preview_path)
         def run_toast():
             try:
                 print("Toast: Showing Windows toast notification...")
-                image_arg = (
-                    str(preview_path.resolve()) if preview_path and preview_path.is_file() else None
-                )
+                image_arg = str(preview_path.resolve()) if preview_path and preview_path.is_file() else None
                 with suppress_stdout_stderr():
                     toast(
                         title,

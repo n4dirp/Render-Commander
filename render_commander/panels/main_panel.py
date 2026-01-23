@@ -158,10 +158,30 @@ def menu_render_button(self, context):
     render_image.action_type = "RENDER"
 
 
+class RECOM_MT_RenderCommanderMenu(bpy.types.Menu):
+    bl_label = "Render Commander"
+    bl_idname = "RECOM_MT_render_commander_menu"
+
+    def draw(self, context):
+        layout = self.layout
+
+        layout.operator("recom.render_image", text="Render Image", icon="RENDER_STILL")
+        layout.operator("recom.render_animation", text="Render Animation", icon="RENDER_ANIMATION")
+        layout.separator()
+        layout.operator("recom.export_image", text="Export Image Render", icon="EXPORT")
+        layout.operator("recom.export_animation", text="Export Animation Render")
+
+
+def menu_render_commander_submenu(self, context):
+    self.layout.separator()
+    self.layout.menu("RECOM_MT_render_commander_menu", text="Render Commander", icon="CONSOLE")
+
+
 classes = (
     RECOM_PT_MainPanel,
     RECOM_PT_RenderOptionsPopup,
     RECOM_PT_ExportOptionsPopup,
+    RECOM_MT_RenderCommanderMenu,
 )
 
 
@@ -169,11 +189,11 @@ def register():
     for cls in classes:
         bpy.utils.register_class(cls)
 
-    bpy.types.TOPBAR_MT_render.append(menu_render_button)
+    bpy.types.TOPBAR_MT_render.append(menu_render_commander_submenu)
 
 
 def unregister():
-    bpy.types.TOPBAR_MT_render.remove(menu_render_button)
+    bpy.types.TOPBAR_MT_render.remove(menu_render_commander_submenu)
 
     for cls in reversed(classes):
         bpy.utils.unregister_class(cls)

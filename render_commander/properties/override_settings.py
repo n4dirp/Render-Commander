@@ -622,15 +622,15 @@ class RECOM_PG_OverrideSettings(PropertyGroup):
     file_format: EnumProperty(
         name="Format",
         items=[
-            ("OPEN_EXR", "OpenEXR", "Output image in OpenEXR format"),
+            ("OPEN_EXR", "OpenEXR (.exr)", "Output image in OpenEXR format"),
             (
                 "OPEN_EXR_MULTILAYER",
-                "OpenEXR MultiLayer",
+                "OpenEXR MultiLayer (.exr)",
                 "Output image in OpenEXR MultiLayer format",
             ),
-            ("PNG", "PNG", "Output image in PNG format"),
-            ("JPEG", "JPEG", "Output image in JPEG format"),
-            ("TIFF", "TIFF", "Output image in TIFF format"),
+            ("PNG", "PNG (.png)", "Output image in PNG format"),
+            ("JPEG", "JPEG (.jpg)", "Output image in JPEG format"),
+            ("TIFF", "TIFF (.tif)", "Output image in TIFF format"),
         ],
         default="OPEN_EXR_MULTILAYER",
         description="Select the output format for rendered images",

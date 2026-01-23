@@ -43,7 +43,7 @@ class RECOM_PT_RenderPreferences(Panel):
     def draw_header_preset(self, context):
         layout = self.layout
         row = layout.row(align=True)
-        row.operator("recom.open_pref", text="", icon="SETTINGS", emboss=False)
+        row.operator("recom.open_pref", text="", icon="PREFERENCES", emboss=False)
 
         RECOM_PT_RenderPreferencesPresets.draw_panel_header(row)
 
@@ -223,8 +223,8 @@ class RECOM_PT_RenderOptions(Panel):
         terminal_col = layout.row(heading="Terminal")
         terminal_col.prop(prefs, "keep_terminal_open", text="Keep Open")
 
-        col = layout.column()
-        col.prop(prefs, "send_desktop_notifications", text="Notification")
+        col = layout.column(heading="")
+        col.prop(prefs, "send_desktop_notifications", text="Desktop Notification")
 
 
 class RECOM_PT_SystemPower(Panel):

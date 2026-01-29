@@ -39,26 +39,14 @@ Preview scene settings, apply overrides, and start renders directly from the add
 
 ---
 
-## Requirements
-
-- Blender 4.2 - 5.0
-- Windows 11, Linux
-
 ## Installation
 
 1. Download the latest release from the [Releases](https://github.com/n4dirp/render-commander/releases) page.
-2. In Blender, go to **Edit > Preferences > Get Extensions.**
-3. Click **Install from Disk…** and select the downloaded `.zip` file.
-4. Enable the add-on by checking the box next to **Render Commander**.
+2. Drag and drop the `.zip` into Blender to install the add-on.
 
-## Usage
-
-1. Open the **Render Commander** panel in the **Viewport Sidebar** panel.
-2. Choose a render mode: **Image**, **Animation**, or **Frame List**.
-3. Optionally: 
-    - Apply a preset or override specific settings.
-    - In the Add‑on Preferences, select the render devices for ***Cycles Render***.
-4. Click **Render** > your render job starts immediately.
+## Location
+- **Viewport Sidebar**: Main add-on panel is available in the *Render Commander* tab.
+- **Topbar**: Additional controls are available in the *Render* menu.
 
 ## Build from Source
 

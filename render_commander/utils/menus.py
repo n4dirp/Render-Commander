@@ -19,18 +19,11 @@ class RECOM_MT_ResolvedPath(Menu):
         settings = context.window_manager.recom_render_settings
         prefs = get_addon_preferences(context)
 
-        layout.operator("recom.import_output_path", text="Import Output Path", icon=ICON_SYNC)
-        layout.separator()
+        # layout.operator("recom.import_output_path", text="Import Output Path", icon=ICON_SYNC)
+        # layout.separator()
 
         layout.prop(prefs, "path_preview", text="Show Resolved Path")
-        layout.separator()
-
-        col = layout.column()
-        if not prefs.path_preview:
-            col.enabled = False
-
-        col.operator("recom.op_copy_text", text="Copy Path", icon="COPYDOWN")
-        col.operator("recom.open_folder", text="Open Folder", icon="FOLDER_REDIRECT")
+        # layout.separator()
 
 
 class RECOM_MT_RecentBlendFiles(Menu):
@@ -81,7 +74,7 @@ class RECOM_MT_ExternalBlendOptions(Menu):
         op_open_in_new_session.file_path = file_path
         layout.separator()
 
-        op_dir = layout.operator("recom.open_blend_directory", text="Open Blend File Folder", icon="FOLDER_REDIRECT")
+        op_dir = layout.operator("recom.open_blend_directory", text="Open Blend File Path", icon="FILE_FOLDER")
         op_dir.file_path = file_path
         layout.separator()
 
@@ -122,7 +115,7 @@ class RECOM_MT_ResolutionX(Menu):
         for i, (label, values) in enumerate(sections.items()):
             for val in values:
                 icon = "DOT" if val == current_x else "BLANK1"
-                op = layout.operator("recom.set_resolution_x", text=str(val), icon=icon)
+                op = layout.operator("recom.set_resolution_x", text=f"{str(val)} px", icon=icon)
                 op.value = val
 
             if i < section_count - 1:
@@ -160,7 +153,7 @@ class RECOM_MT_ResolutionY(Menu):
         for i, (label, values) in enumerate(sections.items()):
             for val in values:
                 icon = "DOT" if val == current_y else "BLANK1"
-                op = layout.operator("recom.set_resolution_y", text=str(val), icon=icon)
+                op = layout.operator("recom.set_resolution_y", text=f"{str(val)} px", icon=icon)
                 op.value = val
 
             if i < section_count - 1:
@@ -319,7 +312,7 @@ class RECOM_MT_CyclesRenderDevices(Menu):
 
         layout.operator(
             "recom.import_from_cycles_settings",
-            text="Import Settings from Cycles",
+            text="Import Device Settings",
             icon=ICON_SYNC,
         )
         # layout.separator()
@@ -364,13 +357,13 @@ class RECOM_MT_Scripts(Menu):
 
                     # Remove extension and format name
                     clean_parts = relative_path.with_suffix("").parts
-                    display_name = (" - ".join(clean_parts)).replace("_", " ").title()
+                    display_name = (" - ".join(clean_parts)).replace("_", " ")
 
                     op = layout.operator("recom.add_script_from_menu", text=display_name, icon="SCRIPT")
                     op.script_path = str(script_path)
 
-                # Add separator at the end because the list was not empty
                 layout.separator()
+
         layout.operator("recom.change_scripts_directory", text="Change Directory...", icon="FILE_FOLDER")
 
 
@@ -430,7 +423,6 @@ class RECOM_MT_ScriptOptions(Menu):
         move_down_op.direction = "DOWN"
 
         layout.separator()
-
         layout.operator("recom.open_script", text="Open in Text Editor", icon="TEXT")
 
 
@@ -469,7 +461,7 @@ class RECOM_MT_CustomBlender(Menu):
     def draw(self, context):
         layout = self.layout
 
-        layout.operator("recom.launch_custom_blender", text="Run")
+        layout.operator("recom.launch_custom_blender", text="Launch Blender")
         # layout.separator()
         layout.operator("recom.check_blender_version", text="Version Details...")
 
@@ -518,12 +510,12 @@ class RECOM_MT_RenderHistoryItem(Menu):
         blend_col.separator()
 
         op_open_blend_folder = blend_col.operator(
-            "recom.open_output_folder", text="Open Blend File Folder", icon="FOLDER_REDIRECT"
+            "recom.open_output_folder", text="Open Blend File Path", icon="FILE_FOLDER"
         )
         op_open_blend_folder.folder_path = str(Path(active_item.blend_path).parent)
 
         if active_item.output_folder and Path(active_item.output_folder).exists():
-            op_open_output_folder = layout.operator("recom.open_output_folder", text="Open Output Folder")
+            op_open_output_folder = layout.operator("recom.open_output_folder", text="Open Output Path")
             op_open_output_folder.folder_path = active_item.output_folder
         layout.separator()
         remove_op = layout.operator("recom.remove_render_history_item", text="Remove from History", icon="TRASH")

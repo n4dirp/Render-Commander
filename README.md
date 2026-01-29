@@ -35,7 +35,7 @@ Preview scene settings, apply overrides, and start renders directly from the add
 
 ## Screenshots
 
-<img src="images/device_parallel.png" alt="Device-Parallel" height="200"> <img src="images/parallel_render_benchmark.jpg" alt="Device-Parallel Benchmark" height="200"> <img src="images/override_settings.png" alt="Render Overrides" height="200"> <img src="images/path_templates.png" alt="Output Path Templates" height="200"> <img src="images/external_scene.png" alt="External Scene" height="200"> <img src="images/misc.png" alt="Misc" height="200">
+<img src="images/parallel_render_benchmark.jpg" alt="Device-Parallel Benchmark" height="200"> <img src="images/device_parallel.png" alt="Device-Parallel" height="200"> <img src="images/override_settings.png" alt="Render Overrides" height="200"> <img src="images/external_scene.png" alt="External Scene" height="200">
 
 ---
 

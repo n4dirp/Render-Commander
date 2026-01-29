@@ -15,6 +15,46 @@ from ..utils.helpers import (
 )
 
 
+class RECOM_PT_ImportOverridesPopup(Panel):
+    bl_label = "Import Override Settings"
+    bl_idname = "RECOM_PT_import_overrides_popup"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "WINDOW"
+
+    def draw(self, context):
+        layout = self.layout
+        prefs = get_addon_preferences(context)
+        render_engine = get_render_engine(context)
+
+        col = layout.column()
+
+        col.label(text="Import Scene Settings")
+
+        split = col.split(factor=0.5)
+        col1 = split.column()
+        col2 = split.column()
+
+        col1.label(text="Render")
+        if render_engine == RE_CYCLES:
+            col1.prop(prefs.override_settings, "import_compute_device", text="Device")
+            col1.prop(prefs.override_settings, "import_sampling", text="Sampling")
+            col1.prop(prefs.override_settings, "import_light_paths", text="Light Paths")
+            col1.prop(prefs.override_settings, "import_performance", text="Performance")
+        elif render_engine in {RE_EEVEE_NEXT, RE_EEVEE}:
+            col1.prop(prefs.override_settings, "import_eevee_settings", text="EEVEE")
+        col1.prop(prefs.override_settings, "import_motion_blur", text="Motion Blur")
+        col1.prop(prefs.override_settings, "import_compositor", text="Compositor")
+
+        col2.label(text="Output")
+        col2.prop(prefs.override_settings, "import_frame_range", text="Frame Range")
+        col2.prop(prefs.override_settings, "import_resolution", text="Resolution")
+        col2.prop(prefs.override_settings, "import_output_path", text="Output Path")
+        col2.prop(prefs.override_settings, "import_output_format", text="File Format")
+
+        row = layout.row()
+        row.operator("recom.import_all_settings", text=f"Import{CENTER_TEXT}", icon="IMPORT")
+
+
 class RECOM_PT_OverridesPresets(PresetPanel, Panel):
     bl_label = "Override Settings Presets"
     preset_subdir = f"{ADDON_NAME}/override_settings"
@@ -23,7 +63,7 @@ class RECOM_PT_OverridesPresets(PresetPanel, Panel):
 
 
 class RECOM_PT_RenderOverrides(Panel):
-    bl_label = "Override Settings"
+    bl_label = "Scene Overrides"
     bl_idname = "RECOM_PT_render_overrides"
     # bl_parent_id = "RECOM_PT_main_panel"
     bl_space_type = "VIEW_3D"
@@ -45,7 +85,14 @@ class RECOM_PT_RenderOverrides(Panel):
         # layout.prop(settings, "use_override_settings", text="")
 
     def draw_header_preset(self, context):
-        RECOM_PT_OverridesPresets.draw_panel_header(self.layout)
+        layout = self.layout
+        layout.emboss = "PULLDOWN_MENU"
+
+        row = layout.row(align=True)
+        row.popover(panel="RECOM_PT_import_overrides_popup", text="", icon="COLLAPSEMENU")
+
+        RECOM_PT_OverridesPresets.draw_panel_header(row)
+        # row.separator()
 
     def draw(self, context):
         pass
@@ -90,8 +137,8 @@ class RECOM_PT_MotionBlurSettings(Panel):
         layout.active = settings.override_settings.motion_blur_override
 
         row = layout.row(align=True)
-        row.operator("recom.import_motion_blur", text="", icon=ICON_SYNC, emboss=False)
-        row.separator()
+        # row.operator("recom.import_motion_blur", text="", icon=ICON_SYNC, emboss=False)
+        # row.separator()
 
     def draw(self, context):
         layout = self.layout
@@ -135,8 +182,8 @@ class RECOM_PT_CompositorSettings(Panel):
         settings = context.window_manager.recom_render_settings
         layout.active = settings.override_settings.compositor_override
         row = layout.row(align=True)
-        row.operator("recom.import_compositor", text="", icon=ICON_SYNC, emboss=False)
-        row.separator()
+        # row.operator("recom.import_compositor", text="", icon=ICON_SYNC, emboss=False)
+        # row.separator()
 
     def draw(self, context):
         layout = self.layout
@@ -202,8 +249,8 @@ class RECOM_PT_FrameRangeSettings(Panel):
         prefs = get_addon_preferences(context)
         layout.active = settings.override_settings.frame_range_override and not prefs.launch_mode == MODE_LIST
         row = layout.row(align=True)
-        row.operator("recom.import_frame_range", text="", icon=ICON_SYNC, emboss=False)
-        row.separator(factor=1)
+        # row.operator("recom.import_frame_range", text="", icon=ICON_SYNC, emboss=False)
+        # row.separator(factor=1.0)
 
     def draw(self, context):
         layout = self.layout
@@ -260,8 +307,8 @@ class RECOM_PT_ResolutionSettings(Panel):
 
         row = layout.row(align=True)
         RECOM_PT_ResolutionPresets.draw_panel_header(row)
-        row.operator("recom.import_manual_resolution", text="", icon=ICON_SYNC, emboss=False)
-        row.separator()
+        # row.operator("recom.import_manual_resolution", text="", icon=ICON_SYNC, emboss=False)
+        # row.separator()
 
     def draw(self, context):
         layout = self.layout
@@ -334,6 +381,7 @@ class RECOM_PT_ResolutionSettings(Panel):
             settings.override_settings.render_scale != "CUSTOM" or settings.override_settings.custom_render_scale != 100
         )
         if show_scale:
+            # Calculate Scale
             scale_factor = (
                 float(settings.override_settings.render_scale)
                 if settings.override_settings.render_scale != "CUSTOM"
@@ -357,11 +405,13 @@ class RECOM_PT_ResolutionSettings(Panel):
             scaled_width = int(width * scale_factor)
             scaled_height = int(height * scale_factor)
 
-            scaled_label_box = scale_col.box()
-            scaled_label_row = scaled_label_box.row(align=True)
-            scaled_label_row.separator(factor=0.5)
+            # Draw Preview
+            scaled_label_col = scale_col.box().column(align=True)
+            scaled_label_col.label(text="Scaled Resolution")
+
+            scaled_label_row = scaled_label_col.row(align=True)
             scaled_label_row.active = False
-            scaled_label_row.label(text=f"Output: {scaled_width} x {scaled_height} px")
+            scaled_label_row.label(text=f"{scaled_width} x {scaled_height} px")
 
 
 class RECOM_PT_OverscanSettings(Panel):
@@ -474,10 +524,10 @@ class RECOM_PT_OutputPathSettings(Panel):
         settings = context.window_manager.recom_render_settings
         layout.active = settings.override_settings.output_path_override
         row = layout.row(align=True)
+        # row.menu("RECOM_MT_resolved_path", text="", icon="COLLAPSEMENU")
         RECOM_PT_OutputPresets.draw_panel_header(row)
-        row.menu("RECOM_MT_resolved_path", text="", icon="COLLAPSEMENU")
 
-        row.separator()
+        # row.separator()
 
     def draw(self, context):
         layout = self.layout
@@ -505,16 +555,6 @@ class RECOM_PT_OutputPathSettings(Panel):
             icon="FILE",
             placeholder="Output Filename",
         )
-
-        if prefs.path_preview:
-            resolved_path = settings.override_settings.resolved_path or f"Resolve"
-            row = layout.row(align=True)
-            row.active = False
-            row.operator(
-                "recom.show_tooltip",
-                text=resolved_path,
-                # icon="FILE_REFRESH",
-            )
 
 
 class RECOM_PT_AddVariablesPanel(Panel):
@@ -630,6 +670,14 @@ class RECOM_PT_AddVariablesPanel(Panel):
 
         return layout.column(align=True), None
 
+    def draw_header_preset(self, context):
+        layout = self.layout
+        settings = context.window_manager.recom_render_settings
+        layout.active = settings.override_settings.output_path_override
+        row = layout.row(align=True)
+        row.menu("RECOM_MT_resolved_path", text="", icon="COLLAPSEMENU")
+        row.separator()
+
     def draw(self, context):
         layout = self.layout
         settings = context.window_manager.recom_render_settings
@@ -662,6 +710,20 @@ class RECOM_PT_AddVariablesPanel(Panel):
 
                 self._draw_variable_section(context, target_layout, prefs, prop, label, tokens)
 
+        if prefs.path_preview:
+            resolved_path_text = settings.override_settings.resolved_path or f"Refresh"
+            resolved_col = layout.box().column()
+            resolved_col.label(text="Resolved Path")
+
+            row = resolved_col.row(align=True)
+            tooltip_row = row.row(align=True)
+            tooltip_row.active = False
+            tooltip_row.operator("recom.show_tooltip", text=resolved_path_text)
+
+            op_row = row.row(align=True)
+            op_row.enabled = True if settings.override_settings.resolved_path else False
+            op_row.operator("recom.open_folder", text="", icon="FILE_FOLDER")
+
 
 class RECOM_PT_OutputFormatSettings(Panel):
     bl_label = "File Format"
@@ -688,8 +750,8 @@ class RECOM_PT_OutputFormatSettings(Panel):
         settings = context.window_manager.recom_render_settings
         layout.active = settings.override_settings.file_format_override
         row = layout.row(align=True)
-        row.operator("recom.import_output_format", text="", icon=ICON_SYNC, emboss=False)
-        row.separator()
+        # row.operator("recom.import_output_format", text="", icon=ICON_SYNC, emboss=False)
+        # row.separator()
 
     def draw(self, context):
         layout = self.layout
@@ -719,6 +781,7 @@ class RECOM_PT_OutputFormatSettings(Panel):
 
 
 classes = (
+    RECOM_PT_ImportOverridesPopup,
     RECOM_PT_OverridesPresets,
     RECOM_PT_RenderOverrides,
     RECOM_PT_RenderSettings,

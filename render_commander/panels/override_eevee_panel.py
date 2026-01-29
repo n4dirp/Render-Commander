@@ -43,8 +43,8 @@ class RECOM_PT_EEVEESettings(Panel):
 
         row = layout.row(align=True)
         RECOM_PT_EEVEESettingsPresets.draw_panel_header(row)
-        row.operator("recom.import_eevee_settings", text="", icon=ICON_SYNC, emboss=False)
-        row.separator()
+        # row.operator("recom.import_eevee_settings", text="", icon=ICON_SYNC, emboss=False)
+        # row.separator()
 
     def draw(self, context):
         pass

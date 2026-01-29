@@ -23,7 +23,7 @@ FORMAT_NAME_MAPPING = {
 
 
 class RECOM_PT_SceneFilePanel(Panel):
-    bl_label = "External Scene"
+    bl_label = "External Blend File"
     bl_idname = "RECOM_PT_scene_file_panel"
     # bl_parent_id = "RECOM_PT_main_panel"
     bl_space_type = "VIEW_3D"
@@ -73,11 +73,10 @@ class RECOM_PT_SceneFilePanel(Panel):
         )
         blend_path_row.operator("recom.select_external_blend_file", text="", icon="FILE_FOLDER")
 
-        # col = layout.column()
+        # Extract Scene Operator
+        sub = col.row(align=True)
         if settings.is_scene_info_loaded:
-            row = col.row(align=True)
-            sub = row.row(align=True)
-            sub.active = True if len(settings.external_blend_file_path) > 0 else False
+            sub.enabled = True if len(settings.external_blend_file_path) > 0 else False
 
             button_text = f"Read Scene{CENTER_TEXT}"
             icon = "ZOOM_ALL"
@@ -91,15 +90,10 @@ class RECOM_PT_SceneFilePanel(Panel):
                 except json.JSONDecodeError as e:
                     log.error("Failed to decode JSON: %s", e)
             sub.operator("recom.extract_external_scene_data", text=button_text, icon=icon)
-        else:
-            box = col.box()
-            box.scale_y = 0.5
-            row = box.row(align=True)
-            row.active = False
 
-            row_center = row.row(align=True)
-            row_center.alignment = "CENTER"
-            row_center.label(text=f"Processing...")
+        else:
+            sub.enabled = False
+            sub.operator("recom.loading_button", text=f"Processing{CENTER_TEXT}", icon="TIME")
 
         # Display Scene Info
         try:
@@ -148,6 +142,7 @@ class RECOM_PT_SceneFilePanel(Panel):
                 layout.label(text="Invalid Scene Info Data", icon="ERROR")
 
     def _draw_scene_info_box(self, layout, info):
+        # Variables
         separator = "  |  "
         blend_filename = Path(info.get("blend_filepath", "Unknown File")).name
         blender_version = info.get("blender_version", "N/A")
@@ -186,17 +181,21 @@ class RECOM_PT_SceneFilePanel(Panel):
         eevee_use_raytracing = info.get("eevee_use_raytracing", False)
         use_raytracing_text = f"{separator}Raytracing" if eevee_use_raytracing else ""
 
+        # Draw
         box = layout.box()
+        # row = box.row(align=True)
+        # row.separator(factor=0.5)
+
         col = box.column(align=True)
 
         header_row = col.row(align=True)
         header_text_col = header_row.column(align=True)
         header_text_col.active = False
-        header_text_col.label(text=f" {blend_filename}")
+        header_text_col.label(text=f"{blend_filename}")
         header_text_line2 = col.column(align=True)
         header_text_line2.active = False
-        header_text_line2.label(text=f" Blender {blender_version}{separator}Size: {file_size}")
-        header_text_line2.label(text=f" Modified: {modified_date_short}")
+        header_text_line2.label(text=f"Blender {blender_version}{separator}Size: {file_size}")
+        header_text_line2.label(text=f"Modified: {modified_date_short}")
         menu_col = header_row.column()
         menu_col.alignment = "RIGHT"
         menu_col.menu("RECOM_MT_external_blend_options", text="", icon="DOWNARROW_HLT")
@@ -206,19 +205,19 @@ class RECOM_PT_SceneFilePanel(Panel):
         labels_col = col.column(align=True)
         labels_col.active = False
         if render_engine != "CYCLES":
-            labels_col.label(text=f' Render Engine: {render_engine.replace("_", " ")}')
-        labels_col.label(text=f" Frame: {frame_current} / {frame_start}-{frame_end} @{fps_real} FPS{motion_text}")
+            labels_col.label(text=f'Render Engine: {render_engine.replace("_", " ")}')
+        labels_col.label(text=f"Frame: {frame_current} / {frame_start}-{frame_end} @{fps_real} FPS{motion_text}")
 
         if render_engine == "CYCLES":
-            labels_col.label(text=f" Samples: {samples}{threshold_text}{denoising_text}{compositing_text}")
+            labels_col.label(text=f"Samples: {samples}{threshold_text}{denoising_text}{compositing_text}")
         elif render_engine in {"BLENDER_EEVEE_NEXT", "BLENDER_EEVEE"}:
-            labels_col.label(text=f" Samples: {eevee_samples}{use_raytracing_text}{compositing_text}")
+            labels_col.label(text=f"Samples: {eevee_samples}{use_raytracing_text}{compositing_text}")
 
         labels_col.label(
-            text=f" Format: {file_format_text}{color_depth_text}{separator}{resolution_x} x {resolution_y} px{render_scale_text}"
+            text=f"Format: {file_format_text}{color_depth_text}{separator}{resolution_x} x {resolution_y} px{render_scale_text}"
         )
 
-        labels_col.label(text=f" Output: {output_path}")
+        labels_col.label(text=f"Output: {output_path}")
 
 
 class RECOM_PT_ExternalBlendInfoExpanded(Panel):

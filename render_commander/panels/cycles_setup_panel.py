@@ -32,20 +32,22 @@ class RECOM_PT_CyclesSetup(Panel):
 
         col = layout.column()
 
-        info_box = col.column()
-        info_box.active = False
-        info_box.label(text="Initial Setup", icon="INFO")
+        """
+        info_box = col.box().column()
+        info_box.label(text="Initial Setup")
         col.separator(factor=0.5)
+        """
+
         devices_box = col.box()
 
         col_box = devices_box.column()
 
         title_row = col_box.row()
-        title_row.label(text="Cycles Render Devices")
+        title_row.label(text="Compute Devices")
 
         sync_row = title_row.row(align=True)
         sync_row.alignment = "RIGHT"
-        sync_row.operator("recom.import_from_cycles_settings", text="", icon=ICON_SYNC)
+        sync_row.operator("recom.import_from_cycles_settings", text="", icon=ICON_SYNC, emboss=False)
 
         row = col_box.row()
         row.prop(prefs, "compute_device_type", expand=True)
@@ -57,7 +59,7 @@ class RECOM_PT_CyclesSetup(Panel):
             prefs._draw_devices(col_dev, devices_to_display_list)
 
         col.separator(factor=0.5)
-        col.operator("recom.continue_setup", text=f"Continue{CENTER_TEXT}")
+        col.operator("recom.continue_setup", text=f"Continue{CENTER_TEXT}", icon="CHECKMARK")
 
 
 classes = (RECOM_PT_CyclesSetup,)

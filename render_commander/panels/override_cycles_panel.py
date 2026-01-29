@@ -29,7 +29,7 @@ class RECOM_PT_CyclesSetting(Panel):
 
 
 class RECOM_PT_ComputeDevice(Panel):
-    bl_label = "Compute Device"
+    bl_label = "Device"
     bl_idname = "RECOM_PT_compute_device"
     bl_parent_id = "RECOM_PT_cycles_overrides"
     bl_space_type = "VIEW_3D"
@@ -52,8 +52,8 @@ class RECOM_PT_ComputeDevice(Panel):
         settings = context.window_manager.recom_render_settings
         layout.active = settings.override_settings.cycles.device_override
         row = layout.row(align=True)
-        row.operator("recom.import_compute_device", text="", icon=ICON_SYNC, emboss=False)
-        row.separator(factor=1)
+        # row.operator("recom.import_compute_device", text="", icon=ICON_SYNC, emboss=False)
+        # row.separator(factor=1)
 
     def draw(self, context):
         layout = self.layout
@@ -100,8 +100,8 @@ class RECOM_PT_SamplesSettings(Panel):
 
         row = layout.row(align=True)
         RECOM_PT_SamplesPresets.draw_panel_header(row)
-        row.operator("recom.import_sampling", text="", icon=ICON_SYNC, emboss=False)
-        row.separator()
+        # row.operator("recom.import_sampling", text="", icon=ICON_SYNC, emboss=False)
+        # row.separator()
 
     def draw(self, context):
         layout = self.layout
@@ -204,8 +204,8 @@ class RECOM_PT_LightPathSettings(Panel):
 
         row = layout.row(align=True)
         RECOM_PT_LightPathsPresets.draw_panel_header(row)
-        row.operator("recom.import_light_paths", text="", icon=ICON_SYNC, emboss=False)
-        row.separator()
+        # row.operator("recom.import_light_paths", text="", icon=ICON_SYNC, emboss=False)
+        # row.separator()
 
     def draw(self, context):
         pass
@@ -314,8 +314,8 @@ class RECOM_PT_PerformanceSettings(Panel):
         layout.active = settings.override_settings.cycles.performance_override
 
         row = layout.row(align=True)
-        row.operator("recom.import_performance", text="", icon=ICON_SYNC, emboss=False)
-        row.separator()
+        # row.operator("recom.import_performance", text="", icon=ICON_SYNC, emboss=False)
+        # row.separator()
 
     def draw(self, context):
         layout = self.layout
@@ -330,7 +330,7 @@ class RECOM_PT_PerformanceSettings(Panel):
         row_sub = col.row()
         row_sub.active = settings.override_settings.cycles.use_tiling
         row_sub.prop(settings.override_settings.cycles, "tile_size")
-        row_sub.separator(factor=0.5)
+        # row_sub.separator(factor=0.5)
         row_sub.menu("RECOM_MT_tile_size", text="", icon=ICON_OPTION)
 
         col = layout.column(heading="Animation")

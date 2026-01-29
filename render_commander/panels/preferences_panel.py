@@ -44,7 +44,7 @@ class RECOM_PT_RenderPreferences(Panel):
         layout = self.layout
         row = layout.row(align=True)
         row.operator("recom.open_pref", text="", icon="PREFERENCES", emboss=False)
-
+        row.separator(factor=1)
         RECOM_PT_RenderPreferencesPresets.draw_panel_header(row)
 
     def draw(self, context):
@@ -52,7 +52,7 @@ class RECOM_PT_RenderPreferences(Panel):
 
 
 class RECOM_PT_DeviceSettings(Panel):
-    bl_label = "Render Devices"
+    bl_label = "Compute Devices"
     bl_idname = "RECOM_PT_device_settings"
     bl_parent_id = "RECOM_PT_render_preferences"
     bl_space_type = "VIEW_3D"
@@ -173,7 +173,7 @@ class RECOM_PT_DeviceParallel(Panel):
 
         row = parallel_col.row()
         row.active = prefs.launch_mode != MODE_LIST
-        row.prop(prefs, "frame_allocation", expand=True, text="Frame Allocation")
+        row.prop(prefs, "frame_allocation", expand=True)
 
         parallel_col.separator(factor=0.4)
         col = parallel_col.column()
@@ -212,13 +212,10 @@ class RECOM_PT_RenderOptions(Panel):
 
         col = layout.column(heading="Auto-Save")
         save_row = col.row()
-        if settings.use_external_blend:
-            save_row.active = False
         save_row.prop(prefs, "auto_save_before_render", text="Blend File")
 
-        row_sub = col.row(heading="")
-        row_sub.active = True if not settings.override_settings.output_path_override else False
-        row_sub.prop(prefs, "write_still", text="Still Render")
+        row_sub = col.row()
+        row_sub.prop(prefs, "write_still", text="Image Render")
 
         terminal_col = layout.row(heading="Terminal")
         terminal_col.prop(prefs, "keep_terminal_open", text="Keep Open")
@@ -296,10 +293,12 @@ class RECOM_PT_LogToFile(Panel):
         layout.active = prefs.log_to_file
 
         col = layout.column()
-        col.prop(prefs, "log_to_file_location", text="Save Location")
+        col.prop(prefs, "log_to_file_location")
 
         if prefs.log_to_file_location == "CUSTOM_PATH":
-            col.prop(prefs, "log_custom_path", text="", placeholder="Custom Path")
+            col.prop(prefs, "log_custom_path", text="Path", placeholder="")
+
+        col.prop(prefs, "logs_folder_name", text="Folder")
 
 
 class RECOM_PT_CustomExecPresets(PresetPanel, Panel):
@@ -359,14 +358,19 @@ class RECOM_PT_CustomExecutable(Panel):
             row_main = col.row()
             col = row_main.column()
             box = col.box()
-            row = box.row(align=True)
-            row.separator(factor=0.5)
-            col = row.column(align=True)
+            # row = box.row(align=True)
+            # row.separator(factor=0.5)
+            col = box.column()
 
             # Split info into lines
             lines = info.splitlines()
             version_line = next((line for line in lines if "Version:" in line), None)
             other_lines = [line for line in lines if "Version:" not in line]
+
+            # row = col.row(align=True)
+
+            # row.label(text="Blender Info")
+            col = col.column(align=True)
 
             row = col.row(align=True)
 
@@ -374,7 +378,6 @@ class RECOM_PT_CustomExecutable(Panel):
                 version_col = row.row(align=True)
                 version_col.active = False
                 version_col.label(text=version_line)
-
             row.menu("RECOM_MT_custom_blender", text="", icon="DOWNARROW_HLT")
 
             for line in other_lines:

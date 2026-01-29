@@ -52,6 +52,7 @@ class RECOM_PT_RenderHistoryPanel(Panel):
             prefs,
             "active_render_history_index",
             rows=4,
+            item_dyntip_propname="tooltip_display",
         )
 
         menu_row = row.column(align=True)
@@ -62,7 +63,7 @@ class RECOM_PT_RenderHistoryPanel(Panel):
 
 
 class RECOM_PT_RenderDetailsPanel(Panel):
-    bl_label = "Details"
+    bl_label = "Render Details"
     bl_idname = "RECOM_PT_render_details_panel"
     bl_parent_id = "RECOM_PT_render_history_panel"
     bl_space_type = "VIEW_3D"

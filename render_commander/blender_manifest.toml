@@ -1,6 +1,6 @@
 schema_version = "1.0.0"
 id = "render_commander"
-version = "0.1.0"
+version = "1.0.0"
 name = "Render Commander"
 tagline = "Background render launcher for Cycles & EEVEE"
 maintainer = "Nadir Perazzo"

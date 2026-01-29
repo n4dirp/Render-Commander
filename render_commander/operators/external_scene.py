@@ -8,7 +8,7 @@ import sys
 
 import bpy
 from bpy.types import Operator
-from bpy.props import StringProperty, EnumProperty
+from bpy.props import StringProperty, EnumProperty, BoolProperty
 
 from ..preferences import get_addon_preferences
 from ..utils.helpers import (
@@ -134,9 +134,11 @@ class RECOM_OT_ExtractExternalSceneData(Operator):
                     error_message = info_data.get("error", "Unknown error from external script.")
                     log.error(f"Error extracting scene info: {error_message}")
                 else:
+                    # Success
                     settings.is_scene_info_loaded = True
                     redraw_ui()
-                    log.debug("Scene Info successfully extracted.")
+                    log.info("Scene Info successfully extracted.")
+
                     # print("Full Scene Info:", info_data)  # Uncomment for verbose success
                 log.debug(f"Extraction process finished in {duration_secs:.2f} seconds")
             else:
@@ -277,6 +279,7 @@ class RECOM_OT_SelectRecentFile(Operator):
         settings.external_blend_file_path = external_blend_path
         bpy.ops.recom.extract_external_scene_data()
         settings.use_external_blend = True
+
         return {"FINISHED"}
 
 
@@ -393,11 +396,19 @@ class RECOM_OT_SelectExternalBlendFile(Operator):
     bl_idname = "recom.select_external_blend_file"
     bl_label = "Select External Blend File"
 
-    # The property that will receive the path from the file selector
-    filepath: StringProperty(subtype="FILE_PATH", options={"HIDDEN"})
+    filepath: StringProperty(
+        subtype="FILE_PATH",
+        options={"HIDDEN"},
+    )
     filter_glob: StringProperty(
         default="*.blend;*.blend1;*.blend2;*.blend3",
         options={"HIDDEN"},
+    )
+
+    read_scene: BoolProperty(
+        name="Auto-Read Scene",
+        description="Read scene information",
+        default=True,
     )
 
     def execute(self, context):
@@ -408,7 +419,7 @@ class RECOM_OT_SelectExternalBlendFile(Operator):
 
         log.info(f"External blend set to: {abs_path}")
 
-        if abs_path:
+        if self.read_scene and abs_path:
             bpy.ops.recom.extract_external_scene_data()
 
         return {"FINISHED"}

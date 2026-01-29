@@ -16,6 +16,15 @@ from ..utils.helpers import (
 log = logging.getLogger(__name__)
 
 
+class RECOM_OT_LoadingButton(Operator):
+    bl_idname = "recom.loading_button"
+    bl_label = "..."
+    bl_description = "..."
+
+    def execute(self, context):
+        return {"FINISHED"}
+
+
 class RECOM_OT_ContinueSetup(Operator):
     """Mark initial setup as complete after configuring devices"""
 
@@ -49,7 +58,7 @@ class RECOM_OT_ReinitializeDevices(Operator):
 class RECOM_OT_OpenPreferences(Operator):
     bl_idname = "recom.open_pref"
     bl_label = "Open Preferences"
-    bl_description = "Open the Render Commander preferences panel"
+    bl_description = "Open the add-on preferences panel"
 
     def execute(self, context):
         prefs = get_addon_preferences(context)
@@ -191,6 +200,7 @@ class RECOM_OT_ExportAnimation(Operator):
 
 
 classes = (
+    RECOM_OT_LoadingButton,
     RECOM_OT_ContinueSetup,
     RECOM_OT_ReinitializeDevices,
     RECOM_OT_OpenPreferences,

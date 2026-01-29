@@ -14,12 +14,50 @@ from ..preferences import get_addon_preferences
 log = logging.getLogger(__name__)
 
 
-class RECOM_OT_ImportComputeDevice(Operator):
-    bl_idname = "recom.import_compute_device"
-    bl_label = "Import Compute Device"
-    bl_description = "Set compute device based on scene"
+class RECOM_OT_ImportAllSettings(bpy.types.Operator):
+    """Import selected property values from the current scene / external blend"""
+
+    bl_idname = "recom.import_all_settings"
+    bl_label = "Import Scene Values"
 
     def execute(self, context):
+        try:
+            prefs = get_addon_preferences(context)
+            overrides = prefs.override_settings
+
+            if overrides.import_compute_device:
+                self._import_compute_device(context)
+            if overrides.import_frame_range:
+                self._import_frame_range(context)
+            if overrides.import_resolution:
+                self._import_manual_resolution(context)
+            if overrides.import_sampling:
+                self._import_sampling(context)
+            if overrides.import_light_paths:
+                self._import_light_paths(context)
+            if overrides.import_eevee_settings:
+                self._import_eevee_settings(context)
+            if overrides.import_motion_blur:
+                self._import_motion_blur(context)
+            if overrides.import_output_path:
+                self._import_output_path(context)
+            if overrides.import_output_format:
+                self._import_output_format(context)
+            if overrides.import_performance:
+                self._import_performance(context)
+            if overrides.import_compositor:
+                self._import_compositor(context)
+
+            context.area.tag_redraw()
+        except Exception as exc:
+            log.error(f"ImportAllSettings failed: {exc}", exc_info=True)
+            self.report({"ERROR"}, f"Failed to import settings: {exc}")
+            return {"CANCELLED"}
+
+        self.report({"INFO"}, "Scene Settings imported")
+        return {"FINISHED"}
+
+    def _import_compute_device(self, context):
         try:
             scene = context.scene
             if not scene:
@@ -58,13 +96,7 @@ class RECOM_OT_ImportComputeDevice(Operator):
             self.report({"ERROR"}, f"Failed to import compute device: {str(e)}")
             return {"CANCELLED"}
 
-
-class RECOM_OT_ImportFrameRange(Operator):
-    bl_idname = "recom.import_frame_range"
-    bl_label = "Import Frame Range"
-    bl_description = "Set frame range based on scene."
-
-    def execute(self, context):
+    def _import_frame_range(self, context):
         try:
             scene = context.scene
             if not scene:
@@ -108,13 +140,7 @@ class RECOM_OT_ImportFrameRange(Operator):
             self.report({"ERROR"}, f"Failed to import frame range: {str(e)}")
             return {"CANCELLED"}
 
-
-class RECOM_OT_ImportManualResolution(Operator):
-    bl_idname = "recom.import_manual_resolution"
-    bl_label = "Import Resolution"
-    bl_description = "Set resolution settings based on scene"
-
-    def execute(self, context):
+    def _import_manual_resolution(self, context):
         try:
             scene = context.scene
             if not scene:
@@ -180,13 +206,7 @@ class RECOM_OT_ImportManualResolution(Operator):
             self.report({"ERROR"}, f"Failed to import resolution: {str(e)}")
             return {"CANCELLED"}
 
-
-class RECOM_OT_ImportSampling(Operator):
-    bl_idname = "recom.import_sampling"
-    bl_label = "Import Sampling"
-    bl_description = "Set sampling settings based on scene"
-
-    def execute(self, context):
+    def _import_sampling(self, context):
         try:
             scene = context.scene
             if not scene:
@@ -211,9 +231,7 @@ class RECOM_OT_ImportSampling(Operator):
                     cycles.time_limit = info.get("time_limit", 0.0)
                     cycles.use_denoising = info.get("use_denoising", False)
                     cycles.denoiser = info.get("denoiser", "OPENIMAGEDENOISE")
-                    cycles.denoising_input_passes = info.get(
-                        "denoising_input_passes", "RGB_ALBEDO_NORMAL"
-                    )
+                    cycles.denoising_input_passes = info.get("denoising_input_passes", "RGB_ALBEDO_NORMAL")
                     cycles.denoising_prefilter = info.get("denoising_prefilter", "ACCURATE")
                     cycles.denoising_quality = info.get("denoising_quality", "HIGH")
                     cycles.denoising_use_gpu = info.get("denoising_use_gpu", False)
@@ -247,13 +265,7 @@ class RECOM_OT_ImportSampling(Operator):
             self.report({"ERROR"}, f"Failed to import sampling: {str(e)}")
             return {"CANCELLED"}
 
-
-class RECOM_OT_ImportLightPaths(Operator):
-    bl_idname = "recom.import_light_paths"
-    bl_label = "Import Light Paths"
-    bl_description = "Set light paths settings based on scene"
-
-    def execute(self, context):
+    def _import_light_paths(self, context):
         try:
             scene = context.scene
             if not scene:
@@ -312,13 +324,7 @@ class RECOM_OT_ImportLightPaths(Operator):
             self.report({"ERROR"}, f"Failed to import light paths: {str(e)}")
             return {"CANCELLED"}
 
-
-class RECOM_OT_ImportEEVEESettings(Operator):
-    bl_idname = "recom.import_eevee_settings"
-    bl_label = "Import EEVEE Settings"
-    bl_description = "Set EEVEE settings based on scene"
-
-    def execute(self, context):
+    def _import_eevee_settings(self, context):
         try:
             scene = context.scene
             if not scene:
@@ -348,9 +354,7 @@ class RECOM_OT_ImportEEVEESettings(Operator):
                     eevee.ray_tracing_resolution = info.get("eevee_ray_tracing_resolution", "2")
 
                     eevee.ray_tracing_denoise = info.get("eevee_ray_tracing_denoise", True)
-                    eevee.ray_tracing_denoise_temporal = info.get(
-                        "eevee_ray_tracing_denoise_temporal", True
-                    )
+                    eevee.ray_tracing_denoise_temporal = info.get("eevee_ray_tracing_denoise_temporal", True)
 
                     eevee.fast_gi = info.get("eevee_fast_gi", True)
                     eevee.trace_max_roughness = info.get("eevee_trace_max_roughness", 0.50)
@@ -382,9 +386,7 @@ class RECOM_OT_ImportEEVEESettings(Operator):
                 eevee.ray_tracing_method = scene.eevee.ray_tracing_method
                 eevee.ray_tracing_resolution = scene.eevee.ray_tracing_options.resolution_scale
                 eevee.ray_tracing_denoise = scene.eevee.ray_tracing_options.use_denoise
-                eevee.ray_tracing_denoise_temporal = (
-                    scene.eevee.ray_tracing_options.denoise_temporal
-                )
+                eevee.ray_tracing_denoise_temporal = scene.eevee.ray_tracing_options.denoise_temporal
 
                 eevee.fast_gi = scene.eevee.use_fast_gi
                 eevee.trace_max_roughness = scene.eevee.ray_tracing_options.trace_max_roughness
@@ -401,13 +403,7 @@ class RECOM_OT_ImportEEVEESettings(Operator):
             self.report({"ERROR"}, f"Failed to import EEVEE settings: {str(e)}")
             return {"CANCELLED"}
 
-
-class RECOM_OT_ImportMotionBlur(Operator):
-    bl_idname = "recom.import_motion_blur"
-    bl_label = "Import Motion Blur"
-    bl_description = "Set motion blur settings based on scene"
-
-    def execute(self, context):
+    def _import_motion_blur(self, context):
         try:
             scene = context.scene
             if not scene:
@@ -425,9 +421,7 @@ class RECOM_OT_ImportMotionBlur(Operator):
                     if not isinstance(info, dict):
                         raise ValueError("Invalid scene info format")
                     override_settings.use_motion_blur = info.get("use_motion_blur", False)
-                    override_settings.motion_blur_position = info.get(
-                        "motion_blur_position", "CENTER"
-                    )
+                    override_settings.motion_blur_position = info.get("motion_blur_position", "CENTER")
                     override_settings.motion_blur_shutter = info.get("motion_blur_shutter", 0.50)
                 except json.JSONDecodeError as e:
                     log.error(f"Failed to parse external scene info: {e}")
@@ -451,13 +445,7 @@ class RECOM_OT_ImportMotionBlur(Operator):
             self.report({"ERROR"}, f"Failed to import motion blur: {str(e)}")
             return {"CANCELLED"}
 
-
-class RECOM_OT_ImportOutputPath(Operator):
-    bl_idname = "recom.import_output_path"
-    bl_label = "Import Output Path"
-    bl_description = "Set output path settings based on scene"
-
-    def execute(self, context):
+    def _import_output_path(self, context):
         try:
             scene = context.scene
             if not scene:
@@ -504,13 +492,7 @@ class RECOM_OT_ImportOutputPath(Operator):
             self.report({"ERROR"}, f"Failed to import output path: {str(e)}")
             return {"CANCELLED"}
 
-
-class RECOM_OT_ImportOutputFormat(Operator):
-    bl_idname = "recom.import_output_format"
-    bl_label = "Import Output File Format"
-    bl_description = "Set output file format based on scene"
-
-    def execute(self, context):
+    def _import_output_format(self, context):
         try:
             scene = context.scene
             if not scene:
@@ -528,22 +510,18 @@ class RECOM_OT_ImportOutputFormat(Operator):
                     if not isinstance(info, dict):
                         raise ValueError("Invalid scene info format")
 
-                    output_format = info.get("output_format", "OPEN_EXR")
+                    file_format = info.get("file_format", "PNG")
                     color_depth_value = str(info.get("color_depth", "16"))
 
-                    valid_options = (
-                        ["16", "32"]
-                        if output_format in ["OPEN_EXR", "OPEN_EXR_MULTILAYER"]
-                        else ["8", "16"]
-                    )
+                    valid_options = ["16", "32"] if file_format in ["OPEN_EXR", "OPEN_EXR_MULTILAYER"] else ["8", "16"]
 
                     if color_depth_value not in valid_options:
                         log.warning(
-                            f"Invalid color depth '{color_depth_value}' for format '{output_format}'. Using '16' as default."
+                            f"Invalid color depth '{color_depth_value}' for format '{file_format}'. Using '16' as default."
                         )
                         color_depth_value = "16"
 
-                    override_settings.file_format = output_format
+                    override_settings.file_format = file_format
                     override_settings.color_depth = color_depth_value
                     override_settings.codec = info.get("exr_codec", "ZIP")
                     override_settings.jpeg_quality = info.get("jpeg_quality", 85)
@@ -570,13 +548,7 @@ class RECOM_OT_ImportOutputFormat(Operator):
             self.report({"ERROR"}, f"Failed to import output format: {str(e)}")
             return {"CANCELLED"}
 
-
-class RECOM_OT_ImportPerformance(Operator):
-    bl_idname = "recom.import_performance"
-    bl_label = "Import Performance Settings"
-    bl_description = "Import performance settings from scene or external data"
-
-    def execute(self, context):
+    def _import_performance(self, context):
         try:
             scene = context.scene
             if not scene:
@@ -624,13 +596,7 @@ class RECOM_OT_ImportPerformance(Operator):
             self.report({"ERROR"}, f"Failed to import performance settings: {str(e)}")
             return {"CANCELLED"}
 
-
-class RECOM_OT_ImportCompositor(Operator):
-    bl_idname = "recom.import_compositor"
-    bl_label = "Import Compositor"
-    bl_description = "Set compositor settings based on scene"
-
-    def execute(self, context):
+    def _import_compositor(self, context):
         try:
             scene = context.scene
             if not scene:
@@ -650,8 +616,9 @@ class RECOM_OT_ImportCompositor(Operator):
                     use_compositor = info.get("use_compositor", False)
                     compositor_device = info.get("compositor_device", "CPU")
                 else:
+                    use_compositor = False
                     if bpy.app.version >= (5, 0, 0):
-                        use_compositor = scene.compositing_node_group
+                        use_compositor = True if scene.compositing_node_group else False
                     else:
                         use_compositor = scene.use_nodes
                     compositor_device = scene.render.compositor_device
@@ -681,7 +648,7 @@ class RECOM_OT_ImportFromCyclesSettings(Operator):
     """Import device settings from Blender's Cycles settings"""
 
     bl_idname = "recom.import_from_cycles_settings"
-    bl_label = "Import from Cycles Settings"
+    bl_label = "Import Device Settings"
     bl_description = "Get device settings from Blender's Cycles settings"
 
     def execute(self, context):
@@ -694,17 +661,7 @@ class RECOM_OT_ImportFromCyclesSettings(Operator):
 
 
 classes = (
-    RECOM_OT_ImportComputeDevice,
-    RECOM_OT_ImportFrameRange,
-    RECOM_OT_ImportManualResolution,
-    RECOM_OT_ImportSampling,
-    RECOM_OT_ImportLightPaths,
-    RECOM_OT_ImportEEVEESettings,
-    RECOM_OT_ImportMotionBlur,
-    RECOM_OT_ImportOutputPath,
-    RECOM_OT_ImportOutputFormat,
-    RECOM_OT_ImportPerformance,
-    RECOM_OT_ImportCompositor,
+    RECOM_OT_ImportAllSettings,
     RECOM_OT_ImportFromCyclesSettings,
 )
 

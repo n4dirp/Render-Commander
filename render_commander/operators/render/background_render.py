@@ -45,11 +45,12 @@ from .generate_scripts import (
     _add_prevent_sleep_commands,
 )
 
-log = logging.getLogger(__name__)
-
 _IS_WINDOWS = sys.platform == "win32"
 _IS_MACOS = sys.platform == "darwin"
 _IS_LINUX = sys.platform.startswith("linux")
+
+
+log = logging.getLogger(__name__)
 
 
 @dataclass
@@ -65,11 +66,9 @@ class RenderJobChunk:
 
 
 class RECOM_OT_ExportRenderScript(Operator):
-    """Open file browser to select export location, then trigger generation."""
-
     bl_idname = "recom.export_render_script"
     bl_label = "Export Render Scripts"
-    bl_description = "Select a folder to save the execution files"
+    bl_description = "Export script render files"
     bl_options = {"REGISTER", "INTERNAL"}
 
     directory: StringProperty(
@@ -124,10 +123,14 @@ class RECOM_OT_ExportRenderScript(Operator):
         try:
             bpy.ops.recom.background_render(action_type="EXPORT", directory=self.directory)
 
+            prefs = get_addon_preferences(context)
             settings = context.window_manager.recom_render_settings
-            target_dir = Path(self.directory) / EXPORT_SCRIPTS_FOLDER_NAME
 
-            self.report({"INFO"}, f"Render scripts exported ({settings.render_id}): '{str(target_dir)}'")
+            target_dir = Path(self.directory) / prefs.export_scripts_folder_name
+
+            self.report({"INFO"}, f"Render scripts exported ({settings.render_id})")
+            log.info(f"Render scripts exported to: '{str(target_dir)}'")
+
         except Exception as exc:
             self.report({"ERROR"}, f"Failed to export; check the console for details")
             log.error(f"Failed to export the render scripts to '{self.directory}': {exc}")
@@ -507,7 +510,7 @@ class RECOM_OT_BackgroundRender(Operator):
         """Unified method to generate scripts for all chunks and execute them."""
 
         if self.action_type == "EXPORT":
-            target_dir = Path(self.directory) / EXPORT_SCRIPTS_FOLDER_NAME
+            target_dir = Path(self.directory) / prefs.export_scripts_folder_name
         else:
             target_dir = get_addon_temp_dir(prefs)
 
@@ -916,7 +919,11 @@ class RECOM_OT_BackgroundRender(Operator):
                 f'echo "Launching {len(script_paths)} processes for ID: {render_id}"',
                 "",
             ]
-            term_cmd = self._get_linux_terminal_command(prefs)
+
+            if _IS_MACOS:
+                term_cmd = "open -a Terminal"
+            else:
+                term_cmd = self._get_linux_terminal_command(prefs)
 
             for i, path in enumerate(script_paths):
                 if i > 0 and prefs.parallel_delay > 0:
@@ -968,7 +975,8 @@ class RECOM_OT_BackgroundRender(Operator):
                     subprocess.Popen(["start", "", script_str], shell=True)
 
             elif _IS_MACOS:
-                subprocess.Popen(["open", "-a", "Terminal", script_str])
+                # subprocess.Popen(["open", "-a", "Terminal", script_str])
+                subprocess.Popen([str(script_path)])
 
             elif _IS_LINUX:
                 try:
@@ -1028,7 +1036,8 @@ class RECOM_OT_BackgroundRender(Operator):
                     if start == end:
                         self.report({"ERROR"}, "Frame Start must be less than Frame End.")
                         prefs.launch_mode = MODE_SINGLE
-                        return None
+
+                        return (start, end, 1)
                     raise ValueError("Frame start must be less than frame end.")
                 return (start, end, step)
 
@@ -1218,17 +1227,18 @@ class RECOM_OT_BackgroundRender(Operator):
             return None
 
         if prefs.log_to_file_location == "EXECUTION_FILES" and target_dir:
-            log_folder = Path(target_dir)
+            log_folder = Path(target_dir) / prefs.logs_folder_name
             log_folder.mkdir(exist_ok=True)
             return log_folder
 
         log_folder = Path(blend_file).parent
         if prefs.log_to_file_location == "BLEND_PATH" and prefs.save_to_log_folder:
-            log_folder = log_folder / RENDER_LOGS_FOLDER_NAME
+            log_folder = log_folder / prefs.logs_folder_name
             log_folder.mkdir(exist_ok=True)
 
         elif prefs.log_to_file_location == "CUSTOM_PATH":
             log_folder = Path(bpy.path.abspath(prefs.log_custom_path)) or Path(get_addon_temp_dir(prefs))
+            logs_folder = log_folder / prefs.logs_folder_name
 
         return log_folder
 

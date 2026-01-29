@@ -1,4 +1,5 @@
 import time
+import os
 from pathlib import Path
 
 import bpy
@@ -59,38 +60,12 @@ class RECOM_OT_SelectOutputDirectory(Operator):
         return {"RUNNING_MODAL"}
 
 
-class RECOM_OT_OPCopyText(Operator):
-    """Copy the resolved output directory path to clipboard for external use"""
-
-    bl_idname = "recom.op_copy_text"
-    bl_label = "Copy Folder Path"
-    bl_description = "Copy the resolved output directory path to the clipboard"
-
-    def execute(self, context):
-        settings = context.window_manager.recom_render_settings
-        # Resolve the output path
-        settings.override_settings.on_output_path_changed(context)
-
-        full_path = settings.override_settings.resolved_directory
-        if (
-            full_path
-            and full_path not in ["Unknown", "Preview disabled"]
-            and not full_path.startswith("Error")
-        ):
-            folder_path = Path(full_path)
-            context.window_manager.clipboard = str(folder_path)
-            self.report({"INFO"}, f"Copied: '{folder_path}'")
-        else:
-            self.report({"WARNING"}, "Path not resolved or invalid.")
-        return {"FINISHED"}
-
-
 class RECOM_OT_OpenFolder(Operator):
     """Open or create output folder directory"""
 
     bl_idname = "recom.open_folder"
     bl_label = "Open Output Path"
-    bl_description = "Open the resolved output directory (creates folder if needed)"
+    bl_description = "Open the resolved output directory"
 
     folder_to_create: StringProperty()
 
@@ -101,11 +76,7 @@ class RECOM_OT_OpenFolder(Operator):
 
         full_path = settings.override_settings.resolved_directory
 
-        if (
-            not full_path
-            or full_path in ["Unknown", "Preview disabled"]
-            or full_path.startswith("Error")
-        ):
+        if not full_path or full_path in ["Unknown", "Preview disabled"] or full_path.startswith("Error"):
             self.report({"WARNING"}, "Path is invalid.")
             return {"CANCELLED"}
 
@@ -121,25 +92,17 @@ class RECOM_OT_OpenFolder(Operator):
     def draw(self, context):
         layout = self.layout
         folder_path = self.folder_to_create if hasattr(self, "folder_to_create") else "N/A"
+        col = layout.column(align=True)
 
-        col = layout.column()
+        row = col.row()
+        row.alignment = "CENTER"
 
-        box = col.box()
-        box.active = False
-        label_row = box.row(align=True)
-        label_row.alignment = "CENTER"
-        label_row.label(text=f"Folder does not exist:")
-
-        path_row = box.row(align=True)
-        path_row.alignment = "CENTER"
-        path_row.label(text=f'"{folder_path}"')
-
-        col.separator(factor=2.0)
-
-        q_row = col.row(align=True)
-        q_row.alignment = "CENTER"
-        q_row.label(text="Create folder?", icon="QUESTION")
-        col.separator(factor=1.0)
+        # col.label(text=f"Folder does not exist:")
+        # col.separator()
+        row.label(text="Create folder?")
+        row = col.row()
+        row.alignment = "CENTER"
+        row.label(text=f"'{folder_path}'")
 
     def execute(self, context):
         open_folder(self.folder_to_create)
@@ -195,7 +158,7 @@ class RECOM_OT_ShowTooltip(Operator):
 
     bl_idname = "recom.show_tooltip"
     bl_label = "Show Full Path"
-    bl_description = "Resolved Oputput Path\nSingle-Click: Refresh / Double-Click: Show popup."
+    bl_description = "Resolved Oputput Path"
 
     _last_click_time = 0.0
     _double_click_delay = 0.3  # seconds
@@ -211,7 +174,12 @@ class RECOM_OT_ShowTooltip(Operator):
             text_to_show = str(Path(folder) / filename)
 
             if not filename:
-                text_to_show = text_to_show.rstrip("/") + "/"
+                # Build the folder path first
+                text_to_show = str(Path(folder))
+                sep = os.sep  # '\\' on Windows, '/' elsewhere
+                # Add a single trailing separator only when missing
+                if not text_to_show.endswith(sep):
+                    text_to_show += sep
 
             context.window_manager.popup_menu(
                 lambda self, context: self.layout.label(text=f"{text_to_show}", icon="FILEBROWSER"),
@@ -241,8 +209,7 @@ class RECOM_OT_RefreshResolvedPath(Operator):
         settings.override_settings.resolved_filename = ""
         settings.override_settings.on_output_path_changed(context)
         resolved_path = (
-            Path(settings.override_settings.resolved_directory)
-            / settings.override_settings.resolved_filename
+            Path(settings.override_settings.resolved_directory) / settings.override_settings.resolved_filename
         )
 
         if settings.override_settings.resolved_directory:
@@ -252,7 +219,6 @@ class RECOM_OT_RefreshResolvedPath(Operator):
 
 classes = (
     RECOM_OT_SelectOutputDirectory,
-    RECOM_OT_OPCopyText,
     RECOM_OT_OpenFolder,
     RECOM_OT_InsertVariable,
     RECOM_OT_ShowTooltip,

@@ -69,7 +69,14 @@ class RECOM_OT_ScriptAddItem(Operator):
     bl_description = "Add a new script to the list"
     bl_options = {"REGISTER", "UNDO"}
 
-    order: EnumProperty(items=[("PRE", "Pre", ""), ("POST", "Post", "")])
+    order: EnumProperty(
+        name="Execution Order",
+        items=[
+            ("PRE", "Pre-Render", "Run before render"),
+            ("POST", "Post-Render", "Run after render"),
+        ],
+        default="PRE",
+    )
 
     filepath: StringProperty(
         name="File Path",

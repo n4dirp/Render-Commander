@@ -1,6 +1,7 @@
 # ./properties/properties.py
 
 import logging
+import os
 from pathlib import Path
 
 import bpy
@@ -29,7 +30,10 @@ log = logging.getLogger(__name__)
 class RECOM_PG_CyclesRenderOverrides(PropertyGroup):
     """Stores Cycles render override settings"""
 
-    device_override: BoolProperty(name="Override Compute Device", default=False)
+    device_override: BoolProperty(
+        name="Override Compute Device",
+        default=False,
+    )
     device: EnumProperty(
         name="",
         items=[
@@ -72,19 +76,19 @@ class RECOM_PG_CyclesRenderOverrides(PropertyGroup):
         default=2048,
         min=1,
         max=32768,
-        description="Number of samples to render for each pixel.",
+        description="Number of samples to render for each pixel",
         update=lambda self, context: redraw_ui(),
     )
     adaptive_min_samples: IntProperty(
         name="Adaptive Min Samples",
-        description="Minimum AA samples for adaptive sampling, to discover noisy features before stopping sampling.\nZero for automatic setting based on noise threshold",
+        description="Minimum AA samples for adaptive sampling, to discover noisy features before stopping sampling.\nZero for automatic setting based on noise threshold.",
         min=0,
         max=4096,
         default=0,
     )
     time_limit: FloatProperty(
         name="Time Limit",
-        description="Limit the render time (excluding synchronization time). " "Zero disables the limit",
+        description="Limit the render time (excluding synchronization time). " "Zero disables the limit.",
         min=0.0,
         default=0.0,
         step=100.0,
@@ -95,7 +99,7 @@ class RECOM_PG_CyclesRenderOverrides(PropertyGroup):
     use_denoising: BoolProperty(
         name="Use Denoising",
         default=False,
-        description="Toggle denoising during rendering.",
+        description="Toggle denoising during rendering",
     )
     denoiser: EnumProperty(
         name="Denoiser",
@@ -139,7 +143,7 @@ class RECOM_PG_CyclesRenderOverrides(PropertyGroup):
     denoising_use_gpu: BoolProperty(
         name="Use GPU",
         default=True,
-        description="Enable GPU acceleration for denoising.",
+        description="Enable GPU acceleration for denoising",
     )
     denoising_store_passes: BoolProperty(
         name="Enable Denoising Data",
@@ -173,21 +177,21 @@ class RECOM_PG_CyclesRenderOverrides(PropertyGroup):
     )
     transmission_bounces: IntProperty(
         name="Transmission",
-        description="Maximum number of transmission bounces for transparent and refractive surfaces like glass.",
+        description="Maximum number of transmission bounces for transparent and refractive surfaces like glass",
         default=12,
         min=0,
         max=1024,
     )
     volume_bounces: IntProperty(
         name="Volume",
-        description="Maximum number of light bounces inside volumetric objects (e.g., smoke, fog).",
+        description="Maximum number of light bounces inside volumetric objects (e.g., smoke, fog)",
         default=0,
         min=0,
         max=1024,
     )
     transparent_bounces: IntProperty(
         name="Transparent",
-        description="Maximum number of transparent bounces (used for materials like glass or alpha-mapped textures).",
+        description="Maximum number of transparent bounces (used for materials like glass or alpha-mapped textures)",
         default=8,
         min=0,
         max=1024,
@@ -232,28 +236,28 @@ class RECOM_PG_CyclesRenderOverrides(PropertyGroup):
     use_tiling: BoolProperty(
         name="Use Tiling",
         default=True,
-        description="Enable tiling for memory optimization.",
+        description="Enable tiling for memory optimization",
     )
     tile_size: IntProperty(
         name="Tile Size",
         default=2048,
         min=8,
-        description="Set the tile size for rendering (in pixels).",
+        description="Set the tile size for rendering (in pixels)",
     )
     use_spatial_splits: BoolProperty(
         name="Use Spatial Splits",
         default=True,
-        description="Enable spatial splits for BVH optimization.",
+        description="Enable spatial splits for BVH optimization",
     )
     use_compact_bvh: BoolProperty(
         name="Use Compact BVH",
         default=False,
-        description="Enable compact BVH for memory efficiency.",
+        description="Enable compact BVH for memory efficiency",
     )
     persistent_data: BoolProperty(
         name="Persistent Data",
         default=True,
-        description="Enable persistent data for faster re-rendering.",
+        description="Enable persistent data for faster re-rendering",
     )
 
 
@@ -402,31 +406,31 @@ class RECOM_PG_OverrideSettings(PropertyGroup):
     )
     frame_current: IntProperty(
         name="",
-        description="Specify the exact frame number to render (e.g., for still images).",
+        description="Specify the exact frame number to render (e.g., for still images)",
         default=1,
         min=0,
     )
     frame_start: IntProperty(
         name="",
-        description="Define the start frame for animation rendering.",
+        description="Define the start frame for animation rendering",
         default=1,
         min=0,
     )
     frame_end: IntProperty(
         name="",
-        description="Define the end frame for animation rendering.",
+        description="Define the end frame for animation rendering",
         default=250,
         min=0,
     )
     frame_step: IntProperty(
         name="",
-        description="Define the interval between frames to render.",
+        description="Define the interval between frames to render",
         default=1,
         min=1,
     )
     fps: IntProperty(
         name="",
-        description="Define the interval between frames to render.",
+        description="Define the interval between frames to render",
         default=30,
         min=1,
     )
@@ -472,12 +476,12 @@ class RECOM_PG_OverrideSettings(PropertyGroup):
             (
                 "SET_WIDTH",
                 "Set Width",
-                "Specify the width; height will be calculated automatically to maintain the scene's aspect ratio",
+                "Specify the width; height will be calculated automatically to maintain the scene's aspect ratio.",
             ),
             (
                 "SET_HEIGHT",
                 "Set Height",
-                "Specify the height; width will be calculated automatically to maintain the scene's aspect ratio",
+                "Specify the height; width will be calculated automatically to maintain the scene's aspect ratio.",
             ),
         ],
         default="CUSTOM",
@@ -510,13 +514,13 @@ class RECOM_PG_OverrideSettings(PropertyGroup):
     cached_auto_width: IntProperty(
         name="Cached Auto Width",
         default=0,
-        description="Cached width that keeps the aspect ratio when SET_HEIGHT is active.",
+        description="Cached width that keeps the aspect ratio when SET_HEIGHT is active",
         subtype="PIXEL",
     )
     cached_auto_height: IntProperty(
         name="Cached Auto Height",
         default=0,
-        description="Cached height that keeps the aspect ratio when SET_WIDTH is active.",
+        description="Cached height that keeps the aspect ratio when SET_WIDTH is active",
         subtype="PIXEL",
     )
     render_scale: EnumProperty(
@@ -535,7 +539,7 @@ class RECOM_PG_OverrideSettings(PropertyGroup):
         ],
         default="1.00",
         description=(
-            "Resolution scaling factor\n" ">100% for supersampling (sharper results)\n" "<100% for faster previews"
+            "Resolution scaling factor.\n" ">100% for supersampling (sharper results).\n" "<100% for faster previews."
         ),
     )
     custom_render_scale: IntProperty(
@@ -550,7 +554,7 @@ class RECOM_PG_OverrideSettings(PropertyGroup):
     # Overscan
     use_overscan: BoolProperty(
         name="Use Resolution Overscan",
-        description="Add extra pixels or a percentage around the final image.",
+        description="Add extra pixels or a percentage around the final image",
         default=False,
     )
     overscan_type: EnumProperty(
@@ -564,7 +568,7 @@ class RECOM_PG_OverrideSettings(PropertyGroup):
     )
     overscan_percent: FloatProperty(
         name="Overscan %",
-        description="Percentage to add around the image.",
+        description="Percentage to add around the image",
         min=0.0,
         soft_max=30.0,
         default=5.0,
@@ -573,19 +577,19 @@ class RECOM_PG_OverrideSettings(PropertyGroup):
     )
     overscan_uniform: BoolProperty(
         name="Uniform Overscan",
-        description="Apply the same pixel value to both width and height.",
+        description="Apply the same pixel value to both width and height",
         default=True,
     )
     overscan_width: IntProperty(
         name="Width Overscan",
-        description="Extra pixels added to the left and right sides.",
+        description="Extra pixels added to the left and right sides",
         min=0,
         default=50,
         subtype="PIXEL",
     )
     overscan_height: IntProperty(
         name="Height Overscan",
-        description="Extra pixels added to the top and bottom sides.",
+        description="Extra pixels added to the top and bottom sides",
         min=0,
         default=50,
         subtype="PIXEL",
@@ -594,7 +598,7 @@ class RECOM_PG_OverrideSettings(PropertyGroup):
     # Lens Shift
     camera_shift_override: BoolProperty(
         name="Add Lens Shift",
-        description="Apply shift settings to all cameras in the scene.",
+        description="Apply shift settings to all cameras in the scene",
         default=False,
     )
     camera_shift_x: FloatProperty(
@@ -661,13 +665,13 @@ class RECOM_PG_OverrideSettings(PropertyGroup):
 
         if file_format in ["OPEN_EXR", "OPEN_EXR_MULTILAYER"]:
             return [
-                ("16", "Float (Half)", "16-bit color channels."),
-                ("32", "Float (Full)", "32-bit color channels."),
+                ("16", "Float (Half)", "16-bit color channels"),
+                ("32", "Float (Full)", "32-bit color channels"),
             ]
         else:
             return [
-                ("8", "8", "8-bit color channels."),
-                ("16", "16", "16-bit color channels."),
+                ("8", "8", "8-bit color channels"),
+                ("16", "16", "16-bit color channels"),
             ]
 
     color_depth: EnumProperty(
@@ -694,8 +698,11 @@ class RECOM_PG_OverrideSettings(PropertyGroup):
                     folder_path_display = str(get_default_render_output_path())
 
                 # Ensure trailing slash for display
-                if folder_path_display and not folder_path_display.endswith(("/", "\\")):
-                    folder_path_display += "/"
+                # if folder_path_display and not folder_path_display.endswith(("/", "\\")):
+                #    folder_path_display += "/"
+
+                if folder_path_display and not folder_path_display.endswith(os.sep):
+                    folder_path_display += os.sep
 
                 self.resolved_directory = folder_path_display
 
@@ -721,14 +728,14 @@ class RECOM_PG_OverrideSettings(PropertyGroup):
         # subtype="DIR_PATH",
         options={"OUTPUT_PATH"},
         default="{blend_dir}/render/",
-        description="Specify the directory where rendered files will be saved.",
+        description="Specify the directory where rendered files will be saved",
         update=on_output_path_changed,
     )
     output_filename: StringProperty(
         name="Output Filename",
         default="{blend_name}",
         subtype="FILE_NAME",
-        description="Specify the filename pattern for rendered files.",
+        description="Specify the filename pattern for rendered files",
         update=on_output_path_changed,
     )
     variable_insert_target: EnumProperty(
@@ -741,17 +748,17 @@ class RECOM_PG_OverrideSettings(PropertyGroup):
     )
     resolved_directory: StringProperty(
         name="Resolved Directory",
-        description="Cached version of the resolved directory path.",
+        description="Cached version of the resolved directory path",
         default="",
     )
     resolved_filename: StringProperty(
         name="Resolved Filename",
-        description="Cached version of the resolved file name path.",
+        description="Cached version of the resolved file name path",
         default="",
     )
     resolved_path: StringProperty(
         name="Resolved Output Path",
-        description="Cached version of the resolved output path.",
+        description="Cached version of the resolved output path",
         default="",
     )
 
@@ -763,7 +770,7 @@ class RECOM_PG_OverrideSettings(PropertyGroup):
     use_motion_blur: BoolProperty(
         name="Enable Motion Blur",
         default=True,
-        description="Enable motion blur.",
+        description="Enable motion blur",
     )
     motion_blur_position: EnumProperty(
         name="Motion Blur Position",
@@ -784,7 +791,7 @@ class RECOM_PG_OverrideSettings(PropertyGroup):
     use_compositor: BoolProperty(
         name="Use Compositor Nodes",
         default=True,
-        description="Enable the compositing node tree.",
+        description="Enable the compositing node tree",
     )
     compositor_device: EnumProperty(
         name="Compositor Device",
@@ -793,12 +800,12 @@ class RECOM_PG_OverrideSettings(PropertyGroup):
             ("GPU", "GPU", "Use GPU for compositing"),
         ],
         default="GPU",
-        description="Set the device used for compositing.",
+        description="Set the device used for compositing",
     )
     compositor_disable_output_files: BoolProperty(
         name="Bypass File Outputs",
         default=False,
-        description="Muted all File Output nodes in the compositor.",
+        description="Muted all File Output nodes in the compositor",
     )
 
 

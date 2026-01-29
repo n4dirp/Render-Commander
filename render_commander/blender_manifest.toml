@@ -1,6 +1,6 @@
 schema_version = "1.0.0"
 id = "render_commander"
-version = "0.9.99"
+version = "0.1.0"
 name = "Render Commander"
 tagline = "Background render launcher for Cycles & EEVEE"
 maintainer = "Nadir Perazzo"
@@ -32,4 +32,3 @@ wheels = [
 ]
 [permissions]
 files = "Render output files and temporary data used during rendering"
-clipboard = "Copy render output paths to the clipboard for quick access"

@@ -288,9 +288,7 @@ def replace_variables(path_template: str) -> str:
                 samples_val = info.get("samples", "0")
                 noise_threshold_val = info.get("adaptive_threshold", "0")
             elif scene and scene.cycles:
-                samples_val = str(
-                    getattr(scene.cycles, "samples", getattr(scene.cycles, "aa_samples", 0))
-                )
+                samples_val = str(getattr(scene.cycles, "samples", getattr(scene.cycles, "aa_samples", 0)))
                 thresh = getattr(scene.cycles, "adaptive_threshold", 0.0)
                 noise_threshold_val = f"{thresh:.4f}"
             else:
@@ -388,7 +386,7 @@ def redraw_ui() -> None:
         for area in window.screen.areas:
             if area.type == "VIEW_3D":
                 area.tag_redraw()
-    # bpy.context.window_manager.update_tag()
+    bpy.context.window_manager.update_tag()
 
 
 def is_blender_blend_file(file_path: str) -> bool:
@@ -533,9 +531,7 @@ def run_in_terminal(prefs, command: str, keep_open: bool = False) -> bool:
         if prefs.set_linux_terminal:
             terminal_cmd = terminal_commands.get(prefs.linux_terminal, DEFAULT_TERMINAL)
         else:
-            terminal_cmd = next(
-                (t for t in terminal_commands.values() if shutil.which(t)), DEFAULT_TERMINAL
-            )
+            terminal_cmd = next((t for t in terminal_commands.values() if shutil.which(t)), DEFAULT_TERMINAL)
 
         if not shutil.which(terminal_cmd):
             log.warning(f"Preferred terminal '{terminal_cmd}' not found. Falling back to xterm.")
@@ -543,14 +539,10 @@ def run_in_terminal(prefs, command: str, keep_open: bool = False) -> bool:
 
         terminal_args = {
             "gnome-terminal": f'-- bash -c "{command}{"; exec bash" if keep_open else ""}"',
-            "xfce4-terminal": f'--hold --command="{command}"'
-            if keep_open
-            else f'--command="{command}"',
+            "xfce4-terminal": f'--hold --command="{command}"' if keep_open else f'--command="{command}"',
             "konsole": f'--hold -e bash -c "{command}"' if keep_open else f'-e bash -c "{command}"',
             "xterm": f'-hold -e bash -c "{command}"' if keep_open else f'-e bash -c "{command}"',
-            "terminator": f'-x bash -c "{command}; bash"'
-            if keep_open
-            else f'-x bash -c "{command}"',
+            "terminator": f'-x bash -c "{command}; bash"' if keep_open else f'-x bash -c "{command}"',
         }
 
         final_args = terminal_args.get(terminal_cmd, f'-e bash -c "{command}"')
@@ -595,13 +587,7 @@ def launch_cmd(
     command_parts = []
 
     if title:
-        safe_title = (
-            title.replace('"', "")
-            .replace("&", "")
-            .replace("|", "")
-            .replace(">", "")
-            .replace("<", "")
-        )
+        safe_title = title.replace('"', "").replace("&", "").replace("|", "").replace(">", "").replace("<", "")
         command_parts.append(f'title "{safe_title}"')
     command_parts.append(command)
 

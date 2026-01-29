@@ -61,10 +61,10 @@ def on_render_post(scene):
             remaining_seconds = remaining_frames * avg_per_frame
             eta_str = format_duration(remaining_seconds)
 
-        print(f"Render Progress: [{bar}] {percent*100:.1f}% | Frame {current_count}/{total_frames} | ETA: {eta_str}")
+        print(f"Progress: [{bar}] {percent*100:.1f}% | Frame {current_count}/{total_frames} | ETA: {eta_str}")
 
     except Exception as exc:
-        print(f"Render Progress bar error: {exc}")
+        print(f"Progress bar error: {exc}")
 
 
 @persistent

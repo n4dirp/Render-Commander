@@ -47,7 +47,7 @@ class RECOM_PG_RenderSettings(PropertyGroup):
 
     frame_list: StringProperty(
         name="Frame List",
-        description="Frame numbers or ranges separated by commas.\nExample: 1, 2, 5-8",
+        description="Frame numbers or ranges separated by commas.\nExample: 1, 2, 5-8.",
         default="",
         update=_sanitize_frame_list,
     )
@@ -62,7 +62,7 @@ class RECOM_PG_RenderSettings(PropertyGroup):
     use_external_blend: BoolProperty(
         name="Use External Blend File",
         default=False,
-        description="Render external blend file instead of current scene.",
+        description="Render external blend file instead of current scene",
         update=lambda self, context: redraw_ui(),
     )
     external_blend_file_path: StringProperty(
@@ -87,7 +87,7 @@ class RECOM_PG_RenderSettings(PropertyGroup):
     use_override_settings: BoolProperty(
         name="Use Override Settings",
         default=False,
-        description="Apply custom render settings overrides.",
+        description="Apply custom render settings overrides",
     )
     override_settings: PointerProperty(type=RECOM_PG_OverrideSettings)
 
@@ -114,7 +114,7 @@ class RECOM_PG_RenderSettings(PropertyGroup):
     )
     disable_render_button: BoolProperty(
         name="Disable Render Button",
-        description="Internal flag to disable the render button.",
+        description="Internal flag to disable the render button",
         default=False,
     )
 

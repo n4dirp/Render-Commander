@@ -64,7 +64,7 @@ def get_prevent_sleep_description():
     elif _IS_LINUX:
         return "Keep the computer awake while rendering.\n" "Uses 'systemd-inhibit' to prevent suspend."
     else:
-        return "Keep the computer awake while rendering."
+        return "Keep the computer awake while rendering"
 
 
 # Device settings
@@ -72,7 +72,8 @@ class RECOM_PG_DeviceSettings(PropertyGroup):
     id: StringProperty(name="ID")
     name: StringProperty(name="Name")
     use: BoolProperty(
-        name="Use",
+        name="Enable",
+        description="Enable this device for rendering",
         default=False,
     )
     type: EnumProperty(
@@ -86,7 +87,7 @@ class RECOM_PG_DeviceSettings(PropertyGroup):
 class RECOM_PG_ScriptEntry(PropertyGroup):
     script_path: StringProperty(
         name="Script Path",
-        description="Path to a Python script to append during rendering.",
+        description="Python script to run before or after render",
         default="",
         subtype="FILE_PATH",
         update=lambda self, context: redraw_ui(),
@@ -105,18 +106,18 @@ class RECOM_PG_ScriptEntry(PropertyGroup):
 # Custom path variables for output paths
 class RECOM_PG_CustomVariable(PropertyGroup):
     name: StringProperty(
-        name="Name",
-        description="Custom Variable Name.",
+        name="Variable Name",
+        description="Custom variable name (e.g. 'scene')",
         update=lambda self, context: redraw_ui(),
     )
     token: StringProperty(
-        name="Token",
-        description="Placeholder that will be inserted into paths (e.g. CUSTOM_VAR).",
+        name="Placeholder Token",
+        description="Token used in paths (e.g. '{variable}')",
         update=lambda self, context: redraw_ui(),
     )
     value: StringProperty(
-        name="Value",
-        description="The string that replaces the token when rendering.",
+        name="Replacement Value",
+        description="Value to replace the placeholder token",
         update=lambda self, context: redraw_ui(),
     )
 
@@ -147,17 +148,18 @@ class RECOM_PG_RecentFile(PropertyGroup):
 # Visibility settings for addon panels
 class RECOM_PG_VisiblePanels(PropertyGroup):
     external_scene: BoolProperty(
-        name="External Scene",
+        name="External Blend File",
         default=True,
         update=lambda self, context: redraw_ui(),
     )
     external_scene_details: BoolProperty(
+        name="External Scene Details",
+        description="Display external scene information in the UI",
         default=True,
-        name="External Scene",
     )
 
     override_settings: BoolProperty(
-        name="Override Settings",
+        name="Scene Overrides",
         default=True,
         update=lambda self, context: redraw_ui(),
     )
@@ -167,7 +169,7 @@ class RECOM_PG_VisiblePanels(PropertyGroup):
     )
     resolution: BoolProperty(
         default=True,
-        name="Resolution",
+        name="Format",
     )
     overscan: BoolProperty(
         default=True,
@@ -211,7 +213,7 @@ class RECOM_PG_VisiblePanels(PropertyGroup):
     )
 
     preferences: BoolProperty(
-        name="Render Preferences",
+        name="Preferences",
         default=True,
         update=lambda self, context: redraw_ui(),
     )
@@ -241,14 +243,30 @@ class RECOM_PG_VisiblePanels(PropertyGroup):
     )
 
     history: BoolProperty(
-        name="Render History",
+        name="History",
         default=False,
         update=lambda self, context: redraw_ui(),
     )
     render_details: BoolProperty(
-        default=False,
+        default=True,
         name="History Entry Info",
     )
+
+
+class RECOM_PG_OverrideSettings(PropertyGroup):
+    """Import‑group toggles"""
+
+    import_compute_device: BoolProperty(name="Compute Device")
+    import_frame_range: BoolProperty(name="Frame Range")
+    import_resolution: BoolProperty(name="Resolution")
+    import_sampling: BoolProperty(name="Sampling")
+    import_light_paths: BoolProperty(name="Light Paths")
+    import_eevee_settings: BoolProperty(name="EEVEE Settings")
+    import_motion_blur: BoolProperty(name="Motion Blur")
+    import_output_path: BoolProperty(name="Output Path")
+    import_output_format: BoolProperty(name="File Format")
+    import_performance: BoolProperty(name="Performance")
+    import_compositor: BoolProperty(name="Compositor")
 
 
 # Main addon preferences class
@@ -302,7 +320,7 @@ class RECOM_Preferences(AddonPreferences):
         return items
 
     compute_device_type: EnumProperty(
-        name="Backend",
+        name="Device Backend",
         description="Device to use for computation",
         default=default_device_type_val(),
         items=get_device_types_items,
@@ -540,58 +558,54 @@ class RECOM_Preferences(AddonPreferences):
 
     # Device parallel
     device_parallel: BoolProperty(
-        name="Parallel Device Rendering",
+        name="Parallel Rendering",
         description="Launch separate render process for each device",
         default=True,
     )
     parallel_delay: FloatProperty(
         name="Multi-Process Start Delay",
-        description="Delay before starting each additional render process to avoid resource conflicts.",
+        description="Delay before starting each additional render process to avoid resource conflicts",
         min=0.0,
         default=1.0,
         step=100.0,
         unit="TIME_ABSOLUTE",
     )
     frame_allocation: EnumProperty(
+        name="Frame Mode",
         items=[
             (
                 "SEQUENTIAL",
                 "Sequential",
-                "Each device processes the entire frame range one after another.\n"
-                "Use: Overwriting=False, Placeholders=True.",
+                "Each device renders the full frame range.\n"
+                "Automatically disables overwriting and enables placeholders.",
             ),
-            (
-                "FRAME_SPLIT",
-                "Split",
-                "Divide the frame range evenly between devices.\n"
-                "Each device renders a unique subset of frames concurrently.",
-            ),
+            ("FRAME_SPLIT", "Split", "Divide frame range among devices"),
         ],
         default="FRAME_SPLIT",
-        description="Determine how frames are distributed across rendering devices",
+        description="How frames are distributed across rendering devices",
     )
     multiple_backends: BoolProperty(
         name="Multi-Backend",
-        description="Render using enabled devices from different backends.",
+        description="Render using enabled devices from different backends",
         default=False,
     )
     combine_cpu_with_gpus: BoolProperty(
-        name="Combine CPU with GPUs",
+        name="CPU & GPU Rendering",
         default=True,
-        description="Create a dedicated CPU-only render job and exclude the CPU from all other render jobs.",
+        description="Create a dedicated CPU-only render job and exclude the CPU from all other render jobs",
     )
     cpu_threads_limit: IntProperty(
-        name="CPU Threads Limit",
+        name="Thread Limit",
         default=0,
         min=0,
-        description="Limit the number of CPU threads used per render process.",
+        description="Maximum threads for rendering jobs",
     )
     iterations_per_device: IntProperty(
         name="Iterations per Device",
         default=1,
         min=1,
         soft_max=8,
-        description="Number of render iterations per device.",
+        description="Number of render iterations per device",
     )
 
     # Blender executable
@@ -750,8 +764,8 @@ class RECOM_Preferences(AddonPreferences):
         default=(0, 0, 0),
     )
     custom_executable_path: StringProperty(
-        name="Blender Executable",
-        description="Path to custom Blender executable.",
+        name="Custom Blender",
+        description="Custom Blender executable path",
         default="",
         subtype="FILE_PATH",
         update=_validate_custom_blender_path,
@@ -766,17 +780,17 @@ class RECOM_Preferences(AddonPreferences):
     # External Terminal
     external_terminal: BoolProperty(
         name="Use External Terminal",
-        description="Launch the render process in an external terminal.",
+        description="Launch the render process in an external terminal",
         default=True,
     )
     keep_terminal_open: BoolProperty(
         name="Keep Terminal Open",
-        description="Keep the terminal window open after the render finishes.",
+        description="Keep the terminal window open after the render finishes",
         default=True,
     )
     exit_active_session: BoolProperty(
-        name="Close Blender Before Render",
-        description="Automatically close active blender session after launching a render job.",
+        name="Close Blender",
+        description="Automatically exit current Blender instance before rendering",
         default=False,
     )
 
@@ -787,23 +801,28 @@ class RECOM_Preferences(AddonPreferences):
         description="Save render logs to a file in the project folder",
     )
     log_to_file_location: EnumProperty(
-        name="",
+        name="Log Directory",
         items=[
-            ("EXECUTION_FILES", "Scripts Path", "Save logs in the execution files folder."),
-            ("BLEND_PATH", "Blend File Path", "Save logs in the same directory as the blend file."),
-            ("CUSTOM_PATH", "Custom", "Specify a custom directory for log files."),
+            ("EXECUTION_FILES", "Scripts Path", "Save logs in scripts directory"),
+            ("BLEND_PATH", "Blend File Path", "Save logs next to blend file"),
+            ("CUSTOM_PATH", "Custom Path", "Specify custom log folder location"),
         ],
         default="EXECUTION_FILES",
     )
     save_to_log_folder: BoolProperty(
         name="Save to Logs Folder",
         default=True,
-        description="Save logs in a dedicated 'logs' folder within the blend file's directory.",
+        description="Save logs in a dedicated 'logs' folder within the blend file's directory",
     )
     log_custom_path: StringProperty(
         name="Save Logs Path",
         subtype="DIR_PATH",
         description="Directory to save log files when using custom location",
+    )
+    logs_folder_name: StringProperty(
+        name="Logs Folder",
+        description="Folder name for render log files",
+        default=RENDER_LOGS_FOLDER_NAME,
     )
 
     # Output path variables groups
@@ -829,7 +848,7 @@ class RECOM_Preferences(AddonPreferences):
         new_entry = self.recent_blend_files.add()
         new_entry.path = new_path
 
-        while len(self.recent_blend_files) > 20:
+        while len(self.recent_blend_files) > EXTERNAL_BLEND_FILE_HISTORY_LIMIT:
             self.recent_blend_files.remove(0)
 
     # Render Options
@@ -842,30 +861,30 @@ class RECOM_Preferences(AddonPreferences):
             log.debug(f"Sanitized render filename: Original: '{value}', Cleaned: '{cleaned}'")
 
     default_render_filename: StringProperty(
-        name="Default Render Filename",
-        description="Set the default filename used when no output filename is specified.",
+        name="Filename",
+        description="Default filename for renders",
         default="render",
         update=_sanitize_filename,
     )
 
     auto_save_before_render: BoolProperty(
         name="Auto‑Save Before Render",
-        description="Save the current blend file automatically before launching a background render.",
+        description="Auto-save the current blend file before rendering",
         default=False,
     )
     auto_open_output_folder: BoolProperty(
         name="Auto-Open Output Folder",
         default=False,
-        description="Open the output folder automatically when the render starts.",
+        description="Open the output folder automatically when the render starts",
     )
     write_still: BoolProperty(
-        name="Save Still Image",
+        name="Save Image",
         default=True,
-        description="Save the rendered image to the output path (only for still renders).",
+        description="Auto-save the image render to the output path",
     )
     send_desktop_notifications: BoolProperty(
         name="Send Desktop Notification",
-        description="Show a desktop notification when the render finishes.",
+        description="Show a desktop notification when the render finishes",
         default=False,
     )
 
@@ -876,14 +895,14 @@ class RECOM_Preferences(AddonPreferences):
         min=1,
         soft_min=3,
         soft_max=6,
-        description="Number of digits used to pad frame numbers in filenames.",
+        description="Number of digits used to pad frame numbers in filenames",
     )
     filename_separator: EnumProperty(
-        name="Frame Number Separator",
-        description="Character used to separate the filename and the frame number",
+        name="File Separator",
+        description="Separator between filename and frame numbers",
         items=[
-            ("DOT", "Dot ( . )", "Filename.####"),
-            ("UNDERSCORE", "Underscore ( _ )", "Filename_####"),
+            ("DOT", "Dot (.)", "Filename.####"),
+            ("UNDERSCORE", "Underscore (_)", "Filename_####"),
         ],
         default="UNDERSCORE",
     )
@@ -891,13 +910,13 @@ class RECOM_Preferences(AddonPreferences):
     # Append Scripts
     append_python_scripts: BoolProperty(
         name="Append Python Scripts",
-        description="Add additional python scripts to run during rendering.",
+        description="Add additional python scripts to run during rendering",
         default=False,
     )
     additional_scripts: CollectionProperty(
         type=RECOM_PG_ScriptEntry,
         name="Additional Python Scripts",
-        description="List of additional Python scripts to append during render.",
+        description="List of additional Python scripts to append during render",
     )
     active_script_index: IntProperty(
         name="Active Script Index",
@@ -907,20 +926,20 @@ class RECOM_Preferences(AddonPreferences):
     # Command line arguments
     add_command_line_args: BoolProperty(
         name="Use Command Line Arguments",
-        description="Add additional command line arguments for render.",
+        description="Add additional command line arguments for render",
         default=True,
     )
     custom_command_line_args: StringProperty(
         name="Command Line Arguments",
-        description="Additional command line arguments to pass to Blender during render.",
+        description="Additional command line arguments to pass to Blender during render",
         default="-noaudio --log render",
         update=lambda self, context: redraw_ui(),
     )
 
     # OCIO config
     set_ocio: BoolProperty(
-        name="OCIO Environment Variable",
-        description="Enable custom OCIO config for renders",
+        name="OCIO Config",
+        description="Use a custom color management configuration",
         default=False,
     )
     ocio_path: StringProperty(
@@ -945,7 +964,7 @@ class RECOM_Preferences(AddonPreferences):
     )
     set_linux_terminal: BoolProperty(
         name="Set Linux Terminal",
-        description="Select the terminal emulator.",
+        description="Select the terminal emulator",
         default=False,
     )
     linux_file_explorer: EnumProperty(
@@ -964,7 +983,7 @@ class RECOM_Preferences(AddonPreferences):
     # System power management
     set_system_power: BoolProperty(
         name="System Power",
-        description="Enable system power options for rendering.",
+        description="Enable system power options for rendering",
         default=False,
     )
     prevent_sleep: BoolProperty(
@@ -980,20 +999,20 @@ class RECOM_Preferences(AddonPreferences):
     shutdown_after_render: BoolProperty(
         name="Shutdown After Render",
         default=False,
-        description="Shutdown the computer after all render jobs are completed.",
+        description="Shutdown the computer after all render jobs are completed",
     )
     shutdown_type: EnumProperty(
         name="",
         items=[
-            ("SLEEP", "Sleep", "Put the computer to sleep after rendering."),
-            ("POWER_OFF", "Shutdown", "Power off the computer after rendering."),
+            ("SLEEP", "Sleep", "Put the computer to sleep after rendering"),
+            ("POWER_OFF", "Shutdown", "Power off the computer after rendering"),
         ],
         default="SLEEP",
         description="Shutdown action after rendering",
     )
     shutdown_delay: FloatProperty(
         name="Shutdown Delay",
-        description="Time to wait before executing the selected shutdown action after rendering finishes.",
+        description="Time to wait before executing the selected shutdown action after rendering finishes",
         default=30.0,
         min=0.0,
         soft_min=1.0,
@@ -1005,21 +1024,21 @@ class RECOM_Preferences(AddonPreferences):
     compact_external_info: BoolProperty(
         name="Compact External Info",
         default=True,
-        description=("Show external blend scene info in a compact box. "),
+        description=("Show external blend scene info in a compact box"),
     )
     path_preview: BoolProperty(
         name="Show Resolved Path",
         default=False,
-        description="Dynamically resolve and display the full output path with variables replaced.",
+        description="Dynamically resolve and display the full output path with variables replaced",
         # update=on_output_path_changed,
     )
     preset_installed: BoolProperty(
         default=False,
-        description="Indicates if default presets have been installed.",
+        description="Indicates if default presets have been installed",
     )
     initial_setup_complete: BoolProperty(
         name="Cycles Render Devices Setup Complete",
-        description="Indicates if the initial device configuration has been completed.",
+        description="Indicates if the initial device configuration has been completed",
         default=False,
     )
     launch_mode: EnumProperty(
@@ -1070,19 +1089,19 @@ class RECOM_Preferences(AddonPreferences):
 
     custom_temp_path: StringProperty(
         name="Temp Folder Path",
-        description="Specify a custom folder for the addon's temporary files.",
+        description="Specify a custom folder for the addon's temporary files",
         default="",
         subtype="DIR_PATH",
         update=_validate_custom_temp_folder,
     )
     use_custom_temp: BoolProperty(
         name="Custom Temp Folder",
-        description="Use a custom folder for the addon's temporary files instead of the default one.",
+        description="Use a custom folder for the addon's temporary files instead of the default one",
         default=False,
     )
     debug_mode: BoolProperty(
         name="Enable Debug Mode",
-        description="Enable detailed logging for debugging purposes.",
+        description="Enable detailed logging for debugging purposes",
         default=False,
     )
 
@@ -1102,7 +1121,7 @@ class RECOM_Preferences(AddonPreferences):
         items=[
             ("SELECT_DIR", "Select Directory", "Folder chosen in the export dialog"),
             ("BLEND_DIR", "Blend File Path", "Folder next to the .blend file"),
-            ("CUSTOM_PATH", "Custom", "User‑defined folder"),
+            ("CUSTOM_PATH", "Custom Path", "User‑defined folder"),
         ],
         default="SELECT_DIR",
     )
@@ -1115,17 +1134,25 @@ class RECOM_Preferences(AddonPreferences):
     )
     export_master_script: BoolProperty(
         name="Export Master Script",
-        description="For parallel rendering, exports an additional master script to launch multiple workers.",
+        description="For parallel rendering, exports an additional master script to launch multiple workers",
         default=True,
     )
 
     # Scripts directory properties
     scripts_directory: StringProperty(
         name="Scripts Directory",
-        description="Directory containing additional Python scripts.",
+        description="Directory containing additional Python scripts",
         default="",
         subtype="DIR_PATH",
     )
+    export_scripts_folder_name: StringProperty(
+        name="Export Scripts Folder",
+        description="Folder name for export render scripts",
+        default=EXPORT_SCRIPTS_FOLDER_NAME,
+    )
+
+    # Import override settings
+    override_settings: PointerProperty(type=RECOM_PG_OverrideSettings)
 
     # Panel visibility settings
     visible_panels: PointerProperty(type=RECOM_PG_VisiblePanels)
@@ -1155,10 +1182,10 @@ class RECOM_Preferences(AddonPreferences):
         if self.group_box_visible_panels:
             visible_panels_box.label(text="General")
             main_panels_col = visible_panels_box.column(heading="")
-            main_panels_col.prop(self.visible_panels, "external_scene", text="External Scene")
-            main_panels_col.prop(self.visible_panels, "override_settings", text="Override Settings")
-            main_panels_col.prop(self.visible_panels, "preferences", text="Preferences")
-            main_panels_col.prop(self.visible_panels, "history", text="History")
+            main_panels_col.prop(self.visible_panels, "external_scene")
+            main_panels_col.prop(self.visible_panels, "override_settings")
+            main_panels_col.prop(self.visible_panels, "preferences")
+            main_panels_col.prop(self.visible_panels, "history")
 
             visible_panels_box.label(text="Override Settings")
             override_settings_box = visible_panels_box.column(heading="")
@@ -1308,6 +1335,7 @@ class RECOM_UL_custom_variables(UIList):
 
 
 classes = (
+    RECOM_PG_OverrideSettings,
     RECOM_PG_DeviceSettings,
     RECOM_PG_RecentFile,
     RECOM_PG_RenderHistoryItem,

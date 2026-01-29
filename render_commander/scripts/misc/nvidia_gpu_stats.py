@@ -27,7 +27,7 @@ def _query_gpu_stats():
 
     # Query specific fields for compact logging
     query = (
-        "index,name,"
+        "index,pci.bus_id,name,"
         "utilization.gpu,utilization.memory,"
         "memory.total,memory.used,"
         "temperature.gpu,power.draw,power.limit"
@@ -49,14 +49,16 @@ def _query_gpu_stats():
     rows = []
     for line in result.stdout.strip().splitlines():
         parts = [p.strip() for p in line.split(",")]
-        if len(parts) != 9:
+
+        if len(parts) != 10:
             continue
 
-        idx, name, gpu_util, mem_util, mem_total, mem_used, temp, p_draw, p_limit = parts
+        (idx, pci_bus_id, name, gpu_util, mem_util, mem_total, mem_used, temp, p_draw, p_limit) = parts
 
         rows.append(
             {
                 "index": idx,
+                "pci_bus_id": pci_bus_id,
                 "name": name,
                 "gpu_util": gpu_util,  # %
                 "mem_util": mem_util,  # %
@@ -74,17 +76,12 @@ def _log_frame_stats(scene):
     """
     Callback function that runs after a frame finishes.
     """
-    # 1. Get stats
     rows = _query_gpu_stats()
     if not rows:
         return
 
-    # 2. Get current frame number for context
     frame = scene.frame_current
 
-    # 3. Print compact log line for each GPU
-    # Format: [GPU Stats] Frame 001 | GPU 0 (RTX 3090): 95% Util | 10240/24000 MiB | 65°C
-    # print(f"--- GPU Stats for Frame {frame} ---", flush=True)
     for gpu in rows:
         try:
             # Calculate memory percentage for display
@@ -96,22 +93,21 @@ def _log_frame_stats(scene):
 
         log_line = (
             f"[GPU {gpu['index']}] {gpu['name']} | "
+            f"Bus-Id: {gpu['pci_bus_id']} | "
             f"Util: {gpu['gpu_util']}% | "
             f"Mem: {gpu['mem_used']}/{gpu['mem_total']} MiB ({int(mem_pct)}%) | "
             f"Temp: {gpu['temperature']}°C | "
             f"Pwr: {float(gpu['p_draw']):.1f}W"
         )
+
         print(log_line, flush=True)
-    # print("-------------------------------------", flush=True)
 
 
 def register():
     """Register the handler."""
-    # Ensure we don't register twice
     if _log_frame_stats in bpy.app.handlers.render_post:
         bpy.app.handlers.render_post.remove(_log_frame_stats)
 
-    # render_post triggers after the frame is written to disk/memory
     bpy.app.handlers.render_post.append(_log_frame_stats)
     print("[GPU Stats] Handler registered for per-frame reporting.")
 
@@ -123,5 +119,4 @@ def unregister():
 
 
 if __name__ == "__main__":
-    # If run as a script inside Blender, register immediately
     register()

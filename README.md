@@ -4,13 +4,9 @@
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-lightgrey?style=flat-square)](https://github.com/n4dirp/Render-Commander)
 [![Blender Version](https://img.shields.io/badge/Blender-4.2%20--%205.0-orange?style=flat-square&logo=blender)](https://www.blender.org/)
 
-Blender add‑on for background rendering with multi‑GPU support.
+<img src="images/render_launcher.png" alt="Render-Commander Panel" width="300">
 
-The add-on provides a simple and intuitive UI to configure render jobs and device-parallel execution.
-All selected options are compiled into fully generated render executables, allowing you to either launch renders immediately or export them for later use.
-
-
-<img src="images/render_launcher.png" alt="Render-Commander Panel" width="320">
+Render Commander streamlines your workflow by enabling **background rendering** and **multi-GPU management** directly from Blender. It compiles your render settings into standalone scripts, giving you the flexibility to launch jobs immediately or export them for later execution.
 
 ## Features
 
@@ -40,8 +36,6 @@ Preview scene settings, apply overrides, and start renders directly from the add
 ## Screenshots
 
 <img src="images/parallel_render_benchmark.jpg" alt="Device-Parallel Benchmark" height="200"> <img src="images/device_parallel.png" alt="Device-Parallel" height="200"> <img src="images/override_settings.png" alt="Render Overrides" height="200"> <img src="images/external_scene.png" alt="External Scene" height="200">
-
----
 
 ## Installation
 

@@ -1,5 +1,9 @@
 # Render Commander
 
+[![GitHub Release](https://img.shields.io/github/v/release/n4dirp/Render-Commander?style=flat-square)](https://github.com/n4dirp/Render-Commander/releases)
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-lightgrey?style=flat-square)](https://github.com/n4dirp/Render-Commander)
+[![Blender Version](https://img.shields.io/badge/Blender-4.2%20--%205.0-orange?style=flat-square&logo=blender)](https://www.blender.org/)
+
 Blender add‑on for background rendering with multi‑GPU support.
 
 The add-on provides a simple and intuitive UI to configure render jobs and device-parallel execution.

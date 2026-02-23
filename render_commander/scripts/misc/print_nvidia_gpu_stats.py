@@ -6,14 +6,51 @@ Run with Blender's -P option:
 
 This script registers a handler that prints NVIDIA GPU usage 
 automatically after every single frame is rendered.
+
+Updates:
+- Filters output to only show devices enabled in Cycles preferences (CUDA/OPTIX).
+- Matches devices using PCI Bus ID.
 """
 
 import sys
 import subprocess
 import bpy
+import re
 
 # Global flag to stop trying if nvidia-smi is missing, preventing log spam.
 NVIDIA_SMI_AVAILABLE = True
+
+
+def _get_cycles_enabled_pci_ids():
+    """
+    Returns a set of normalized PCI bus IDs (e.g., '0000:0a:00')
+    for devices enabled in Cycles preferences.
+    Returns None if not filtering (e.g. engine is not Cycles).
+    """
+    # Only filter if we are using Cycles
+    if bpy.context.scene.render.engine != "CYCLES":
+        return None
+
+    try:
+        preferences = bpy.context.preferences.addons["cycles"].preferences
+    except (KeyError, AttributeError):
+        return None
+
+    enabled_ids = set()
+
+    # We only care about hardware devices (CUDA/OPTIX)
+    # The device.id format is typically: "CUDA_DeviceName_0000:0a:00_OptiX"
+    # We need to extract the "0000:0a:00" segment to match nvidia-smi.
+    pci_pattern = re.compile(r"([0-9a-fA-F]{4}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2})")
+
+    for device in preferences.devices:
+        if device.use and device.type in {"CUDA", "OPTIX"}:
+            match = pci_pattern.search(device.id)
+            if match:
+                # Store as lowercase for consistent comparison
+                enabled_ids.add(match.group(1).lower())
+
+    return enabled_ids
 
 
 def _query_gpu_stats():
@@ -80,9 +117,27 @@ def _log_frame_stats(scene):
     if not rows:
         return
 
+    # Get list of allowed PCI IDs if in Cycles
+    allowed_pci_ids = _get_cycles_enabled_pci_ids()
+
     frame = scene.frame_current
 
     for gpu in rows:
+        # Filter Logic
+        if allowed_pci_ids is not None:
+            # Nvidia-smi format: "00000000:0A:00.0"
+            # Blender format: "0000:0a:00"
+
+            # Normalize Nvidia ID to match Blender format
+            # 1. Lowercase
+            # 2. Remove '0000' prefix from domain (00000000 -> 0000)
+            # 3. Remove '.0' suffix
+            raw_id = gpu["pci_bus_id"].lower()
+            normalized_id = raw_id.replace("00000000:", "0000:", 1).split(".")[0]
+
+            if normalized_id not in allowed_pci_ids:
+                continue
+
         try:
             # Calculate memory percentage for display
             mem_used_int = int(gpu["mem_used"])

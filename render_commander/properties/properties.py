@@ -19,7 +19,7 @@ from bpy.types import PropertyGroup
 from .override_settings import RECOM_PG_OverrideSettings
 from ..utils.helpers import (
     redraw_ui,
-    is_blender_blend_file,
+    is_blend_or_backup_file,
 )
 
 log = logging.getLogger(__name__)
@@ -55,7 +55,7 @@ class RECOM_PG_RenderSettings(PropertyGroup):
     def _check_external_blend_file_path(self, context):
         ext_blend_file = self.external_blend_file_path
         if ext_blend_file:
-            if not is_blender_blend_file(ext_blend_file):
+            if not is_blend_or_backup_file(ext_blend_file):
                 log.warning(f"External Blend File - Invalid or non-Blender file: {ext_blend_file}")
 
     # External Scene
@@ -119,16 +119,12 @@ class RECOM_PG_RenderSettings(PropertyGroup):
     )
 
 
-def get_custom_tooltip(self):
-    return f"{self.key}: {self.value}"
-
-
 class RECOM_PG_ExternalSceneInfoItem(PropertyGroup):
     """Container for a single key/value pair extracted from the external scene JSON."""
 
     key: StringProperty(name="Key")
     value: StringProperty(name="Value")
-    tooltip_display: StringProperty(get=get_custom_tooltip)
+    tooltip_display: StringProperty(get=lambda self: f"{self.key}: {self.value}")
 
 
 classes = (

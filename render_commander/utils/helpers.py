@@ -2,6 +2,7 @@
 
 import json
 import os
+import socket
 import re
 import sys
 import logging
@@ -9,22 +10,20 @@ import subprocess
 import threading
 import datetime
 import fractions
-import string
 import pathlib
 import shlex
 import shutil
 import tempfile
 import time
-import random
 
 from datetime import datetime
 from fractions import Fraction
-from string import Template
 from pathlib import Path
 from typing import Optional
 
 import bpy
 
+from .constants import *
 from .. import __package__ as base_package
 
 log = logging.getLogger(__name__)
@@ -34,57 +33,38 @@ _IS_MACOS = sys.platform == "darwin"
 _IS_LINUX = sys.platform.startswith("linux")
 
 
-def get_addon_name() -> str:
-    """Get the name of the addon."""
-    return base_package
-
-
 def sanitize_filename(name: str) -> str:
     """Sanitize a filename by replacing invalid characters with underscores."""
     return re.sub(r'[\\/*?:"<>|]', "_", name)
 
 
-def parse_frame_string(frame_str: str) -> list:
-    """Parse a frame range string into a sorted list of integers."""
-    frames = set()
-    tokens = re.findall(r"\d+(?:-\d+)?", frame_str)
-    for token in tokens:
-        if "-" in token:
-            start, end = map(int, token.split("-"))
-            frames.update(range(start, end + 1))
-        else:
-            frames.add(int(token))
-    return sorted(frames)
+def get_addon_temp_dir(prefs: object) -> Path:
+    if bpy.app.version < (4, 2):
+        use_user_extension = False
+    else:
+        use_user_extension = True
 
+    if prefs.use_custom_temp and prefs.custom_temp_path:
+        custom = Path(bpy.path.abspath(prefs.custom_temp_path)).resolve()
+        if custom.exists():
+            return custom / ADDON_NAME
 
-def format_frame_range(frames_list: list) -> str:
-    """Format a list of frame numbers into a compact range string."""
-    if not frames_list:
-        return "[]"
+    if use_user_extension:
+        try:
+            p = Path(bpy.utils.extension_path_user(base_package, create=True))
+            if p.exists():
+                return p
+        except:
+            pass
 
-    # Ensure sorting and uniqueness
-    sorted_frames = sorted(set(map(int, frames_list)))
-
-    ranges = []
-    start = end = sorted_frames[0]
-
-    for num in sorted_frames[1:]:
-        if num == end + 1:
-            end = num
-        else:
-            ranges.append((start, end))
-            start = end = num
-        end = num
-    ranges.append((start, end))  # Add the last range
-
-    formatted_ranges = []
-    for r in ranges:
-        if r[0] == r[1]:
-            formatted_ranges.append(f"{r[0]}")
-        else:
-            formatted_ranges.append(f"{r[0]}-{r[1]}")
-
-    return f"[{', '.join(formatted_ranges)}]"
+    # Fallback
+    try:
+        t = Path(bpy.app.tempdir).resolve().parent
+        if not t.exists():
+            t = Path(tempfile.gettempdir()).resolve()
+        return t / ADDON_NAME
+    except:
+        raise RuntimeError("Failed to get temp dir")
 
 
 def get_blender_version(exec_path: str) -> str:
@@ -179,8 +159,8 @@ def replace_variables(path_template: str) -> str:
         ext_scene = settings.use_external_blend and settings.external_blend_file_path
 
         # --- Blend File Information ---
-        blend_file_name_no_ext = "UnknownName"
-        blend_folder_path = Path("UnknownPath")
+        blend_file_name_no_ext = ""
+        blend_folder_path = Path("")
 
         blend_file_to_check = None
         if settings.use_external_blend and settings.external_blend_file_path:
@@ -201,16 +181,16 @@ def replace_variables(path_template: str) -> str:
 
         # Scene
         if ext_scene:
-            scene_name_val = info.get("scene_name", "UnknownScene")
-            view_layer_name_val = info.get("view_layer", "UnknownViewLayer")
+            scene_name_val = info.get("scene_name", "")
+            view_layer_name_val = info.get("view_layer", "")
         else:
-            scene_name_val = scene.name if scene else "UnknownScene"
-            view_layer_name_val = context.view_layer.name if context.view_layer else "NoViewLayer"
+            scene_name_val = scene.name if scene else ""
+            view_layer_name_val = context.view_layer.name if context.view_layer else ""
 
         # Resolution
-        resolution_val = "UnknownResolution"
-        aspect_ratio_val = "UnknownAspectRatio"
-        width = height = 0
+        resolution_val = ""
+        aspect_ratio_val = ""
+        width = height = scale = 0
 
         if settings.override_settings.format_override:
             if settings.override_settings.resolution_override:
@@ -231,10 +211,19 @@ def replace_variables(path_template: str) -> str:
                 else settings.override_settings.custom_render_scale / 100
             )
             width, height = int(base_x * scale), int(base_y * scale)
+            scale_val = int(scale * 100)
         else:
             width, height = get_default_resolution(context)
+            if ext_scene:
+                scale_val = info.get("render_scale", "0")
+            else:
+                scale_val = scene.render.resolution_percentage
+
         aspect_ratio_val = get_aspect_ratio(width, height, 0.04)
         resolution_val = f"{width}x{height}"
+        resolution_width_val = width
+        resolution_height_val = height
+        resolution_scale_val = scale_val
 
         # Frame Range
         if settings.override_settings.frame_range_override:
@@ -261,15 +250,15 @@ def replace_variables(path_template: str) -> str:
             file_format_val = settings.override_settings.file_format
         else:
             if ext_scene:
-                file_format_val = info.get("file_format", "UnknownFileFormat")
+                file_format_val = info.get("file_format", "")
             elif scene and scene.render:
                 file_format_val = scene.render.image_settings.file_format
             else:
-                file_format_val = "UnknownFileFormat"
+                file_format_val = ""
 
         # Camera
         if ext_scene:
-            camera_name_val = info.get("camera_name", "NoCamera")
+            camera_name_val = info.get("camera_name", "")
             camera_lens_val = info.get("camera_lens", "0")
             camera_sensor_w_val = info.get("camera_sensor", "0")
         elif scene and scene.camera:
@@ -277,8 +266,9 @@ def replace_variables(path_template: str) -> str:
             camera_lens_val = int(scene.camera.data.lens)
             camera_sensor_w_val = int(scene.camera.data.sensor_width)
         else:
-            camera_name_val, camera_lens_val, camera_sensor_w_val = "NoCamera", "0", "0"
+            camera_name_val, camera_lens_val, camera_sensor_w_val = "", "0", "0"
 
+        # Cycles Render
         # Samples
         if settings.override_settings.cycles.sampling_override:
             samples_val = settings.override_settings.cycles.samples
@@ -294,6 +284,16 @@ def replace_variables(path_template: str) -> str:
             else:
                 samples_val, noise_threshold_val = "0", "0"
 
+        # Color Management
+        view_transform_val = ""
+        look_val = ""
+        if ext_scene:
+            view_transform_val = info.get("view_transform", "")
+            look_val = info.get("look", "")
+        elif scene and scene.view_settings:
+            view_transform_val = str(scene.view_settings.view_transform)
+            look_val = str(scene.view_settings.look)
+
         # Blender Version
         blender_version_val = ""
         if "{bl_ver}" in path_template.lower():  # Check lower for case-insensitivity
@@ -308,23 +308,38 @@ def replace_variables(path_template: str) -> str:
         year_val, month_val, day_val = now.strftime("%Y"), now.strftime("%m"), now.strftime("%d")
 
         # System info
-        user_val = os.getenv("USERNAME") or os.getenv("USER") or "UnknownUser"
+        user_val = os.getenv("USERNAME") or os.getenv("USER") or ""
         try:
-            hostname_val = socket.gethostname() or "UnknownHost"
+            hostname_val = socket.gethostname() or ""
         except Exception:
-            hostname_val = "UnknownHost"
+            hostname_val = ""
+
+        os_map = {
+            "win32": "Windows",
+            "darwin": "MacOS",
+            "linux": "Linux",
+        }
+        os_val = os_map.get(sys.platform, sys.platform)
+
+        render_engine = get_render_engine(context)
+        engine_val = RENDER_ENGINE_MAPPING.get(render_engine, render_engine)
 
         variables_map = {
             "blend_name": blend_file_name_no_ext,
             "blend_dir": str(blend_folder_path),
             "bl_ver": str(blender_version_val).replace(".", "_"),
-            "engine": get_render_engine(context) or "Unknown",
+            "engine": engine_val or "",
             "scene_name": scene_name_val,
             "view_name": view_layer_name_val,
             "aspect": str(aspect_ratio_val).replace(".", "_"),
             "resolution": resolution_val,
+            "resolution_width": str(resolution_width_val),
+            "resolution_height": str(resolution_height_val),
+            "resolution_scale": resolution_scale_val,
             "samples": str(samples_val),
             "thresh": str(noise_threshold_val).replace(".", "_"),
+            "view_transform": view_transform_val,
+            "look": look_val,
             "frame_end": str(frame_end_val),
             "frame_start": str(frame_start_val),
             "frame_step": str(frame_step_val),
@@ -340,6 +355,7 @@ def replace_variables(path_template: str) -> str:
             "day": day_val,
             "user": user_val,
             "host": hostname_val,
+            "os": os_val,
         }
 
         # Add custom variables
@@ -368,18 +384,6 @@ def replace_variables(path_template: str) -> str:
         raise
 
 
-def reset_button_state() -> None:
-    """Reset the render button state and redraw UI."""
-    try:
-        wm = bpy.context.window_manager
-        if wm is not None and hasattr(wm, "recom_render_settings"):
-            wm.recom_render_settings.disable_render_button = False
-            redraw_ui()
-    except:
-        pass
-    return None
-
-
 def redraw_ui() -> None:
     """Redraw the UI in Blender."""
     for window in bpy.context.window_manager.windows:
@@ -389,25 +393,18 @@ def redraw_ui() -> None:
     bpy.context.window_manager.update_tag()
 
 
-def is_blender_blend_file(file_path: str) -> bool:
+def get_default_render_output_path() -> Path:
+    """Get the default temporary directory path for renders."""
+    return Path(tempfile.gettempdir())
+
+
+def is_blend_or_backup_file(file_path: str) -> bool:
     """Check if a file is a valid Blender blend file."""
     if file_path.startswith("//"):
         file_path = bpy.path.abspath(file_path)
 
     path = Path(file_path)
     return path.is_file() and path.suffix.lower() in (".blend", ".blend1", ".blend2", ".blend3")
-
-
-def generate_job_id() -> str:
-    """Generate a unique job ID using timestamp and random character."""
-    timestamp = int(time.time())
-    alphabet = string.digits + string.ascii_uppercase  # standard base-36
-    base36 = ""
-    while timestamp > 0:
-        timestamp, rem = divmod(timestamp, 36)
-        base36 = alphabet[rem] + base36
-    random_char = random.choice(alphabet)
-    return base36 + random_char
 
 
 def get_addon_preferences():
@@ -463,7 +460,7 @@ def open_folder(folder_path: str) -> bool:
                 cmd = [binary] + extra_args + [folder_path]
                 subprocess.Popen(cmd)
 
-            log.info(f"Opened folder in background: '{folder_path}'")
+            log.debug(f'Opened folder in background: "{folder_path}"')
 
         except Exception as e:
             log.error(f"Failed to open folder in background: {e}")
@@ -621,11 +618,6 @@ def get_render_engine(context) -> str:
         engine_name = context.scene.render.engine
 
     return engine_name
-
-
-def get_default_render_output_path() -> Path:
-    """Get the default temporary directory path for renders."""
-    return Path(tempfile.gettempdir())
 
 
 def logical_width(width: int) -> int:

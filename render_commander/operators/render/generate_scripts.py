@@ -53,6 +53,9 @@ def _generate_base_script(
     # Apply frame settings
     _apply_frame_settings(is_animation, frame_start, frame_end, frame_step, script_lines)
 
+    # Apply camera settings
+    _apply_camera_settings(context, settings, script_lines)
+
     # Apply resolution and scale settings
     _apply_resolution_settings(context, settings, script_lines)
 
@@ -119,6 +122,39 @@ def _apply_frame_settings(is_animation, frame_start, frame_end, frame_step, scri
         script_lines.append("")
 
 
+def _apply_camera_settings(context, settings, script_lines):
+    """Apply camera-specific overrides."""
+    if settings.override_settings.cameras_override:
+        # Depth of Field Settings
+        if settings.override_settings.override_dof:
+            script_lines.append("# Camera Depth of Field Settings")
+            script_lines.extend(
+                [
+                    "for obj in bpy.data.objects:",
+                    "    if obj.type == 'CAMERA':",
+                    f"        obj.data.dof.use_dof = {bool(settings.override_settings.use_dof == 'ENABLED')}",
+                    "",
+                ]
+            )
+
+        # Lens Shift
+        set_camera_shift = (
+            settings.override_settings.camera_shift_x != 0.0 or settings.override_settings.camera_shift_y != 0.0
+        )
+
+        if set_camera_shift:
+            script_lines.append("# Camera Lens Shift Settings")
+            script_lines.extend(
+                [
+                    "for obj in bpy.data.objects:",
+                    "    if obj.type == 'CAMERA':",
+                    f"        obj.data.shift_x += {settings.override_settings.camera_shift_x}",
+                    f"        obj.data.shift_y += {settings.override_settings.camera_shift_y}",
+                    "",
+                ]
+            )
+
+
 def _apply_resolution_settings(context, settings, script_lines):
     """Apply resolution, scale, camera shift, and overscan settings."""
     if settings.override_settings.format_override:
@@ -136,10 +172,7 @@ def _apply_resolution_settings(context, settings, script_lines):
                 base_x = settings.override_settings.resolution_x
                 base_y = settings.override_settings.resolution_y
 
-            if settings.override_settings.render_scale != "CUSTOM":
-                scale = float(settings.override_settings.render_scale)
-            else:
-                scale = settings.override_settings.custom_render_scale / 100
+            scale = settings.override_settings.custom_render_scale / 100
 
             scaled_x = int(round(base_x * scale / 2) * 2)
             scaled_y = int(round(base_y * scale / 2) * 2)
@@ -153,24 +186,16 @@ def _apply_resolution_settings(context, settings, script_lines):
             )
         else:
             # Apply scale settings
-            if settings.override_settings.render_scale != "CUSTOM":
-                scale = int(float(settings.override_settings.render_scale) * 100)
-            else:
-                scale = settings.override_settings.custom_render_scale
-            script_lines.append(f"bpy.context.scene.render.resolution_percentage = {scale}")
-            script_lines.append("")
-
-        # Apply camera shift settings
-        set_camera_shift = settings.override_settings.camera_shift_override and (
-            settings.override_settings.camera_shift_x != 0.0 or settings.override_settings.camera_shift_y != 0.0
-        )
-        if set_camera_shift:
+            scale = settings.override_settings.custom_render_scale
             script_lines.extend(
                 [
-                    "for obj in bpy.data.objects:",
-                    "    if obj.type == 'CAMERA':",
-                    f"        obj.data.shift_x += {settings.override_settings.camera_shift_x}",
-                    f"        obj.data.shift_y += {settings.override_settings.camera_shift_y}",
+                    f"scale_factor = {scale} / 100.0",
+                    "base_x = bpy.context.scene.render.resolution_x",
+                    "base_y = bpy.context.scene.render.resolution_y",
+                    # Calculate new resolution, ensuring even numbers for encoding safety
+                    "bpy.context.scene.render.resolution_x = int(round(base_x * scale_factor / 2) * 2)",
+                    "bpy.context.scene.render.resolution_y = int(round(base_y * scale_factor / 2) * 2)",
+                    "bpy.context.scene.render.resolution_percentage = 100",
                     "",
                 ]
             )
@@ -204,6 +229,11 @@ def _apply_resolution_settings(context, settings, script_lines):
                     "original_resolution = (bpy.context.scene.render.resolution_x, bpy.context.scene.render.resolution_y)",
                     "",
                 ]
+            )
+
+            # Apply camera shift settings
+            set_camera_shift = settings.override_settings.cameras_override and (
+                settings.override_settings.camera_shift_x != 0.0 or settings.override_settings.camera_shift_y != 0.0
             )
 
             if set_camera_shift:
@@ -294,12 +324,21 @@ def _apply_compositing_settings(settings, script_lines):
             [
                 "if bpy.app.version < (5, 0, 0):",
                 f"    bpy.context.scene.use_nodes = {settings.override_settings.use_compositor}",
-                "elif not settings.use_compositor:",
-                f"    bpy.context.scene.compositing_node_group = None",
-                f"bpy.context.scene.render.compositor_device = '{settings.override_settings.compositor_device}'",
-                "",
             ]
         )
+
+        if not settings.override_settings.use_compositor:
+            script_lines.extend(
+                [
+                    "if bpy.app.version > (5, 0, 0):",
+                    f"    bpy.context.scene.compositing_node_group = None",
+                    "",
+                ]
+            )
+        script_lines.append(
+            f"bpy.context.scene.render.compositor_device = '{settings.override_settings.compositor_device}'"
+        )
+
         if settings.override_settings.compositor_disable_output_files and settings.override_settings.use_compositor:
             script_lines.extend(
                 [
@@ -350,29 +389,41 @@ def _apply_cycles_settings(context, prefs, settings, selected_ids, script_lines)
     script_lines.extend(
         [
             f"if bpy.context.scene.render.engine == '{RE_CYCLES}':",
-            "    preferences = bpy.context.preferences.addons['cycles'].preferences",
-            f"    preferences.compute_device_type = '{cycles_backend}'",
-            f"    selected_ids = {formatted_ids}",
-            "    for device in preferences.devices:",
-            "        device.use = device.id in selected_ids",
-            "",
-        ]
-    )
-    # Print Devices
-    script_lines.extend(
-        [
-            "    enabled_devices = [d for d in preferences.devices if d.use]",
-            "    if enabled_devices:",
-            "        print('Devices:' + enabled_devices[0].name + ' (' + enabled_devices[0].type + ') [' + enabled_devices[0].id + ']')",
-            "        for d in enabled_devices[1:]:",
-            "            print('\\t' + d.name + ' (' + d.type + ') [' + d.id + ']')",
-            "",
         ]
     )
 
+    # Apply device override FIRST (if configured) so we check the final device type
     if override_settings.cycles.device_override:
         script_lines.append(f"    bpy.context.scene.cycles.device = '{override_settings.cycles.device}'")
         script_lines.append("")
+
+    # Conditional device configuration based on final cycles.device value
+    script_lines.extend(
+        [
+            "    if bpy.context.scene.cycles.device == 'GPU':",
+            "        preferences = bpy.context.preferences.addons['cycles'].preferences",
+            f"        preferences.compute_device_type = '{cycles_backend}'",
+            f"        selected_ids = {formatted_ids}",
+            "        for device in preferences.devices:",
+            "            device.use = device.id in selected_ids",
+            "",
+            "        # Print enabled GPU devices",
+            "        enabled_devices = [d for d in preferences.devices if d.use]",
+            "        if enabled_devices:",
+            "            print('Devices: ' + enabled_devices[0].name + ' (' + enabled_devices[0].type + ') [' + enabled_devices[0].id + ']')",
+            "            for d in enabled_devices[1:]:",
+            "                print('\\t ' + d.name + ' (' + d.type + ') [' + d.id + ']')",
+            "    else:",
+            "        # CPU rendering: print CPU device info",
+            "        preferences = bpy.context.preferences.addons['cycles'].preferences",
+            "        cpu_devices = [d for d in preferences.devices if d.type == 'CPU']",
+            "        if cpu_devices:",
+            "            print('Device: ' + cpu_devices[0].name + ' (CPU) [' + cpu_devices[0].id + ']')",
+            "        else:",
+            "            print('Device: CPU (no CPU device found)')",
+            "",
+        ]
+    )
 
     _apply_cycles_sampling_settings(override_settings, script_lines)
     _apply_cycles_light_paths_settings(override_settings, script_lines)
@@ -513,20 +564,42 @@ def _load_template_script(template_name):
         return []
 
 
-def _add_notification_script(context, prefs, script_lines):
+def _add_notification_script(prefs, script_lines):
     if prefs.send_desktop_notifications:
         notification_content = _load_template_script("desktop_notification.py")
 
         # Replace the placeholder with the actual value
-        notification_content = "\n".join(notification_content).replace(
-            "frame_length_digits = 4", f"frame_length_digits = {prefs.frame_length_digits}"
+        notification_content = (
+            "\n".join(notification_content)
+            .replace(
+                "frame_length_digits = 4",
+                f"frame_length_digits = {prefs.frame_length_digits}",
+            )
+            .replace(
+                "frame_path = bpy.context.scene.frame_current",
+                "frame_path = bpy.context.scene.frame_start"
+                if {prefs.launch_mode == MODE_SEQ}
+                else "frame_path = bpy.context.scene.frame_current",
+            )
+            .replace(
+                'NOTIFICATION_DETAIL_LEVEL = "DETAILED"',
+                f'NOTIFICATION_DETAIL_LEVEL = "{prefs.notification_detail_level}"',
+            )
+            .replace(
+                "TOAST_SHOW_PREVIEW = True",
+                f"TOAST_SHOW_PREVIEW = {prefs.notification_show_preview}",
+            )
+            .replace(
+                "TOAST_SHOW_BUTTONS = True",
+                f"TOAST_SHOW_BUTTONS = {prefs.notification_show_buttons}",
+            )
         )
 
         script_lines.extend(notification_content.splitlines())
         script_lines.append("")
 
 
-def _add_prevent_sleep_commands(context, prefs, script_lines):
+def _add_prevent_sleep_commands(prefs, script_lines):
     prevent_sleep_content = _load_template_script("prevent_sleep.py")
 
     # Replace placeholder with actual value

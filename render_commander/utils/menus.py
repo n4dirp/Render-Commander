@@ -1,5 +1,6 @@
 # ./utils/menus.py
 
+import json
 from pathlib import Path
 
 import bpy
@@ -9,26 +10,31 @@ from .constants import *
 from ..preferences import get_addon_preferences
 
 
-class RECOM_MT_ResolvedPath(Menu):
-    bl_idname = "RECOM_MT_resolved_path"
+class RECOM_MT_resolved_path(Menu):
     bl_label = "Resolved Path Menu"
 
     def draw(self, context):
         layout = self.layout
 
-        settings = context.window_manager.recom_render_settings
         prefs = get_addon_preferences(context)
-
-        # layout.operator("recom.import_output_path", text="Import Output Path", icon=ICON_SYNC)
-        # layout.separator()
-
-        layout.prop(prefs, "path_preview", text="Show Resolved Path")
-        # layout.separator()
+        layout.label(text="Show")
+        layout.separator()
+        layout.prop(prefs, "path_preview", text="Resolved Path")
+        layout.prop(prefs, "show_custom_variables_panel", text="Custom Variables")
 
 
-class RECOM_MT_RecentBlendFiles(Menu):
-    bl_idname = "RECOM_MT_recent_blend_files"
-    bl_label = "Recent External Scenes Menu"
+class RECOM_MT_preferences_menu(Menu):
+    bl_label = "Preferences Menu"
+
+    def draw(self, context):
+        layout = self.layout
+
+        prefs = get_addon_preferences(context)
+        layout.operator("recom.open_pref", text="Addon Preferences", icon="PREFERENCES")
+
+
+class RECOM_MT_recent_blend_files(Menu):
+    bl_label = "Recent Files Menu"
 
     def draw(self, context):
         layout = self.layout
@@ -42,7 +48,7 @@ class RECOM_MT_RecentBlendFiles(Menu):
             return
 
         row = layout.row()
-        row.label(text="Recent Blend Files")
+        row.label(text="Recent Files")
         row.active = False
         layout.separator()
 
@@ -55,8 +61,7 @@ class RECOM_MT_RecentBlendFiles(Menu):
         layout.operator("recom.clear_recent_files", text="Clear Recent Files List...", icon="TRASH")
 
 
-class RECOM_MT_ExternalBlendOptions(Menu):
-    bl_idname = "RECOM_MT_external_blend_options"
+class RECOM_MT_external_blend_options(Menu):
     bl_label = "External Blend Options"
 
     def draw(self, context):
@@ -76,16 +81,23 @@ class RECOM_MT_ExternalBlendOptions(Menu):
 
         op_dir = layout.operator("recom.open_blend_directory", text="Open Blend File Path", icon="FILE_FOLDER")
         op_dir.file_path = file_path
-        layout.separator()
 
-        layout.operator("recom.open_external_scene_info", text="View in Text Editor", icon="TEXT")
-        layout.separator()
+        try:
+            output_path = json.loads(settings.external_scene_info).get("filepath", "//")
+        except:
+            output_path = "//"
+        op_open_output_folder = layout.operator("recom.open_output_folder", text="Open Output Path")
+        op_open_output_folder.folder_path = output_path
 
-        layout.prop(prefs, "compact_external_info", text="Compact Scene Info")
+        if prefs.debug_mode:
+            layout.separator()
+            layout.operator("recom.open_external_scene_info", text="View in Text Editor", icon="TEXT")
+
+            layout.separator()
+            layout.prop(prefs, "compact_external_info", text="Compact Scene Info")
 
 
-class RECOM_MT_ResolutionX(Menu):
-    bl_idname = "RECOM_MT_resolution_x"
+class RECOM_MT_resolution_x(Menu):
     bl_label = "Width Resolution Menu"
 
     def draw(self, context):
@@ -97,12 +109,12 @@ class RECOM_MT_ResolutionX(Menu):
         if settings.override_settings.resolution_mode == "SET_HEIGHT":
             layout.enabled = False
 
-        layout.label(text="Set Width")
+        layout.label(text="Resolution Width")
         layout.separator()
 
         swap_row = layout.row()
         swap_row.active = settings.override_settings.resolution_override
-        swap_row.operator("recom.swap_resolution", text=f"Height Swap", icon="UV_SYNC_SELECT")
+        swap_row.operator("recom.swap_resolution", text=f"Swap Width and Height", icon="UV_SYNC_SELECT")
         layout.separator()
 
         sections = {
@@ -122,8 +134,7 @@ class RECOM_MT_ResolutionX(Menu):
                 layout.separator()
 
 
-class RECOM_MT_ResolutionY(Menu):
-    bl_idname = "RECOM_MT_resolution_y"
+class RECOM_MT_resolution_y(Menu):
     bl_label = "Height Resolution Menu"
 
     def draw(self, context):
@@ -135,12 +146,12 @@ class RECOM_MT_ResolutionY(Menu):
         if settings.override_settings.resolution_mode == "SET_WIDTH":
             layout.enabled = False
 
-        layout.label(text="Set Height")
+        layout.label(text="Resolution Height")
         layout.separator()
 
         swap_row = layout.row()
         swap_row.active = settings.override_settings.resolution_override
-        swap_row.operator("recom.swap_resolution", text=f"Width Swap", icon="UV_SYNC_SELECT")
+        swap_row.operator("recom.swap_resolution", text=f"Swap Width and Height", icon="UV_SYNC_SELECT")
         layout.separator()
 
         sections = {
@@ -160,9 +171,39 @@ class RECOM_MT_ResolutionY(Menu):
                 layout.separator()
 
 
-class RECOM_MT_AdaptiveThreshold(Menu):
-    bl_idname = "RECOM_MT_adaptive_threshold"
-    bl_label = "Set Adaptive Threshold"
+class RECOM_MT_custom_render_scale(Menu):
+    bl_label = "Resolution Scale Menu"
+
+    def draw(self, context):
+        layout = self.layout
+
+        settings = context.window_manager.recom_render_settings
+        current_value = f"{settings.override_settings.custom_render_scale:.2f}"
+
+        layout.label(text="Resolution Scale")
+        layout.separator()
+
+        scale_options = [
+            ("400", "400%", "4x resolution multiplier"),
+            ("300", "300%", "3x resolution multiplier"),
+            ("200", "200%", "2x resolution multiplier"),
+            ("150", "150%", "1.5x resolution multiplier"),
+            ("100", "100%", "Native resolution"),
+            ("66.67", "66.7% (2/3)", "2/3 resolution"),
+            ("50", "50%", "Half resolution"),
+            ("33.33", "33.3% (1/3)", "1/3 resolution"),
+            ("25", "25%", "Quarter resolution"),
+        ]
+
+        for value, label, description in scale_options:
+            icon = "DOT" if f"{float(value):.2f}" == current_value else "BLANK1"
+
+            op = layout.operator("recom.set_custom_render_scale", text=label, icon=icon)
+            op.value = float(value)  # Convert to float for setting the property
+
+
+class RECOM_MT_adaptive_threshold(Menu):
+    bl_label = "Adaptive Threshold Menu"
 
     def draw(self, context):
         layout = self.layout
@@ -170,7 +211,7 @@ class RECOM_MT_AdaptiveThreshold(Menu):
         settings = context.window_manager.recom_render_settings
         current = f"{settings.override_settings.cycles.adaptive_threshold:.4f}"
 
-        layout.label(text="Set Adaptive Threshold")
+        layout.label(text="Adaptive Threshold")
         layout.separator()
 
         thresholds = [0.0050, 0.0100, 0.0150, 0.0250, 0.0500, 0.1000]
@@ -180,9 +221,8 @@ class RECOM_MT_AdaptiveThreshold(Menu):
             op.value = val
 
 
-class RECOM_MT_Samples(Menu):
-    bl_idname = "RECOM_MT_samples"
-    bl_label = "Set Samples"
+class RECOM_MT_samples(Menu):
+    bl_label = "Samples Menu"
 
     def draw(self, context):
         layout = self.layout
@@ -190,7 +230,7 @@ class RECOM_MT_Samples(Menu):
         settings = context.window_manager.recom_render_settings
         current = settings.override_settings.cycles.samples
 
-        layout.label(text="Set Samples")
+        layout.label(text="Samples")
         layout.separator()
 
         values = [64, 128, 256, 512, 1024, 2048, 4096, 6144, 8192]
@@ -202,9 +242,29 @@ class RECOM_MT_Samples(Menu):
             op.value = val
 
 
-class RECOM_MT_AdaptiveMinSamples(Menu):
-    bl_idname = "RECOM_MT_adaptive_min_samples"
-    bl_label = "Set Adaptive Min Samples"
+class RECOM_MT_eevee_samples(Menu):
+    bl_label = "Samples Menu"
+
+    def draw(self, context):
+        layout = self.layout
+
+        settings = context.window_manager.recom_render_settings
+        current = settings.override_settings.eevee.samples
+
+        layout.label(text="Render Samples")
+        layout.separator()
+
+        values = [64, 128, 256, 512, 1024, 2048]
+        values.sort(reverse=True)
+
+        for val in values:
+            icon = "DOT" if val == current else "BLANK1"
+            op = layout.operator("recom.set_eevee_samples", text=str(val), icon=icon)
+            op.value = val
+
+
+class RECOM_MT_adaptive_min_samples(Menu):
+    bl_label = "Adaptive Min Samples Menu"
 
     def draw(self, context):
         layout = self.layout
@@ -212,7 +272,7 @@ class RECOM_MT_AdaptiveMinSamples(Menu):
         settings = context.window_manager.recom_render_settings
         current = settings.override_settings.cycles.adaptive_min_samples
 
-        layout.label(text="Set Adaptive Min Samples")
+        layout.label(text="Adaptive Min Samples")
         layout.separator()
 
         values = [0, 16, 32, 64, 128, 256, 512, 1024]
@@ -223,9 +283,8 @@ class RECOM_MT_AdaptiveMinSamples(Menu):
             op.value = val
 
 
-class RECOM_MT_TimeLimit(Menu):
-    bl_idname = "RECOM_MT_time_limit"
-    bl_label = "Set Time Limit"
+class RECOM_MT_time_limit(Menu):
+    bl_label = "Time Limit Menu"
 
     def draw(self, context):
         layout = self.layout
@@ -233,7 +292,7 @@ class RECOM_MT_TimeLimit(Menu):
         settings = context.window_manager.recom_render_settings
         current = settings.override_settings.cycles.time_limit
 
-        layout.label(text="Set Time Limit")
+        layout.label(text="Time Limit")
         layout.separator()
 
         time_presets = [
@@ -258,9 +317,8 @@ class RECOM_MT_TimeLimit(Menu):
             op.value = seconds
 
 
-class RECOM_MT_TileSize(Menu):
-    bl_idname = "RECOM_MT_tile_size"
-    bl_label = "Set Tile Size"
+class RECOM_MT_tile_size(Menu):
+    bl_label = "Tile Size Menu"
 
     def draw(self, context):
         layout = self.layout
@@ -268,7 +326,7 @@ class RECOM_MT_TileSize(Menu):
         settings = context.window_manager.recom_render_settings
         current = settings.override_settings.cycles.tile_size
 
-        layout.label(text="Set Tile Size")
+        layout.label(text="Tile Size")
         layout.separator()
 
         values = [64, 128, 256, 512, 1024, 2048, 4096, 8192]
@@ -280,54 +338,21 @@ class RECOM_MT_TileSize(Menu):
             op.value = val
 
 
-class RECOM_MT_EEVEESamples(Menu):
-    bl_idname = "RECOM_MT_eevee_samples"
-    bl_label = "Set Samples"
-
-    def draw(self, context):
-        layout = self.layout
-
-        settings = context.window_manager.recom_render_settings
-        current = settings.override_settings.eevee.samples
-
-        layout.label(text="Set Samples")
-        layout.separator()
-
-        values = [64, 128, 256, 512, 1024, 2048]
-        values.sort(reverse=True)
-
-        for val in values:
-            icon = "DOT" if val == current else "BLANK1"
-            op = layout.operator("recom.set_eevee_samples", text=str(val), icon=icon)
-            op.value = val
-
-
-class RECOM_MT_CyclesRenderDevices(Menu):
-    bl_idname = "RECOM_MT_cycles_render_devices_menu"
+class RECOM_MT_cycles_render_devices(Menu):
     bl_label = "Cycles Render Devices Menu"
 
     def draw(self, context):
         layout = self.layout
         prefs = get_addon_preferences(context)
 
-        layout.operator(
-            "recom.import_from_cycles_settings",
-            text="Import Device Settings",
-            icon=ICON_SYNC,
-        )
-        # layout.separator()
-        layout.operator(
-            "recom.reinitialize_devices",
-            text="Refresh Device List",
-            icon="FILE_REFRESH",
-        )
+        layout.operator("recom.import_from_cycles_settings", text="Import Device Settings", icon=ICON_SYNC)
+        layout.operator("recom.reinitialize_devices", icon="FILE_REFRESH")
         layout.separator()
-        layout.prop(prefs.visible_panels, "cycles_device_ids", text="Show Device ID")
+        layout.operator("recom.cycles_device_ids", text="Show Device ID", icon="INFO")
 
 
-class RECOM_MT_Scripts(Menu):
-    bl_idname = "RECOM_MT_scripts"
-    bl_label = "Import Script Menu"
+class RECOM_MT_scripts(Menu):
+    bl_label = "Import Scripts Menu"
 
     def draw(self, context):
         layout = self.layout
@@ -341,7 +366,7 @@ class RECOM_MT_Scripts(Menu):
 
         tittle_row = layout.row()
         tittle_row.active = False
-        tittle_row.label(text="Import Script")
+        tittle_row.label(text="Import Scripts")
         layout.separator()
 
         if scripts_dir.exists():
@@ -357,9 +382,9 @@ class RECOM_MT_Scripts(Menu):
 
                     # Remove extension and format name
                     clean_parts = relative_path.with_suffix("").parts
-                    display_name = (" - ".join(clean_parts)).replace("_", " ")
+                    display_name = (" / ".join(clean_parts)).replace("_", " ")
 
-                    op = layout.operator("recom.add_script_from_menu", text=display_name, icon="SCRIPT")
+                    op = layout.operator("recom.add_script_from_menu", text=display_name, icon="FILE_SCRIPT")
                     op.script_path = str(script_path)
 
                 layout.separator()
@@ -367,8 +392,7 @@ class RECOM_MT_Scripts(Menu):
         layout.operator("recom.change_scripts_directory", text="Change Directory...", icon="FILE_FOLDER")
 
 
-class RECOM_MT_ScriptOptions(Menu):
-    bl_idname = "RECOM_MT_script_options"
+class RECOM_MT_script_options(Menu):
     bl_label = "Script Options Menu"
 
     def draw(self, context):
@@ -388,12 +412,6 @@ class RECOM_MT_ScriptOptions(Menu):
         if not script.script_path:
             layout.active = False
 
-        """
-        layout.label(text=f"{script_name}", icon="FILE_SCRIPT")
-        layout.separator()
-        """
-        # layout.label(text="Append Order")
-        # layout.separator(type="SPACE")
         current_order = script.order
         op_pre = layout.operator(
             "recom.change_script_order",
@@ -409,7 +427,6 @@ class RECOM_MT_ScriptOptions(Menu):
         op_post.order = "POST"
         layout.separator()
 
-        # if is_post_selected and len(scripts) > 1:
         last_index = len(scripts) - 1
 
         move_up_row = layout.row(align=True)
@@ -426,8 +443,7 @@ class RECOM_MT_ScriptOptions(Menu):
         layout.operator("recom.open_script", text="Open in Text Editor", icon="TEXT")
 
 
-class RECOM_MT_CustomVariables(Menu):
-    bl_idname = "RECOM_MT_custom_variables"
+class RECOM_MT_custom_variables(Menu):
     bl_label = "Variables Menu"
 
     def draw(self, context):
@@ -454,20 +470,18 @@ class RECOM_MT_CustomVariables(Menu):
         move_down_row.enabled = current_index < last_index
 
 
-class RECOM_MT_CustomBlender(Menu):
-    bl_idname = "RECOM_MT_custom_blender"
+class RECOM_MT_custom_blender(Menu):
     bl_label = "Blender Executable Menu"
 
     def draw(self, context):
         layout = self.layout
 
-        layout.operator("recom.launch_custom_blender", text="Launch Blender")
+        layout.operator("recom.launch_custom_blender", text="Launch Custom Blender", icon="BLANK1")
         # layout.separator()
-        layout.operator("recom.check_blender_version", text="Version Details...")
+        layout.operator("recom.check_blender_version", text="Version Details...", icon="BLANK1")
 
 
-class RECOM_MT_RenderHistoryItem(Menu):
-    bl_idname = "RECOM_MT_render_history_item"
+class RECOM_MT_render_history_item(Menu):
     bl_label = "Render Menu"
 
     def draw(self, context):
@@ -487,12 +501,6 @@ class RECOM_MT_RenderHistoryItem(Menu):
         blend_col = layout.column(align=True)
         if not active_item.blend_path or not blend_exists:
             blend_col.enabled = False
-        """
-        header_row = blend_col.row()
-        header_row.active = False
-        header_row.label(text=f"{blend_filename} - {active_item.render_id}")
-        blend_col.separator()
-        """
 
         # Open Blend File
         # if blend_exists:
@@ -504,7 +512,7 @@ class RECOM_MT_RenderHistoryItem(Menu):
         blend_col.separator()
 
         op_load_external_scene = blend_col.operator(
-            "recom.select_recent_file", text="Load External Scene", icon="FILE_BLEND"
+            "recom.select_recent_file", text="Load Blend File", icon="FILE_BLEND"
         )
         op_load_external_scene.file_path = active_item.blend_path
         blend_col.separator()
@@ -521,43 +529,38 @@ class RECOM_MT_RenderHistoryItem(Menu):
         remove_op = layout.operator("recom.remove_render_history_item", text="Remove from History", icon="TRASH")
 
 
-class RECOM_MT_RenderHistory(Menu):
-    bl_idname = "RECOM_MT_render_history"
+class RECOM_MT_render_history(Menu):
     bl_label = "Render History Menu"
 
     def draw(self, context):
         layout = self.layout
         prefs = get_addon_preferences(context)
 
-        layout.enabled = True if prefs.render_history else False
-        layout.operator(
-            "recom.clean_render_history",
-            text="Clear Render History List...",
-            icon="TRASH",
-        )
-
-        layout.prop(prefs.visible_panels, "render_details", text="Show Render Details")
+        layout.enabled = bool(prefs.render_history)
+        layout.operator("recom.clean_render_history", text="Clear Render History List...", icon="TRASH")
 
 
 classes = (
-    RECOM_MT_ResolvedPath,
-    RECOM_MT_RecentBlendFiles,
-    RECOM_MT_ExternalBlendOptions,
-    RECOM_MT_ResolutionX,
-    RECOM_MT_ResolutionY,
-    RECOM_MT_AdaptiveThreshold,
-    RECOM_MT_Samples,
-    RECOM_MT_EEVEESamples,
-    RECOM_MT_AdaptiveMinSamples,
-    RECOM_MT_TimeLimit,
-    RECOM_MT_TileSize,
-    RECOM_MT_CyclesRenderDevices,
-    RECOM_MT_Scripts,
-    RECOM_MT_ScriptOptions,
-    RECOM_MT_CustomBlender,
-    RECOM_MT_CustomVariables,
-    RECOM_MT_RenderHistoryItem,
-    RECOM_MT_RenderHistory,
+    RECOM_MT_resolved_path,
+    RECOM_MT_recent_blend_files,
+    RECOM_MT_external_blend_options,
+    RECOM_MT_resolution_x,
+    RECOM_MT_resolution_y,
+    RECOM_MT_custom_render_scale,
+    RECOM_MT_adaptive_threshold,
+    RECOM_MT_samples,
+    RECOM_MT_eevee_samples,
+    RECOM_MT_adaptive_min_samples,
+    RECOM_MT_time_limit,
+    RECOM_MT_tile_size,
+    RECOM_MT_cycles_render_devices,
+    RECOM_MT_scripts,
+    RECOM_MT_script_options,
+    RECOM_MT_custom_blender,
+    RECOM_MT_custom_variables,
+    RECOM_MT_render_history_item,
+    RECOM_MT_render_history,
+    RECOM_MT_preferences_menu,
 )
 
 

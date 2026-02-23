@@ -48,6 +48,37 @@ def format_file_size(size_bytes: int) -> str:
     return f"{s} {size_name[i]}"
 
 
+def get_render_enabled_cameras_in_frame_range():
+    """Counts the number of cameras set to render within the scene's frame range."""
+    scene = bpy.context.scene
+    start_frame = scene.frame_start
+    end_frame = scene.frame_end
+
+    render_enabled_camera_count = 0
+
+    # Iterate through all objects in the scene
+    for obj in scene.objects:
+        # Check if the object is a camera
+        if obj.type == "CAMERA":
+            # Store original active camera to restore later
+            original_active_camera = scene.camera
+
+            is_active_in_range = False
+            for frame in range(start_frame, end_frame + 1):
+                scene.frame_set(frame)
+                if scene.camera == obj:
+                    is_active_in_range = True
+                    break
+
+            if is_active_in_range:
+                render_enabled_camera_count += 1
+
+            # Restore original active camera
+            scene.camera = original_active_camera
+
+    return render_enabled_camera_count
+
+
 def get_scene_info() -> dict:
     """Extract comprehensive scene information from current Blender context."""
     try:
@@ -69,13 +100,13 @@ def get_scene_info() -> dict:
             "blend_filepath": str(blend_path),
             "file_size": format_file_size(file_size),
             "blender_version": ".".join(map(str, blender_version)),
-            "modified_date": datetime.datetime.fromtimestamp(modified_time).strftime(
-                "%Y-%m-%d %H:%M:%S"
-            ),
+            "modified_date": datetime.datetime.fromtimestamp(modified_time).strftime("%Y-%m-%d %H:%M:%S"),
             "modified_date_short": formatted_date,
             "scene_name": scene.name,
             "view_layer": context.view_layer.name,
             "render_engine": render_engine,
+            "view_transform": scene.view_settings.view_transform,
+            "look": scene.view_settings.look,
             "frame_current": scene.frame_current,
             "frame_start": scene.frame_start,
             "frame_end": scene.frame_end,
@@ -97,10 +128,9 @@ def get_scene_info() -> dict:
             "camera_name": scene.camera.name if scene.camera else "No Camera",
             "camera_lens": 0,
             "camera_sensor": 0,
-            "use_compositor": (True if scene.compositing_node_group else False)
-            if bpy.app.version >= (5, 0, 0)
-            else scene.use_nodes,
+            "use_compositor": bool(scene.compositing_node_group) if bpy.app.version >= (5, 0, 0) else scene.use_nodes,
             "compositor_device": render.compositor_device,
+            "camera_render_count": get_render_enabled_cameras_in_frame_range(),
         }
 
         if scene.camera and scene.camera.data:

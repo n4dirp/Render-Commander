@@ -1,8 +1,12 @@
 # ./utils/constants.py
 
-import sys
+from .. import __package__ as base_package
 
-from .helpers import get_addon_name
+
+def get_addon_name() -> str:
+    """Get the name of the addon."""
+    return base_package
+
 
 # General
 ADDON_NAME = get_addon_name()
@@ -21,6 +25,13 @@ RE_EEVEE = "BLENDER_EEVEE"
 RE_EEVEE_NEXT = "BLENDER_EEVEE_NEXT"
 RE_WORKBENCH = "BLENDER_WORKBENCH"
 
+RENDER_ENGINE_MAPPING = {
+    RE_CYCLES: "Cycles",
+    RE_EEVEE: "EEVEE",
+    RE_EEVEE_NEXT: "EEVEE",
+    RE_WORKBENCH: "Workbench",
+}
+
 # Render Modes
 MODE_SINGLE = "SINGLE_FRAME"
 MODE_SEQ = "SEQUENCE"
@@ -29,5 +40,5 @@ MODE_LIST = "FRAME_LIST"
 # UI
 ICON_COLLAPSED = "DISCLOSURE_TRI_DOWN"
 ICON_EXPANDED = "DISCLOSURE_TRI_RIGHT"
-ICON_OPTION = "RIGHTARROW_THIN"
+ICON_OPTION = "DOWNARROW_HLT"
 ICON_SYNC = "IMPORT"

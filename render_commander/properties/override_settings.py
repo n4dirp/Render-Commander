@@ -445,7 +445,7 @@ class RECOM_PG_OverrideSettings(PropertyGroup):
         default=True,
     )
 
-    def _update_auto_cache(self, context):
+    def _update_auto_resolution_cache(self, context):
         """Recompute auto‑width/auto‑height when anything that affects them changes."""
         mode_changed = self.resolution_mode != getattr(self, "_cached_res_mode", None)
 
@@ -486,7 +486,7 @@ class RECOM_PG_OverrideSettings(PropertyGroup):
         ],
         default="CUSTOM",
         description="Choose how resolution is configured",
-        update=_update_auto_cache,
+        update=_update_auto_resolution_cache,
     )
     resolution_preview: IntProperty(
         name="Auto Calculate Resolution",
@@ -501,7 +501,7 @@ class RECOM_PG_OverrideSettings(PropertyGroup):
         min=1,
         description="Horizontal resolution in pixels",
         subtype="PIXEL",
-        update=_update_auto_cache,
+        update=_update_auto_resolution_cache,
     )
     resolution_y: IntProperty(
         name="Height",
@@ -509,7 +509,7 @@ class RECOM_PG_OverrideSettings(PropertyGroup):
         min=1,
         description="Vertical resolution in pixels",
         subtype="PIXEL",
-        update=_update_auto_cache,
+        update=_update_auto_resolution_cache,
     )
     cached_auto_width: IntProperty(
         name="Cached Auto Width",
@@ -523,6 +523,7 @@ class RECOM_PG_OverrideSettings(PropertyGroup):
         description="Cached height that keeps the aspect ratio when SET_WIDTH is active",
         subtype="PIXEL",
     )
+    # Deprecated: render_scale
     render_scale: EnumProperty(
         name="Render Scale",
         items=[
@@ -537,16 +538,18 @@ class RECOM_PG_OverrideSettings(PropertyGroup):
             ("0.3333", "33.3% (1/3)", "1/3 resolution"),
             ("0.25", "25%", "Quarter resolution"),
         ],
-        default="1.00",
+        default="CUSTOM",
         description=(
             "Resolution scaling factor.\n" ">100% for supersampling (sharper results).\n" "<100% for faster previews."
         ),
     )
-    custom_render_scale: IntProperty(
+    custom_render_scale: FloatProperty(
         name="Custom Render Scale",
-        default=100,
-        min=1,
-        soft_max=200,
+        default=100.0,
+        min=1.0,
+        soft_max=200.0,
+        precision=1,
+        step=10,
         description="Enter a custom scale factor %",
         subtype="PERCENTAGE",
     )
@@ -595,6 +598,25 @@ class RECOM_PG_OverrideSettings(PropertyGroup):
         subtype="PIXEL",
     )
 
+    # Camera
+    cameras_override: BoolProperty(
+        name="Camera Settings",
+        description="Enable or disable all camera overrides",
+        default=False,
+    )
+    override_dof: BoolProperty(
+        name="Override Depth of Field",
+        description="Override depth of field settings on all cameras in the scene",
+        default=False,
+    )
+    use_dof: EnumProperty(
+        name="Depth of Field",
+        items=[
+            ("DISABLED", "Disabled", "Disable depth of field on all cameras in the scene"),
+            ("ENABLED", "Enabled", "Use depth of field on all cameras in the scene"),
+        ],
+        default="DISABLED",
+    )
     # Lens Shift
     camera_shift_override: BoolProperty(
         name="Add Lens Shift",
@@ -685,38 +707,39 @@ class RECOM_PG_OverrideSettings(PropertyGroup):
     def on_output_path_changed(self, context):
         prefs = get_addon_preferences(context)
 
-        if prefs.path_preview:
-            try:
-                dir_path_str = self.output_directory or ""
-                file_name_str = self.output_filename or ""
+        try:
+            dir_path_str = self.output_directory or ""
+            file_name_str = self.output_filename or ""
 
-                # Resolve directory path with variables
-                resolved_dir_str = replace_variables(dir_path_str)
-                if resolved_dir_str:
-                    folder_path_display = resolved_dir_str
-                else:
-                    folder_path_display = str(get_default_render_output_path())
+            # Resolve directory path with variables
+            resolved_dir_str = replace_variables(dir_path_str)
+            folder_path_display = ""
 
-                # Ensure trailing slash for display
-                # if folder_path_display and not folder_path_display.endswith(("/", "\\")):
-                #    folder_path_display += "/"
+            if resolved_dir_str:
+                folder_path_display = resolved_dir_str
+            # else:
+            #    folder_path_display = str(get_default_render_output_path())
 
-                if folder_path_display and not folder_path_display.endswith(os.sep):
-                    folder_path_display += os.sep
+            # Ensure trailing slash for display
+            # if folder_path_display and not folder_path_display.endswith(("/", "\\")):
+            #    folder_path_display += "/"
 
-                self.resolved_directory = folder_path_display
+            if folder_path_display and not folder_path_display.endswith(os.sep):
+                folder_path_display += os.sep
 
-                # Resolve filename with variables
-                resolved_filename = replace_variables(file_name_str)
-                self.resolved_filename = resolved_filename or ""
+            self.resolved_directory = folder_path_display
 
-                self.resolved_path = (
-                    str(Path(self.resolved_directory) / self.resolved_filename)
-                    if resolved_filename
-                    else folder_path_display
-                )
-            except Exception as e:
-                log.error(f"Failed to resolve output path: {str(e)}")
+            # Resolve filename with variables
+            resolved_filename = replace_variables(file_name_str)
+            self.resolved_filename = resolved_filename or ""
+
+            self.resolved_path = (
+                str(Path(self.resolved_directory) / self.resolved_filename)
+                if resolved_filename
+                else folder_path_display
+            )
+        except Exception as e:
+            log.error(f"Failed to resolve output path: {str(e)}")
 
     output_path_override: BoolProperty(
         name="Override Output Path",

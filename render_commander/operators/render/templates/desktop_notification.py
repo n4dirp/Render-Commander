@@ -14,6 +14,12 @@ _IS_MACOS = sys.platform == "darwin"
 _IS_LINUX = sys.platform.startswith("linux")
 _WIN11TOAST_AVAILABLE = _IS_WINDOWS and importlib.util.find_spec("win11toast") is not None
 
+# Variables
+NOTIFICATION_DETAIL_LEVEL = "DETAILED"
+TOAST_SHOW_PREVIEW = True
+TOAST_SHOW_BUTTONS = True
+NOTIFICATION_TIMEOUT = 10
+
 
 def _send_win11toast_notification(title, message, output_dir_path, preview_path):
     """Sends a rich notification on Windows using the win11toast library."""
@@ -33,32 +39,39 @@ def _send_win11toast_notification(title, message, output_dir_path, preview_path)
                     sys.stdout, sys.stderr = old_stdout, old_stderr
 
         buttons = []
-        if preview_path and preview_path.is_file():
-            buttons.append(
-                {
-                    "activationType": "protocol",
-                    "arguments": str(preview_path.resolve()),
-                    "content": "Open Image",
-                }
-            )
-        else:
-            print(f"Toast: No valid preview image at: {preview_path}")
 
-        if output_dir_path and output_dir_path.is_dir():
-            buttons.append(
-                {
-                    "activationType": "protocol",
-                    "arguments": str(output_dir_path.resolve()),
-                    "content": "Open Folder",
-                }
-            )
-        else:
-            print(f"Toast: No valid output folder at: {output_dir_path}")
+        if NOTIFICATION_DETAIL_LEVEL != "SIMPLE" and TOAST_SHOW_BUTTONS:
+            if preview_path and preview_path.is_file():
+                buttons.append(
+                    {
+                        "activationType": "protocol",
+                        "arguments": str(preview_path.resolve()),
+                        "content": "Open Image",
+                    }
+                )
+            else:
+                print(f"Toast: No valid preview image at: {preview_path}")
+
+            if output_dir_path and output_dir_path.is_dir():
+                buttons.append(
+                    {
+                        "activationType": "protocol",
+                        "arguments": str(output_dir_path.resolve()),
+                        "content": "Open Folder",
+                    }
+                )
+            else:
+                print(f"Toast: No valid output folder at: {output_dir_path}")
 
         def run_toast():
             try:
                 print("Toast: Showing Windows toast notification...")
-                image_arg = str(preview_path.resolve()) if preview_path and preview_path.is_file() else None
+
+                if NOTIFICATION_DETAIL_LEVEL != "SIMPLE" and TOAST_SHOW_PREVIEW:
+                    image_arg = str(preview_path.resolve()) if preview_path and preview_path.is_file() else None
+                else:
+                    image_arg = ""
+
                 with suppress_stdout_stderr():
                     toast(
                         title,
@@ -72,9 +85,9 @@ def _send_win11toast_notification(title, message, output_dir_path, preview_path)
         # Launch toast in a thread with a timeout to prevent blocking.
         t = threading.Thread(target=run_toast, daemon=True)
         t.start()
-        t.join(timeout=15)
+        t.join(timeout=NOTIFICATION_TIMEOUT)
         if t.is_alive():
-            print("Toast: Toast did not close within 15s, terminating thread reference.")
+            print("Toast: Toast did not close within 10s, terminating thread reference.")
 
     except Exception as e:
         print(f"Failed to initialize or send win11toast notification: {e}")
@@ -127,7 +140,7 @@ def _send_macos_notification(title, message):
         subprocess.run(
             ["osascript", "-e", f'display notification "{message}" with title "{title}"'],
             check=True,
-            timeout=10,
+            timeout=NOTIFICATION_TIMEOUT,
         )
     except Exception as e:
         print(f"macOS Notification Error: {e}")
@@ -158,7 +171,7 @@ def _send_linux_notification(title, message):
         subprocess.run(
             ["notify-send", "-i", icon_path, "-a", "Blender", title, message],
             check=True,
-            timeout=10,
+            timeout=NOTIFICATION_TIMEOUT,
         )
     except Exception as e:
         print(f"Linux Notification Error: {e}")
@@ -192,6 +205,10 @@ folder_path = output_path if output_path.is_dir() else output_path.parent
 def _build_notification_message(max_len: int = 50) -> str:
     """Return a string with key render details."""
 
+    # Simple Level
+    if NOTIFICATION_DETAIL_LEVEL == "SIMPLE":
+        return "Render finished successfully."
+
     def truncate_middle(s: str, max_length: int) -> str:
         if len(s) <= max_length:
             return s
@@ -211,9 +228,8 @@ def _build_notification_message(max_len: int = 50) -> str:
     final_y = int(render.resolution_y * pct)
     resolution_info = f"{final_x} x {final_y} px"
 
+    #  Detailed Level
     file_format = scene.render.image_settings.file_format
-
-    # Build the 3 lines
     line1 = truncate_middle(f"Blend: {blend_name}", max_len)
     line2 = truncate_middle(f"Format: {file_format} | {resolution_info}", max_len)
     line3 = truncate_middle(f"Output: {output_path}", max_len)
@@ -243,7 +259,8 @@ def _get_output_image_path() -> Path:
     if str(output_path).endswith(hash_string):
         # Construct the specific path for the current frame
         base_path_str = str(output_path).removesuffix(hash_string)
-        frame_number_str = str(bpy.context.scene.frame_current).zfill(frame_length_digits)
+        frame_path = bpy.context.scene.frame_current
+        frame_number_str = str(frame_path).zfill(frame_length_digits)
         image_path = Path(f"{base_path_str}{frame_number_str}{extension}")
     else:
         # This is a single image render; check if an extension is missing
@@ -257,7 +274,7 @@ def _get_output_image_path() -> Path:
     return image_path
 
 
-notification_title = f"Blender - Render Complete"
+notification_title = "Blender" if NOTIFICATION_DETAIL_LEVEL == "SIMPLE" else "Blender - Render Finished"
 notification_message = _build_notification_message()
 preview_image_path = _get_output_image_path()
 

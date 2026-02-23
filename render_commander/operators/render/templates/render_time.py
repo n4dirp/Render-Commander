@@ -48,20 +48,24 @@ def on_render_post(scene):
         bar_length = 64
         fill_char = "#"
         empty_char = "-"
-
         filled_length = int(bar_length * percent)
         bar = fill_char * filled_length + empty_char * (bar_length - filled_length)
 
         # ETA Calculation
-        eta_str = "--:--"
-        if start_time is not None and current_count > 0:
+        eta_str = None
+        if start_time is not None and current_count > 0 and total_frames > current_count:
             elapsed = time.time() - start_time
             avg_per_frame = elapsed / current_count
             remaining_frames = total_frames - current_count
             remaining_seconds = remaining_frames * avg_per_frame
             eta_str = format_duration(remaining_seconds)
 
-        print(f"Progress: [{bar}] {percent*100:.1f}% | Frame {current_count}/{total_frames} | ETA: {eta_str}")
+        # Build output without placeholder ETA
+        progress_info = f"Progress: [{bar}] {percent*100:.1f}% | Frame {current_count}/{total_frames}"
+        if eta_str:
+            progress_info += f" | ETA: {eta_str}"
+
+        print(progress_info)
 
     except Exception as exc:
         print(f"Progress bar error: {exc}")

@@ -18,19 +18,17 @@ log = logging.getLogger(__name__)
 
 class RECOM_OT_LoadingButton(Operator):
     bl_idname = "recom.loading_button"
-    bl_label = "..."
-    bl_description = "..."
+    bl_label = ""
+    bl_description = ""
 
     def execute(self, context):
         return {"FINISHED"}
 
 
 class RECOM_OT_ContinueSetup(Operator):
-    """Mark initial setup as complete after configuring devices"""
-
     bl_idname = "recom.continue_setup"
     bl_label = "Continue"
-    bl_description = "Proceed to the main interface after completing device configuration."
+    bl_description = "Proceed to the main interface after completing Cycles device configuration."
 
     def execute(self, context):
         prefs = get_addon_preferences(context)
@@ -39,11 +37,9 @@ class RECOM_OT_ContinueSetup(Operator):
 
 
 class RECOM_OT_ReinitializeDevices(Operator):
-    """Reinitialize all Cycles render devices (clean and rescan)"""
-
     bl_idname = "recom.reinitialize_devices"
     bl_label = "Refresh Device List"
-    bl_description = "Clean and rescan all device backends"
+    bl_description = "Reinitialize all Cycles render devices"
 
     def execute(self, context):
         prefs = get_addon_preferences(context)
@@ -78,11 +74,9 @@ class RECOM_OT_OpenPreferences(Operator):
 
 
 class RECOM_OT_ChangeScriptsDirectory(Operator):
-    """Change the directory for additional scripts"""
-
     bl_idname = "recom.change_scripts_directory"
     bl_label = "Select Scripts Directory"
-    bl_description = "Select a new directory containing Python scripts"
+    bl_description = "Change the directory for additional Python scripts"
 
     directory: StringProperty(
         name="Export Directory",
@@ -107,96 +101,37 @@ class RECOM_OT_ChangeScriptsDirectory(Operator):
         return {"RUNNING_MODAL"}
 
 
-class RECOM_OT_RenderImage(Operator):
-    """Render single image with MODE_SINGLE"""
-
-    bl_idname = "recom.render_image"
-    bl_label = "Render Image"
-    bl_description = "Render a single frame (image)"
+class RECOM_OT_DeviceID(Operator):
+    bl_idname = "recom.cycles_device_ids"
+    bl_label = "Device ID"
+    bl_description = "Displays the unique identifier of the compute devices"
 
     def execute(self, context):
         prefs = get_addon_preferences(context)
+        blender_path = bpy.path.abspath(prefs.custom_executable_path)
 
-        old_launch_mode = prefs.launch_mode
-        prefs.launch_mode = MODE_SINGLE
+        return context.window_manager.invoke_popup(self, width=400)
 
-        try:
-            bpy.ops.recom.background_render(action_type="RENDER")
-        except Exception as e:
-            prefs.launch_mode = old_launch_mode
-            self.report({"ERROR"}, f"{e}")
-            return {"CANCELLED"}
+    def draw(self, context):
+        layout = self.layout
 
-        return {"FINISHED"}
-
-
-class RECOM_OT_RenderAnimation(Operator):
-    """Render animation with MODE_SEQ"""
-
-    bl_idname = "recom.render_animation"
-    bl_label = "Render Animation"
-    bl_description = "Render a full frame range (animation)"
-
-    def execute(self, context):
         prefs = get_addon_preferences(context)
 
-        old_launch_mode = prefs.launch_mode
-        prefs.launch_mode = MODE_SEQ
+        layout.label(text="Device ID")
 
-        try:
-            bpy.ops.recom.background_render(action_type="RENDER")
-        except Exception as e:
-            prefs.launch_mode = old_launch_mode
-            self.report({"ERROR"}, f"{e}")
-            return {"CANCELLED"}
+        label_col = layout.box().column(align=True)
 
-        return {"FINISHED"}
+        prev_type = None
+        for device in prefs.get_devices_for_display():
+            if prev_type is not None and device.type != prev_type:
+                label_col.separator(type="AUTO")
 
+            row = label_col.row(align=True)
+            # row.active = False
+            icon = "CHECKBOX_HLT" if device.use else "CHECKBOX_DEHLT"
+            row.label(text=device.id, icon=icon)
 
-class RECOM_OT_ExportImage(Operator):
-    """Export render script for single image"""
-
-    bl_idname = "recom.export_image"
-    bl_label = "Export Render Image Script"
-    bl_description = "Export a render script for a single frame"
-
-    def execute(self, context):
-        prefs = get_addon_preferences(context)
-
-        old_launch_mode = prefs.launch_mode
-        prefs.launch_mode = MODE_SINGLE
-
-        try:
-            bpy.ops.recom.export_render_script("INVOKE_DEFAULT")
-            prefs.launch_mode = old_launch_mode
-        except Exception as e:
-            prefs.launch_mode = old_launch_mode
-            self.report({"ERROR"}, f"{e}")
-            return {"CANCELLED"}
-        return {"FINISHED"}
-
-
-class RECOM_OT_ExportAnimation(Operator):
-    """Export render script for animation"""
-
-    bl_idname = "recom.export_animation"
-    bl_label = "Export Render Animation Script"
-    bl_description = "Export a render script for an animation"
-
-    def execute(self, context):
-        prefs = get_addon_preferences(context)
-
-        old_launch_mode = prefs.launch_mode
-        prefs.launch_mode = MODE_SEQ
-
-        try:
-            bpy.ops.recom.export_render_script("INVOKE_DEFAULT")
-            prefs.launch_mode = old_launch_mode
-        except Exception as e:
-            prefs.launch_mode = old_launch_mode
-            self.report({"ERROR"}, f"{e}")
-            return {"CANCELLED"}
-        return {"FINISHED"}
+            prev_type = device.type
 
 
 classes = (
@@ -205,10 +140,7 @@ classes = (
     RECOM_OT_ReinitializeDevices,
     RECOM_OT_OpenPreferences,
     RECOM_OT_ChangeScriptsDirectory,
-    RECOM_OT_RenderImage,
-    RECOM_OT_RenderAnimation,
-    RECOM_OT_ExportImage,
-    RECOM_OT_ExportAnimation,
+    RECOM_OT_DeviceID,
 )
 
 

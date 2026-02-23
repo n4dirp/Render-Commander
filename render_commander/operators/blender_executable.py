@@ -1,3 +1,5 @@
+# ./operators/blender_executable.py
+
 import subprocess
 import sys
 from pathlib import Path
@@ -13,13 +15,9 @@ _IS_WINDOWS = sys.platform == "win32"
 
 
 class RECOM_OT_CheckBlenderVersion(Operator):
-    """Display Blender version information in a popup window"""
-
     bl_idname = "recom.check_blender_version"
     bl_label = "Check Blender Version"
-    bl_description = (
-        "Show detailed Blender version information including build details and compilation flags"
-    )
+    bl_description = "Display Blender version information in a popup window"
 
     output_text: bpy.props.StringProperty(
         name="Command Output",
@@ -69,8 +67,16 @@ class RECOM_OT_CheckBlenderVersion(Operator):
 
     def draw(self, context):
         layout = self.layout
-        col = layout.column(align=True)
-        col.active = False
+        prefs = get_addon_preferences(context)
+        blender_path = bpy.path.abspath(prefs.custom_executable_path)
+
+        row = layout.row()
+        row.label(text=f"Version Details")
+
+        col = layout.box().column(align=True)
+
+        # col.label(text=f"Path: {blender_path}")
+        # col.separator(type="LINE")
 
         formatted_output = self.output_text.replace("\t", "    ")
         max_width = 110
@@ -96,10 +102,9 @@ class RECOM_OT_CheckBlenderVersion(Operator):
 
 
 class RECOM_OT_LaunchCustomBlender(Operator):
-    """Execute Blender using a user-defined binary path"""
-
     bl_idname = "recom.launch_custom_blender"
     bl_label = "Launch Blender"
+    bl_description = "Execute Blender using a user-defined binary path"
 
     def execute(self, context):
         prefs = get_addon_preferences(context)

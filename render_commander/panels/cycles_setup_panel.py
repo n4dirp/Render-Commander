@@ -10,11 +10,10 @@ from ..utils.constants import *
 from ..utils.helpers import get_render_engine
 
 
-class RECOM_PT_CyclesSetup(Panel):
-    """Initial Setup Cycles Render Devices"""
+class RECOM_PT_cycles_setup(Panel):
+    """Initial Setup for Cycles Render Devices"""
 
     bl_label = "Render Commander"
-    bl_idname = "RECOM_PT_bg_render_panel"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = "Render Commander"
@@ -23,31 +22,16 @@ class RECOM_PT_CyclesSetup(Panel):
     def poll(cls, context):
         prefs = get_addon_preferences(context)
         render_engine = get_render_engine(context)
-        return render_engine == "CYCLES" and not prefs.initial_setup_complete
+        return render_engine == RE_CYCLES and not prefs.initial_setup_complete
 
     def draw(self, context):
         layout = self.layout
-
         prefs = get_addon_preferences(context)
 
-        col = layout.column()
-
-        """
-        info_box = col.box().column()
-        info_box.label(text="Initial Setup")
-        col.separator(factor=0.5)
-        """
-
-        devices_box = col.box()
-
-        col_box = devices_box.column()
+        col_box = layout.box().column()
 
         title_row = col_box.row()
         title_row.label(text="Compute Devices")
-
-        sync_row = title_row.row(align=True)
-        sync_row.alignment = "RIGHT"
-        sync_row.operator("recom.import_from_cycles_settings", text="", icon=ICON_SYNC, emboss=False)
 
         row = col_box.row()
         row.prop(prefs, "compute_device_type", expand=True)
@@ -58,11 +42,13 @@ class RECOM_PT_CyclesSetup(Panel):
             col_dev = col_box.box().column()
             prefs._draw_devices(col_dev, devices_to_display_list)
 
-        col.separator(factor=0.5)
-        col.operator("recom.continue_setup", text=f"Continue{CENTER_TEXT}", icon="CHECKMARK")
+        col_box.separator(factor=0.5)
+        col_box.operator("recom.import_from_cycles_settings", text="Import from Cycles", icon=ICON_SYNC)
+
+        layout.operator("recom.continue_setup", text="Continue", icon="CHECKMARK")
 
 
-classes = (RECOM_PT_CyclesSetup,)
+classes = (RECOM_PT_cycles_setup,)
 
 
 def register():

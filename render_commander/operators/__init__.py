@@ -6,31 +6,29 @@ import bpy
 
 from .render import background_render
 from . import (
-    external_scene,
+    presets,
+    blend_file,
     operators,
-    import_settings,
+    scene_overrides,
     override_output_path,
-    override_settings,
-    presets_settings,
-    custom_path_variables,
+    override_import_settings,
     blender_executable,
-    append_scripts,
+    python_scripts,
     render_history,
 )
 
 log = logging.getLogger(__name__)
 
 operator_modules = [
+    presets,
     background_render,
-    external_scene,
+    blend_file,
     operators,
-    import_settings,
+    scene_overrides,
     override_output_path,
-    override_settings,
-    presets_settings,
-    custom_path_variables,
+    override_import_settings,
     blender_executable,
-    append_scripts,
+    python_scripts,
     render_history,
 ]
 

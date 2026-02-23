@@ -5,8 +5,8 @@ import logging
 import bpy
 from . import (
     cycles_setup_panel,
-    main_panel,
-    external_scene_panel,
+    launcher_panel,
+    blend_file_panel,
     override_settings_panel,
     override_cycles_panel,
     override_eevee_panel,
@@ -18,8 +18,8 @@ log = logging.getLogger(__name__)
 
 ui_modules = [
     cycles_setup_panel,
-    main_panel,
-    external_scene_panel,
+    launcher_panel,
+    blend_file_panel,
     override_settings_panel,
     override_cycles_panel,
     override_eevee_panel,

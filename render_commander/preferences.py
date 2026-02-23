@@ -90,8 +90,17 @@ class RECOM_PG_ScriptEntry(PropertyGroup):
         default="PRE",
         update=lambda self, context: redraw_ui(),
     )
+
+    def _get_tooltip(self):
+        return f"Script Path: {self.script_path}"
+
+    def _set_tooltip(self, value):
+        # The preset system will try to write a string here – we just ignore it.
+        pass
+
     tooltip_display: StringProperty(
-        get=lambda self: f"Script Path: {self.script_path}",
+        get=_get_tooltip,
+        set=_set_tooltip,
         description="Tooltip shown on hover (Path: <full script path>)",
     )
 

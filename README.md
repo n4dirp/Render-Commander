@@ -13,7 +13,8 @@ Render Commander streamlines your workflow by enabling **background rendering** 
 
 ### Multi-Process and Device-Parallel Rendering
 
-Automate your Cycles workflow by launching a separate background Blender instance for each enabled compute device. The system supports multiple frame allocation strategies and can render across different backends simultaneously. For EEVEE, you can optimize sequence rendering by running multiple parallel processes on a single GPU (limited by VRAM).
+Cycles Render: Automate your rendering workflow by launching a separate background Blender instance for each enabled compute device. The system supports multiple frame allocation strategies and can render across different backends simultaneously.
+For EEVEE, you can optimize sequence rendering by running multiple parallel processes on a single GPU (limited by VRAM).
 
 
 ### Render Presets & Overrides

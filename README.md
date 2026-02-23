@@ -4,15 +4,17 @@
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-lightgrey?style=flat-square)](https://github.com/n4dirp/Render-Commander)
 [![Blender Version](https://img.shields.io/badge/Blender-4.2%20--%205.0-orange?style=flat-square&logo=blender)](https://www.blender.org/)
 
-<img src="images/render_launcher.png" alt="Render-Commander Panel" width="300">
 
 Render Commander streamlines your workflow by enabling **background rendering** and **multi-GPU management** directly from Blender. It compiles your render settings into standalone scripts, giving you the flexibility to launch jobs immediately or export them for later execution.
 
+<img src="images/render_launcher.png" alt="Render-Commander Panel" width="300">
+
 ## Features
 
-### Device-Parallel Rendering
+### Multi-Process and Device-Parallel Rendering
 
-The addon uses its own render-device selection and automates your rendering workflow by launching a separate background Blender instance for each enabled compute device. It also supports different frame allocations methods and rendering across multiple Cycles backends simultaneously.
+Automate your Cycles workflow by launching a separate background Blender instance for each enabled compute device. The system supports multiple frame allocation strategies and can render across different backends simultaneously. For EEVEE, you can optimize sequence rendering by running multiple parallel processes on a single GPU (limited by VRAM).
+
 
 ### Render Presets & Overrides
 
@@ -32,10 +34,6 @@ Preview scene settings, apply overrides, and start renders directly from the add
 - **Custom Blender Executables** – Define custom Blender paths to use different versions or builds.
 
 - **Append Python Scripts** – Attach your own Python scripts to render jobs for logging, post-processing, or pipeline integration.
-
-## Screenshots
-
-<img src="images/parallel_render_benchmark.jpg" alt="Device-Parallel Benchmark" height="200"> <img src="images/device_parallel.png" alt="Device-Parallel" height="200"> <img src="images/override_settings.png" alt="Render Overrides" height="200"> <img src="images/external_scene.png" alt="External Scene" height="200">
 
 ## Installation
 

@@ -4,7 +4,7 @@ bl_info = {
     "name": "Render Commander",
     "author": "Nadir Perazzo",
     "description": "Background render launcher for Cycles & EEVEE",
-    "version": (1, 0, 0),
+    "version": (1, 1, 2),
     "blender": (4, 2, 0),
     "doc_url": "https://github.com/n4dirp/Render-Commander",
     "tracker_url": "https://github.com/n4dirp/Render-Commander",
@@ -15,18 +15,23 @@ import logging
 import json
 import shutil
 import time
+import os
 from pathlib import Path
 
 import bpy
 
 from .utils.constants import *
+from .utils.helpers import get_addon_temp_dir
+
 from . import properties
 from . import preferences
 from . import utils
 from . import operators
 from . import panels
 
+
 ADDON_NAME = __package__
+
 logger = logging.getLogger(ADDON_NAME)
 
 
@@ -49,9 +54,9 @@ class ModernBlenderFormatter(logging.Formatter):
         name = f"{record.name:<14}"
 
         if self.with_level:
-            return f"{timestamp}  {name} | {record.levelname.title()}: {record.getMessage()}"
+            return f"{timestamp}  {ADDON_NAME} | {record.levelname.title()}: {record.getMessage()}"
         else:
-            return f"{timestamp}  {name} | {record.getMessage()}"
+            return f"{timestamp}  {ADDON_NAME} | {record.getMessage()}"
 
 
 def setup_logging():
@@ -123,9 +128,37 @@ def install_default_presets():
                     shutil.copy2(source_path, dest_path)
 
 
+def clean_old_temp_files(prefs):
+    try:
+        temp_dir = get_addon_temp_dir(prefs)
+    except Exception as e:
+        log.error(f"Failed to get temp directory: {e}")
+        return 0, 0
+
+    if not temp_dir.exists():
+        return 0, 0
+
+    targets = {".bat", ".sh", ".py", ".log", ".tmp"}
+    count, errors = 0, 0
+    now = time.time()
+    age_threshold = prefs.auto_clean_older_than_days
+
+    for f in temp_dir.iterdir():
+        if f.is_file() and f.suffix.lower() in targets:
+            try:
+                file_age = now - f.stat().st_mtime
+                if file_age > age_threshold:
+                    f.unlink()
+                    count += 1
+            except Exception as e:
+                logger.error(f"Failed to delete {f}: {e}")
+                errors += 1
+
+    return count, errors
+
+
 def register():
     setup_logging()
-    # logger.info("Registering Render Commander addon.")
 
     for mdl in addon_modules:
         try:
@@ -142,7 +175,12 @@ def register():
         logger.error("Failed to check or set preset_installed flag", exc_info=True)
 
     update_logger_from_prefs()
-    # logger.info("Registration finished.")
+
+    # Auto clean old temp files on startup
+    if prefs.auto_clean_enabled:
+        count, errors = clean_old_temp_files(prefs)
+        if count > 0:
+            logger.info(f"Auto-cleaned {count} old temporary files (failed: {errors})")
 
 
 def unregister():

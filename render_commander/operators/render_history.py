@@ -1,3 +1,5 @@
+# ./operators/render_history.py
+
 from pathlib import Path
 import logging
 
@@ -8,6 +10,7 @@ from bpy.props import StringProperty, EnumProperty
 from ..preferences import get_addon_preferences
 from ..utils.helpers import (
     open_folder,
+    redraw_ui,
 )
 
 log = logging.getLogger(__name__)
@@ -34,6 +37,8 @@ class RECOM_OT_CleanRenderHistory(Operator):
         if self.remove_type == "ALL":
             prefs.render_history.clear()
             log.info("Cleared all render history.")
+            redraw_ui()
+
             return {"FINISHED"}
 
         elif self.remove_type == "NOT_FOUND":
@@ -50,6 +55,8 @@ class RECOM_OT_CleanRenderHistory(Operator):
                 if missing_blend or missing_output:
                     prefs.render_history.remove(i)
                     log.info(f"Removed missing render history item: {item.blend_path}")
+
+                redraw_ui()
             return {"FINISHED"}
 
         else:

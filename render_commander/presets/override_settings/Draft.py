@@ -38,5 +38,4 @@ settings.override_settings.resolution_override = False
 settings.override_settings.resolution_mode = "SET_WIDTH"
 settings.override_settings.resolution_x = 512
 settings.override_settings.resolution_y = 512
-settings.override_settings.render_scale = "0.50"
 settings.override_settings.custom_render_scale = 50

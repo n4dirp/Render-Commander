@@ -40,5 +40,4 @@ settings.override_settings.resolution_override = False
 settings.override_settings.resolution_mode = "SET_WIDTH"
 settings.override_settings.resolution_x = 4096
 settings.override_settings.resolution_y = 2160
-settings.override_settings.render_scale = "1.00"
 settings.override_settings.custom_render_scale = 100

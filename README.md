@@ -36,7 +36,7 @@ Preview scene settings, apply overrides, and start renders directly from the add
 
 - **Append Python Scripts** – Attach your own Python scripts to render jobs for logging, post-processing, or pipeline integration.
 
-## Requeriments
+## System Requirements
 
 The add-on is compatible with **Blender 4.2 LTS** to **5.0** on  **Windows** and **Linux**.
 

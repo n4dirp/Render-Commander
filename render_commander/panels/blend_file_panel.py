@@ -95,7 +95,7 @@ class RECOM_PT_scene_file_panel(Panel):
         blend_path_row.operator("recom.select_external_blend_file", text="", icon="FILE_FOLDER")
 
         # Extract Scene Operator
-        sub = layout.row(align=True)
+        sub = col.row(align=True)
         sub.enabled = bool(settings.external_blend_file_path)
 
         button_text = "Read Scene"
@@ -115,7 +115,7 @@ class RECOM_PT_scene_file_panel(Panel):
 
 
 class RECOM_PT_scene_info(Panel):
-    bl_label = "Scene Info"
+    bl_label = "Blend Info"
     bl_parent_id = "RECOM_PT_scene_file_panel"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
@@ -172,10 +172,10 @@ class RECOM_PT_scene_info(Panel):
         header_text_col.label(text=f"{blend_filename}", icon="FILE_BLEND")
         header_text_line2 = col.column(align=True)
         # header_text_line2.active = False
-        header_text_line2.label(text=f"Blender {blender_version}", icon="BLANK1")
+        # header_text_line2.label(text=f"Blender {blender_version}", icon="BLANK1")
         # header_text_line2.separator()
-        header_text_line2.label(text=f"Modified: {modified_date_short}", icon="BLANK1")
-        header_text_line2.label(text=f"Size: {file_size}", icon="BLANK1")
+        header_text_line2.label(text=f"{modified_date_short} | v{blender_version} | {file_size} ", icon="BLANK1")
+        # header_text_line2.label(text=f"Size: {file_size}", icon="BLANK1")
 
         return col  # Return for further layout operations
 
@@ -186,6 +186,10 @@ class RECOM_PT_scene_info(Panel):
         labels_col = col.column(align=False)
 
         separator = " | "
+
+        scene_name = info.get("scene_name", "")
+        viewlayer_names = info.get("viewlayer_names", "")
+        labels_col.label(text=f"{scene_name} | {viewlayer_names}", icon="SCENE_DATA")
 
         # Common rendering properties
         render_engine = info.get("render_engine", RE_CYCLES)

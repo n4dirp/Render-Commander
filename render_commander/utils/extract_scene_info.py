@@ -38,14 +38,19 @@ def format_modified_date(timestamp: float) -> str:
 
 
 def format_file_size(size_bytes: int) -> str:
-    """Convert bytes to human-readable file size string."""
     if size_bytes < 1:
         return "0 B"
+
     size_name = ("B", "KB", "MB", "GB", "TB")
-    i = int(math.log(size_bytes, 1024))
-    p = pow(1024, i)
-    s = round(size_bytes / p, 2)
-    return f"{s} {size_name[i]}"
+    i = 0
+    size = float(size_bytes)
+
+    while size >= 1024 and i < len(size_name) - 1:
+        size /= 1024
+        i += 1
+
+    formatted = f"{size:.0f}".rstrip("0").rstrip(".")
+    return f"{formatted} {size_name[i]}"
 
 
 def get_render_enabled_cameras_in_frame_range():
@@ -96,6 +101,9 @@ def get_scene_info() -> dict:
         render_engine = scene.render.engine
         blender_version = context.blend_data.version
 
+        renderable_view_layers_count = sum(1 for layer in scene.view_layers if layer.use)
+        viewlayer_names = ", ".join(layer.name for layer in scene.view_layers if layer.use)
+
         data = {
             "blend_filepath": str(blend_path),
             "file_size": format_file_size(file_size),
@@ -104,6 +112,8 @@ def get_scene_info() -> dict:
             "modified_date_short": formatted_date,
             "scene_name": scene.name,
             "view_layer": context.view_layer.name,
+            "view_layer_count": renderable_view_layers_count,
+            "viewlayer_names": viewlayer_names,
             "render_engine": render_engine,
             "view_transform": scene.view_settings.view_transform,
             "look": scene.view_settings.look,

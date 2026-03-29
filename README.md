@@ -36,6 +36,12 @@ Preview scene settings, apply overrides, and start renders directly from the add
 
 - **Append Python Scripts** – Attach your own Python scripts to render jobs for logging, post-processing, or pipeline integration.
 
+## System Requirements
+
+The add-on is compatible with **Blender 4.2 LTS** to **5.0** on  **Windows** and **Linux**.
+
+For **Blender 5.1**+ use the **Python 3.13 build** of the add-on: [Render Commander - Python 3.13](https://github.com/n4dirp/Render-Commander/releases/download/v1.1.2/render_commander-1.1.2_python_3.13.zip)
+
 ## Installation
 
 1. Download the latest release from the [Releases](https://github.com/n4dirp/render-commander/releases) page.

@@ -150,7 +150,6 @@ class RECOM_PT_samples_settings(Panel):
 
 class RECOM_PT_denoise_settings(Panel):
     bl_label = "Denoise"
-    # Child of Sampling
     bl_parent_id = "RECOM_PT_samples_settings"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"

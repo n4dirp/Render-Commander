@@ -40,18 +40,6 @@ class RECOM_PT_main_panel(Panel):
         settings = context.window_manager.recom_render_settings
         prefs = get_addon_preferences(context)
 
-        # Mode
-        col = layout.column()
-        mode_row = col.row()
-        mode_row.prop(prefs, "launch_mode", text="Mode", expand=True)
-
-        # Frame List
-        if prefs.launch_mode == MODE_LIST:
-            list_col = layout.row()
-            list_col.use_property_split = True
-            list_col.use_property_decorate = False
-            list_col.prop(settings, "frame_list", text="Frame List", placeholder="")
-
         # Launcher
         launcher_row = layout.row(align=True)
         render_row = launcher_row.row(align=True)
@@ -70,6 +58,18 @@ class RECOM_PT_main_panel(Panel):
 
         export_row = launcher_row.row(align=True)
         export_row.operator("recom.export_render_script", text="", icon="EXPORT")
+
+        # Mode
+        col = layout.column()
+        mode_row = col.row()
+        mode_row.prop(prefs, "launch_mode", text="Mode", expand=True)
+
+        # Frame List
+        if prefs.launch_mode == MODE_LIST:
+            list_col = layout.row()
+            list_col.use_property_split = True
+            list_col.use_property_decorate = False
+            list_col.prop(settings, "frame_list", text="Frame List", placeholder="")
 
 
 class RECOM_MT_render_commander_menu(Menu):

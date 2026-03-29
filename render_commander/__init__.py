@@ -4,7 +4,7 @@ bl_info = {
     "name": "Render Commander",
     "author": "Nadir Perazzo",
     "description": "Background render launcher for Cycles & EEVEE",
-    "version": (1, 1, 2),
+    "version": (1, 1, 3),
     "blender": (4, 2, 0),
     "doc_url": "https://github.com/n4dirp/Render-Commander",
     "tracker_url": "https://github.com/n4dirp/Render-Commander",

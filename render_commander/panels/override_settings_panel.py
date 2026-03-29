@@ -23,10 +23,10 @@ from ..utils.helpers import (
 # Map: Group -> ID -> (Label, Property Name, Icon)
 OVERRIDE_MAP = {
     "Render": {
-        "cycles_device": ("Compute Device", "cycles.device_override", "BLANK1"),
-        "cycles_sampling": ("Sampling", "cycles.sampling_override", "BLANK1"),
-        "cycles_light_paths": ("Light Paths", "cycles.light_path_override", "BLANK1"),
-        "cycles_performance": ("Performance", "cycles.performance_override", "BLANK1"),
+        "cycles_device": ("Cycles - Compute Device", "cycles.device_override", "BLANK1"),
+        "cycles_sampling": ("Cycles - Sampling", "cycles.sampling_override", "BLANK1"),
+        "cycles_light_paths": ("Cycles - Light Paths", "cycles.light_path_override", "BLANK1"),
+        "cycles_performance": ("Cycles - Performance", "cycles.performance_override", "BLANK1"),
         "eevee_all": ("EEVEE", "eevee_override", "BLANK1"),
         "motion_blur": ("Motion Blur", "motion_blur_override", "BLANK1"),
     },
@@ -191,6 +191,7 @@ class RECOM_OT_remove_all_overrides(Operator):
 
 class RECOM_MT_add_override_menu(Menu):
     bl_label = "Add Override"
+    bl_description = "Add Settings Override Menu"
 
     def draw(self, context):
         layout = self.layout
@@ -285,7 +286,7 @@ class RECOM_MT_insert_variable_root(Menu):
 
 
 class RECOM_PT_import_overrides_popup(Panel):
-    bl_label = "Import Scene Settings"
+    bl_label = "Import Settings"
     bl_space_type = "VIEW_3D"
     bl_region_type = "WINDOW"
 
@@ -295,7 +296,7 @@ class RECOM_PT_import_overrides_popup(Panel):
         render_engine = get_render_engine(context)
 
         col = layout.column()
-        col.label(text="Import Scene Settings")
+        col.label(text="Import Settings")
 
         if render_engine == RE_CYCLES:
             col.prop(prefs.override_settings, "import_compute_device", text="Device")
@@ -325,7 +326,7 @@ class RECOM_PT_import_overrides_popup(Panel):
 
 
 class RECOM_PT_overrides_presets(PresetPanel, Panel):
-    bl_label = "Scene Override Presets"
+    bl_label = "Override Presets"
     preset_subdir = Path(ADDON_NAME) / "override_settings"
     preset_operator = "script.execute_preset"
     preset_add_operator = "recom.overrides_preset_add"
@@ -360,7 +361,7 @@ class RECOM_PT_custom_variables_presets(PresetPanel, Panel):
 class RECOM_PT_scene_override_settings(Panel):
     """Main scene overrides panel"""
 
-    bl_label = "Scene Overrides"
+    bl_label = "Settings Override"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = "Render Commander"
@@ -378,7 +379,6 @@ class RECOM_PT_scene_override_settings(Panel):
         layout = self.layout
         layout.emboss = "PULLDOWN_MENU"
         row = layout.row(align=True)
-        # row.popover(panel="RECOM_PT_import_overrides_popup", text="", icon="IMPORT")
         RECOM_PT_overrides_presets.draw_panel_header(row)
 
     def draw(self, context):
@@ -387,10 +387,10 @@ class RECOM_PT_scene_override_settings(Panel):
         row = layout.row(align=True)
 
         add_op = row.row(align=True)
-        add_op.operator("wm.call_menu", text="Add Override", icon="ADD").name = "RECOM_MT_add_override_menu"
+        add_op.menu("RECOM_MT_add_override_menu", text="Add Override", icon="ADD")
 
         row.popover(panel="RECOM_PT_import_overrides_popup", text="", icon="IMPORT")
-        row.separator()
+        # row.separator()
         settings = context.window_manager.recom_render_settings.override_settings
         has_active_overrides = False
 

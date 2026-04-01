@@ -47,6 +47,9 @@ def _generate_base_script(
     # Add render time tracking
     _add_render_time_tracking(prefs, script_lines)
 
+    # Apply custom API overrides
+    _apply_custom_api_overrides(settings, script_lines)
+
     # Apply motion blur settings
     _apply_motion_blur_settings(settings, script_lines)
 
@@ -73,6 +76,49 @@ def _generate_base_script(
         _apply_eevee_settings(settings, script_lines)
 
     return script_lines
+
+
+def _apply_custom_api_overrides(settings, script_lines):
+    """Apply custom python API overrides added by the user."""
+    if not settings.override_settings.use_custom_api_overrides:
+        return
+
+    overrides = settings.override_settings.custom_api_overrides
+    if not overrides:
+        return
+
+    script_lines.append("# Custom API Overrides")
+    for item in overrides:
+        path = item.data_path
+
+        # Format the value for insertion into the script correctly
+        if item.prop_type == "BOOL":
+            val_str = str(item.value_bool)
+        elif item.prop_type == "INT":
+            val_str = str(item.value_int)
+        elif item.prop_type == "FLOAT":
+            val_str = str(item.value_float)
+        elif item.prop_type == "STRING":
+            val_str = f"'{item.value_string}'"
+        elif item.prop_type == "VECTOR_3":
+            val_str = f"({item.value_vector_3[0]}, {item.value_vector_3[1]}, {item.value_vector_3[2]})"
+        elif item.prop_type == "COLOR_4":
+            val_str = (
+                f"({item.value_color_4[0]}, {item.value_color_4[1]}, {item.value_color_4[2]}, {item.value_color_4[3]})"
+            )
+        else:
+            val_str = "None"
+
+        # Apply using try/except to avoid script crashes on faulty custom setups
+        script_lines.extend(
+            [
+                f"try:",
+                f"    {path} = {val_str}",
+                f"except Exception as e:",
+                f"    print(f'Failed to apply custom override {path}: {{e}}')",
+            ]
+        )
+    script_lines.append("")
 
 
 def _add_render_time_tracking(prefs, script_lines):
@@ -436,16 +482,35 @@ def _apply_cycles_sampling_settings(override_settings, script_lines):
         return
 
     cycles = override_settings.cycles
-    noise_threshold_value = float(cycles.adaptive_threshold)
+    lines = []
 
-    lines = [
-        f"    bpy.context.scene.cycles.use_adaptive_sampling = {cycles.use_adaptive_sampling}",
-        f"    bpy.context.scene.cycles.adaptive_threshold = {noise_threshold_value}",
-        f"    bpy.context.scene.cycles.samples = {int(cycles.samples)}",
-        f"    bpy.context.scene.cycles.adaptive_min_samples = {cycles.adaptive_min_samples}",
-        f"    bpy.context.scene.cycles.time_limit = {cycles.time_limit}",
-        "",
-    ]
+    if cycles.sampling_mode == "FACTOR":
+        factor = float(cycles.sampling_factor)
+        lines.extend(
+            [
+                f"    # Sampling Factor Override ({cycles.sampling_factor}x)",
+                f"    quality_factor = {factor}",
+                "    bpy.context.scene.cycles.samples = max(1, int(bpy.context.scene.cycles.samples * quality_factor))",
+                "    bpy.context.scene.cycles.adaptive_min_samples = int(bpy.context.scene.cycles.adaptive_min_samples * quality_factor)",
+                "    # Noise scales by the inverse square root of samples",
+                "    bpy.context.scene.cycles.adaptive_threshold = bpy.context.scene.cycles.adaptive_threshold / (quality_factor ** 0.5)",
+                "    bpy.context.scene.cycles.time_limit = bpy.context.scene.cycles.time_limit * quality_factor",
+                "",
+            ]
+        )
+    else:
+        # CUSTOM MODE
+        noise_threshold_value = float(cycles.adaptive_threshold)
+        lines.extend(
+            [
+                f"    bpy.context.scene.cycles.use_adaptive_sampling = {cycles.use_adaptive_sampling}",
+                f"    bpy.context.scene.cycles.adaptive_threshold = {noise_threshold_value}",
+                f"    bpy.context.scene.cycles.samples = {int(cycles.samples)}",
+                f"    bpy.context.scene.cycles.adaptive_min_samples = {cycles.adaptive_min_samples}",
+                f"    bpy.context.scene.cycles.time_limit = {cycles.time_limit}",
+                "",
+            ]
+        )
 
     if cycles.use_denoising:
         lines.extend(

@@ -8,6 +8,9 @@ from bl_operators.presets import AddPresetBase
 
 from .. import __package__ as base_package
 from ..utils.constants import ADDON_NAME
+from ..utils.helpers import (
+    redraw_ui,
+)
 
 
 class RECOM_OT_overrides_preset(AddPresetBase, Operator):
@@ -117,8 +120,60 @@ class RECOM_OT_overrides_preset(AddPresetBase, Operator):
         "settings.override_settings.use_dof",
         "settings.override_settings.camera_shift_x",
         "settings.override_settings.camera_shift_y",
+        # Data
+        "settings.override_settings.use_custom_api_overrides",
     ]
     preset_subdir = Path(ADDON_NAME) / "override_settings"
+
+    def execute(self, context):
+        result = super().execute(context)
+
+        if result != {"FINISHED"} or getattr(self, "remove_active", False):
+            redraw_ui()
+            return result
+
+        clean_name = bpy.path.clean_name(self.name.strip())
+
+        subdir_path = Path("presets") / self.preset_subdir
+        target_dir = Path(bpy.utils.user_resource("SCRIPTS", path=str(subdir_path), create=True))
+        filepath = target_dir / f"{clean_name}.py"
+
+        if not filepath.exists():
+            # self.report({"WARNING"}, f"Could not find preset file {clean_name}.py to append custom API settings.")
+            redraw_ui()
+            return {"FINISHED"}
+
+        settings = context.window_manager.recom_render_settings.override_settings
+
+        with filepath.open("a", encoding="utf-8") as f:
+            f.write("\n# Custom API Overrides Collection\n")
+            f.write("settings.override_settings.custom_api_overrides.clear()\n")
+
+            for item in settings.custom_api_overrides:
+                f.write("item = settings.override_settings.custom_api_overrides.add()\n")
+                f.write(f"item.name = {repr(item.name)}\n")
+                f.write(f"item.data_path = {repr(item.data_path)}\n")
+                f.write(f"item.prop_type = {repr(item.prop_type)}\n")
+
+                # Write the specific value based on type
+                if item.prop_type == "BOOL":
+                    f.write(f"item.value_bool = {repr(item.value_bool)}\n")
+                elif item.prop_type == "INT":
+                    f.write(f"item.value_int = {repr(item.value_int)}\n")
+                elif item.prop_type == "FLOAT":
+                    f.write(f"item.value_float = {repr(item.value_float)}\n")
+                elif item.prop_type == "STRING":
+                    f.write(f"item.value_string = {repr(item.value_string)}\n")
+                elif item.prop_type == "VECTOR_3":
+                    f.write(f"item.value_vector_3 = {repr(list(item.value_vector_3))}\n")
+                elif item.prop_type == "COLOR_4":
+                    f.write(f"item.value_color_4 = {repr(list(item.value_color_4))}\n")
+
+            f.write(f"settings.override_settings.active_custom_api_index = {settings.active_custom_api_index}\n")
+
+        redraw_ui()
+
+        return {"FINISHED"}
 
 
 class RECOM_OT_resolution_preset(AddPresetBase, Operator):
@@ -225,6 +280,70 @@ class RECOM_OT_eevee_settings_preset(AddPresetBase, Operator):
         "settings.override_settings.eevee.volume_samples",
     ]
     preset_subdir = Path(ADDON_NAME) / "eevee"
+
+
+class RECOM_OT_override_advanced_properties_preset(AddPresetBase, Operator):
+    bl_idname = "recom.override_advanced_properties_preset_add"
+    bl_label = "Add Property Overrides Preset"
+    bl_description = "Add or remove a preset"
+    preset_menu = "RECOM_PT_override_advanced_property_presets"
+    preset_defines = ["settings = bpy.context.window_manager.recom_render_settings"]
+    preset_values = [
+        # Data
+        "settings.override_settings.use_custom_api_overrides",
+        "settings.override_settings.custom_api_overrides",
+    ]
+    preset_subdir = Path(ADDON_NAME) / "advanced_properties"
+
+    def execute(self, context):
+        result = super().execute(context)
+
+        if result != {"FINISHED"} or getattr(self, "remove_active", False):
+            redraw_ui()
+            return result
+
+        clean_name = bpy.path.clean_name(self.name.strip())
+
+        subdir_path = Path("presets") / self.preset_subdir
+        target_dir = Path(bpy.utils.user_resource("SCRIPTS", path=str(subdir_path), create=True))
+        filepath = target_dir / f"{clean_name}.py"
+
+        if not filepath.exists():
+            # self.report({"WARNING"}, f"Could not find preset file {clean_name}.py to append custom API settings.")
+            redraw_ui()
+            return {"FINISHED"}
+
+        settings = context.window_manager.recom_render_settings.override_settings
+
+        with filepath.open("a", encoding="utf-8") as f:
+            f.write("\n# Custom API Overrides Collection\n")
+            f.write("settings.override_settings.custom_api_overrides.clear()\n")
+
+            for item in settings.custom_api_overrides:
+                f.write("item = settings.override_settings.custom_api_overrides.add()\n")
+                f.write(f"item.name = {repr(item.name)}\n")
+                f.write(f"item.data_path = {repr(item.data_path)}\n")
+                f.write(f"item.prop_type = {repr(item.prop_type)}\n")
+
+                # Write the specific value based on type
+                if item.prop_type == "BOOL":
+                    f.write(f"item.value_bool = {repr(item.value_bool)}\n")
+                elif item.prop_type == "INT":
+                    f.write(f"item.value_int = {repr(item.value_int)}\n")
+                elif item.prop_type == "FLOAT":
+                    f.write(f"item.value_float = {repr(item.value_float)}\n")
+                elif item.prop_type == "STRING":
+                    f.write(f"item.value_string = {repr(item.value_string)}\n")
+                elif item.prop_type == "VECTOR_3":
+                    f.write(f"item.value_vector_3 = {repr(list(item.value_vector_3))}\n")
+                elif item.prop_type == "COLOR_4":
+                    f.write(f"item.value_color_4 = {repr(list(item.value_color_4))}\n")
+
+            f.write(f"settings.override_settings.active_custom_api_index = {settings.active_custom_api_index}\n")
+
+        redraw_ui()
+
+        return {"FINISHED"}
 
 
 class RECOM_OT_render_preferences_preset(AddPresetBase, Operator):
@@ -366,6 +485,7 @@ classes = (
     RECOM_OT_eevee_settings_preset,
     RECOM_OT_output_preset,
     RECOM_OT_custom_variables_preset,
+    RECOM_OT_override_advanced_properties_preset,
     RECOM_OT_render_preferences_preset,
     RECOM_OT_blender_executable_preset,
     RECOM_OT_additional_script_preset,

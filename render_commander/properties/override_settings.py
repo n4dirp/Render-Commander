@@ -12,6 +12,8 @@ from bpy.props import (
     IntProperty,
     EnumProperty,
     FloatProperty,
+    FloatVectorProperty,
+    CollectionProperty,
 )
 from bpy.types import PropertyGroup
 
@@ -56,6 +58,29 @@ class RECOM_PG_CyclesRenderOverrides(PropertyGroup):
     sampling_override: BoolProperty(
         name="Override Sampling",
         default=False,
+    )
+    sampling_mode: EnumProperty(
+        name="Mode",
+        items=[
+            ("CUSTOM", "Custom", "Set absolute sampling values manually"),
+            ("FACTOR", "Factor", "Multiply the scene's current sampling settings by a factor"),
+        ],
+        default="CUSTOM",
+        description="Choose how to override sampling values",
+        update=lambda self, context: redraw_ui(),
+    )
+    sampling_factor: EnumProperty(
+        name="Quality Factor",
+        items=[
+            ("0.25", "25%", "0.25x Samples, 2.0x Noise Threshold"),
+            ("0.50", "50%", "0.5x Samples, ~1.41x Noise Threshold"),
+            ("1.00", "100%", "Original Scene Values"),
+            ("1.50", "150%", "1.5x Samples, ~0.81x Noise Threshold"),
+            ("2.00", "200%", "2x Samples, ~0.71x Noise Threshold"),
+            ("4.00", "400%", "4x Samples, 0.5x Noise Threshold"),
+        ],
+        default="1.00",
+        description="Multiplier for the scene's sampling settings",
     )
     use_adaptive_sampling: BoolProperty(
         name="Use Adaptive Sampling",
@@ -385,8 +410,40 @@ class RECOM_PG_EEVEERenderOverrides(PropertyGroup):
     )
 
 
+class RECOM_PG_CustomAPIOverride(PropertyGroup):
+    """Stores arbitrary api overrides entered by the user"""
+
+    name: StringProperty(name="Name", default="Data Path Override")
+    data_path: StringProperty(name="Data Path", description="The Python path to the blender property")
+    prop_type: EnumProperty(
+        name="Type",
+        items=[
+            ("BOOL", "Boolean", ""),
+            ("INT", "Integer", ""),
+            ("FLOAT", "Float", ""),
+            ("STRING", "String", ""),
+            ("VECTOR_3", "Vector (3D)", ""),
+            ("COLOR_4", "Color (RGBA)", ""),
+        ],
+        default="FLOAT",
+    )
+    value_bool: BoolProperty(name="Value")
+    value_int: IntProperty(name="Value")
+    value_float: FloatProperty(name="Value")
+    value_string: StringProperty(name="Value")
+    value_vector_3: FloatVectorProperty(name="Value", size=3)
+    value_color_4: FloatVectorProperty(name="Value", size=4, subtype="COLOR", min=0.0, max=1.0)
+
+
 class RECOM_PG_OverrideSettings(PropertyGroup):
     """Stores override settings"""
+
+    # Custom API Overrides
+    use_custom_api_overrides: BoolProperty(
+        name="Override Custom API", default=False, description="Enable custom python property overrides"
+    )
+    custom_api_overrides: CollectionProperty(type=RECOM_PG_CustomAPIOverride)
+    active_custom_api_index: IntProperty(default=0)
 
     # Cycles Render
     cycles_override: BoolProperty(name="Override Cycles Render", default=True)
@@ -771,12 +828,10 @@ class RECOM_PG_OverrideSettings(PropertyGroup):
     )
     resolved_directory: StringProperty(
         name="Resolved Directory",
-        description="Cached version of the resolved directory path",
         default="",
     )
     resolved_filename: StringProperty(
         name="Resolved Filename",
-        description="Cached version of the resolved file name path",
         default="",
     )
     resolved_path: StringProperty(
@@ -835,6 +890,7 @@ class RECOM_PG_OverrideSettings(PropertyGroup):
 classes = (
     RECOM_PG_CyclesRenderOverrides,
     RECOM_PG_EEVEERenderOverrides,
+    RECOM_PG_CustomAPIOverride,
     RECOM_PG_OverrideSettings,
 )
 

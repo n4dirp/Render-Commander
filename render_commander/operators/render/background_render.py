@@ -327,23 +327,31 @@ class RECOM_OT_BackgroundRender(Operator):
             try:
                 info = json.loads(settings.external_scene_info)
                 if render_engine == RE_CYCLES:
-                    history_item.samples = info.get("samples", "0")
+                    history_item.samples = str(info.get("samples", 0))
                 elif render_engine in {RE_EEVEE_NEXT, RE_EEVEE}:
-                    history_item.samples = info.get("eevee_samples", "0")
+                    history_item.samples = str(info.get("eevee_samples", 0))
                 if not settings.override_settings.format_override:
-                    history_item.resolution_x = info.get("resolution_x", "0")
-                    history_item.resolution_y = info.get("resolution_y", "0")
+                    history_item.resolution_x = info.get("resolution_x", 0)
+                    history_item.resolution_y = info.get("resolution_y", 0)
             except:
                 pass
         else:
             blend_path = bpy.data.filepath
             if render_engine == RE_CYCLES:
-                history_item.samples = context.scene.cycles.samples
+                history_item.samples = str(context.scene.cycles.samples)
             elif render_engine in {RE_EEVEE_NEXT, RE_EEVEE}:
-                history_item.samples = context.scene.eevee.taa_render_samples
+                history_item.samples = str(context.scene.eevee.taa_render_samples)
             if not settings.override_settings.format_override:
                 history_item.resolution_x = context.scene.render.resolution_x
                 history_item.resolution_y = context.scene.render.resolution_y
+
+        if render_engine == RE_CYCLES and settings.override_settings.cycles.sampling_override:
+            if settings.override_settings.cycles.sampling_mode == "FACTOR":
+                history_item.samples = f"{settings.override_settings.cycles.sampling_factor}x"
+            else:
+                history_item.samples = str(settings.override_settings.cycles.samples)
+        elif (render_engine in {RE_EEVEE_NEXT, RE_EEVEE}) and settings.override_settings.eevee_override:
+            history_item.samples = str(settings.override_settings.eevee.samples)
 
         if settings.override_settings.format_override:
             resolution_mode = settings.override_settings.resolution_mode
@@ -610,8 +618,8 @@ class RECOM_OT_BackgroundRender(Operator):
             is_animation = prefs.launch_mode == MODE_SEQ
             desc_frames = f"{frame_start}" if frame_start == frame_end else f"{frame_start}-{frame_end}"
 
-        device_str = "CPU/GPU" if not selected_ids else f"{len(selected_ids)} Devices"
-        devices_description = f" | Devices: {device_str}" if selected_ids else ""
+        # device_str = "CPU/GPU" if not selected_ids else f"{len(selected_ids)} Devices"
+        # devices_description = f" | {device_str}" if selected_ids else ""
 
         return [
             RenderJobChunk(
@@ -619,7 +627,7 @@ class RECOM_OT_BackgroundRender(Operator):
                 device_ids=selected_ids,
                 frames=frames,
                 is_animation_call=is_animation,
-                description=f"Mode: {format_to_title_case(prefs.launch_mode)} | Frames: {desc_frames}{devices_description}",
+                description=f"Mode: {format_to_title_case(prefs.launch_mode)} | Frames: {desc_frames}",
             )
         ]
 
@@ -665,7 +673,7 @@ class RECOM_OT_BackgroundRender(Operator):
                 current_end = current_start + (count - 1) * frame_step
 
                 chunk_frames = (current_start, current_end, frame_step)
-                desc = f"Process[#{i}] | Split: [{current_start}-{current_end}] | Dev: {device.name}"
+                desc = f"Process[#{i}] | Split: [{current_start}-{current_end}]"
 
                 chunks.append(RenderJobChunk(i, device_ids, chunk_frames, True, desc))
 
@@ -673,7 +681,7 @@ class RECOM_OT_BackgroundRender(Operator):
             else:
                 # Sequential / Placeholder logic - All get full range
                 chunk_frames = (frame_start, frame_end, frame_step)
-                desc = f"Process[#{i}] | FullRange: [{frame_start}-{frame_end}] | Dev: {device.name}"
+                desc = f"Process[#{i}] | FullRange: [{frame_start}-{frame_end}]"
                 chunks.append(RenderJobChunk(i, device_ids, chunk_frames, True, desc))
 
         return chunks
@@ -704,7 +712,7 @@ class RECOM_OT_BackgroundRender(Operator):
             current_idx = end_idx
 
             if subset:
-                desc = f"Process[#{i}] | Frames: {format_frame_range(subset)} | Dev: {device.name}"
+                desc = f"Process[#{i}] | Frames: {format_frame_range(subset)}"
                 chunks.append(RenderJobChunk(i, device_ids, subset, False, desc))
 
         return chunks
@@ -1495,18 +1503,20 @@ class RECOM_OT_BackgroundRender(Operator):
 
             return path
 
+        logs_folder_name_str = prefs.logs_folder_name if prefs.save_to_log_folder else ""
+
         if prefs.log_to_file_location == "EXECUTION_FILES" and target_dir:
-            log_folder = _ensure_dir(Path(target_dir) / prefs.logs_folder_name)
+            log_folder = _ensure_dir(Path(target_dir) / logs_folder_name_str)
 
         elif prefs.log_to_file_location == "BLEND_PATH":
             base_folder = Path(blend_file).parent.resolve()
-            log_folder = _ensure_dir(base_folder / prefs.logs_folder_name)
+            log_folder = _ensure_dir(base_folder / logs_folder_name_str)
 
         elif prefs.log_to_file_location == "CUSTOM_PATH":
             custom_path = Path(bpy.path.abspath(prefs.log_custom_path)) or Path(get_addon_temp_dir(prefs))
             if not custom_path:
                 custom_path = Path(get_addon_temp_dir(prefs))
-            log_folder = _ensure_dir(custom_path / prefs.logs_folder_name)
+            log_folder = _ensure_dir(custom_path / logs_folder_name_str)
 
         return log_folder
 

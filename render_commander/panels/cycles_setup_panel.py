@@ -31,7 +31,11 @@ class RECOM_PT_cycles_setup(Panel):
         col_box = layout.box().column()
 
         title_row = col_box.row()
-        title_row.label(text="Compute Devices")
+        title_row.label(text="Cycles Compute Devices")
+
+        import_row = title_row.row()
+        import_row.alignment = "RIGHT"
+        import_row.operator("recom.import_from_cycles_settings", text="", icon=ICON_SYNC)
 
         row = col_box.row()
         row.prop(prefs, "compute_device_type", expand=True)
@@ -41,9 +45,6 @@ class RECOM_PT_cycles_setup(Panel):
             devices_to_display_list = prefs.get_devices_for_display()
             col_dev = col_box.box().column()
             prefs._draw_devices(col_dev, devices_to_display_list)
-
-        col_box.separator(factor=0.5)
-        col_box.operator("recom.import_from_cycles_settings", text="Import from Cycles", icon=ICON_SYNC)
 
         layout.operator("recom.continue_setup", text="Continue", icon="CHECKMARK")
 

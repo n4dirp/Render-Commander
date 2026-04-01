@@ -105,10 +105,9 @@ class RECOM_PT_samples_settings(Panel):
 
     def draw_header_preset(self, context):
         layout = self.layout
-
-        RECOM_PT_samples_presets.draw_panel_header(layout)
-
-        op = layout.operator("recom.manage_override", text="", icon="X", emboss=False)
+        row = layout.row(align=True)
+        RECOM_PT_samples_presets.draw_panel_header(row)
+        op = row.operator("recom.manage_override", text="", icon="X", emboss=False)
         op.action = "REMOVE"
         op.override_id = "cycles_sampling"
         layout.separator(factor=0.25)
@@ -120,32 +119,38 @@ class RECOM_PT_samples_settings(Panel):
 
         settings = context.window_manager.recom_render_settings
 
-        row = layout.row(heading="Noise Threshold")
-        row.prop(settings.override_settings.cycles, "use_adaptive_sampling", text="")
-        sub = row.row()
+        # Mode
+        layout.row().prop(settings.override_settings.cycles, "sampling_mode", expand=True)
 
-        use_adaptive_sampling = settings.override_settings.cycles.use_adaptive_sampling
+        if settings.override_settings.cycles.sampling_mode == "FACTOR":
+            layout.prop(settings.override_settings.cycles, "sampling_factor")
+        else:
+            row = layout.row(heading="Noise Threshold")
+            row.prop(settings.override_settings.cycles, "use_adaptive_sampling", text="")
 
-        sub.active = use_adaptive_sampling
-        sub_row = sub.row(align=True)
-        sub_row.prop(settings.override_settings.cycles, "adaptive_threshold", text="")
-        sub_row.menu("RECOM_MT_adaptive_threshold", text="", icon=ICON_OPTION)
+            use_adaptive_sampling = settings.override_settings.cycles.use_adaptive_sampling
 
-        samples_col = layout.column(align=True)
-        row_samples = samples_col.row(align=True)
-        row_samples.prop(
-            settings.override_settings.cycles, "samples", text="Max Samples" if use_adaptive_sampling else "Samples"
-        )
-        row_samples.menu("RECOM_MT_samples", text="", icon=ICON_OPTION)
+            sub = row.row()
+            sub.active = use_adaptive_sampling
+            sub_row = sub.row(align=True)
+            sub_row.prop(settings.override_settings.cycles, "adaptive_threshold", text="")
+            sub_row.menu("RECOM_MT_adaptive_threshold", text="", icon=ICON_OPTION)
 
-        if use_adaptive_sampling:
+            samples_col = layout.column(align=True)
             row_samples = samples_col.row(align=True)
-            row_samples.prop(settings.override_settings.cycles, "adaptive_min_samples", text="Min Samples")
-            row_samples.menu("RECOM_MT_adaptive_min_samples", text="", icon=ICON_OPTION)
+            row_samples.prop(
+                settings.override_settings.cycles, "samples", text="Max Samples" if use_adaptive_sampling else "Samples"
+            )
+            row_samples.menu("RECOM_MT_samples", text="", icon=ICON_OPTION)
 
-        row_samples = samples_col.row(align=True)
-        row_samples.prop(settings.override_settings.cycles, "time_limit")
-        row_samples.menu("RECOM_MT_time_limit", text="", icon=ICON_OPTION)
+            if use_adaptive_sampling:
+                row_samples = samples_col.row(align=True)
+                row_samples.prop(settings.override_settings.cycles, "adaptive_min_samples", text="Min Samples")
+                row_samples.menu("RECOM_MT_adaptive_min_samples", text="", icon=ICON_OPTION)
+
+            row_samples = samples_col.row(align=True)
+            row_samples.prop(settings.override_settings.cycles, "time_limit")
+            row_samples.menu("RECOM_MT_time_limit", text="", icon=ICON_OPTION)
 
 
 class RECOM_PT_denoise_settings(Panel):
@@ -203,10 +208,10 @@ class RECOM_PT_light_path_settings(Panel):
 
     def draw_header_preset(self, context):
         layout = self.layout
+        row = layout.row(align=True)
+        RECOM_PT_light_paths_presets.draw_panel_header(row)
 
-        RECOM_PT_light_paths_presets.draw_panel_header(self.layout)
-
-        op = layout.operator("recom.manage_override", text="", icon="X", emboss=False)
+        op = row.operator("recom.manage_override", text="", icon="X", emboss=False)
         op.action = "REMOVE"
         op.override_id = "cycles_light_paths"
         layout.separator(factor=0.25)

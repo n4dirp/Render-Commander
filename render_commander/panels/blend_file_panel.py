@@ -89,9 +89,7 @@ class RECOM_PT_scene_file_panel(Panel):
 
         col = layout.column()
         blend_path_row = col.row(align=True)
-        blend_path_row.prop(
-            settings, "external_blend_file_path", text="", placeholder="Blend Path"
-        )  # , icon="FILE_BLEND")
+        blend_path_row.prop(settings, "external_blend_file_path", text="", placeholder="Blend Path")
         blend_path_row.operator("recom.select_external_blend_file", text="", icon="FILE_FOLDER")
 
         # Extract Scene Operator
@@ -171,11 +169,7 @@ class RECOM_PT_scene_info(Panel):
         header_text_col = header_row.column(align=True)
         header_text_col.label(text=f"{blend_filename}", icon="FILE_BLEND")
         header_text_line2 = col.column(align=True)
-        # header_text_line2.active = False
-        # header_text_line2.label(text=f"Blender {blender_version}", icon="BLANK1")
-        # header_text_line2.separator()
         header_text_line2.label(text=f"{modified_date_short} | v{blender_version} | {file_size} ", icon="BLANK1")
-        # header_text_line2.label(text=f"Size: {file_size}", icon="BLANK1")
 
         return col  # Return for further layout operations
 
@@ -201,8 +195,11 @@ class RECOM_PT_scene_info(Panel):
             adaptive = info.get("use_adaptive_sampling", False)
             threshold_text = f" ({round(info.get('adaptive_threshold', 0), 4)})" if adaptive else ""
             denoising_text = " | Denoised" if info.get("use_denoising", False) else ""
+            compute_device = info.get("device", "")
+
             labels_col.label(
-                text=f"{render_engine_display} | Samples: {samples}{threshold_text}{denoising_text}", icon="SCENE"
+                text=f"{render_engine_display} | {compute_device} | {samples}{threshold_text}{denoising_text}",
+                icon="SCENE",
             )
 
         elif render_engine in {RE_EEVEE_NEXT, RE_EEVEE}:

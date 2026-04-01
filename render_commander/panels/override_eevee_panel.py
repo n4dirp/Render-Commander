@@ -45,10 +45,10 @@ class RECOM_PT_eevee_settings(Panel):
 
     def draw_header_preset(self, context):
         layout = self.layout
+        row = layout.row(align=True)
 
-        RECOM_PT_eevee_settings_presets.draw_panel_header(self.layout)
-
-        op = layout.operator("recom.manage_override", text="", icon="X", emboss=False)
+        RECOM_PT_eevee_settings_presets.draw_panel_header(row)
+        op = row.operator("recom.manage_override", text="", icon="X", emboss=False)
         op.action = "REMOVE"
         op.override_id = "eevee_all"
 
@@ -61,7 +61,6 @@ class RECOM_PT_eevee_settings(Panel):
 
         settings = context.window_manager.recom_render_settings
 
-        # Draw Sampling directly here (formerly in a separate HIDE_HEADER panel)
         col = layout.column(align=True)
         row = col.row(align=True)
         row.prop(settings.override_settings.eevee, "samples", text="Samples")

@@ -78,12 +78,8 @@ class RECOM_PT_render_preferences(Panel):
 
     def draw_header_preset(self, context):
         layout = self.layout
-
         row = layout.row(align=True)
         row.operator("recom.open_pref", text="", icon="PREFERENCES", emboss=False)
-        # row.menu("RECOM_MT_preferences_menu", text="", icon="COLLAPSEMENU")
-        row.separator(factor=1.0)
-
         RECOM_PT_render_preferences_presets.draw_panel_header(row)
 
     def draw(self, context):
@@ -129,8 +125,8 @@ class RECOM_PT_blender_executable(Panel):
                 other_lines = [line for line in lines if "Version:" not in line]
 
                 if version_line:
-                    version_row = layout.row(align=False)
-                    version_row.label(text=version_line.replace("Version:", "Blender"), icon="BLENDER")
+                    version_row = col.row(align=False)
+                    version_row.label(text=version_line.replace("Version:", "Blender"))
                     version_row.menu("RECOM_MT_custom_blender", text="", icon=ICON_OPTION)
 
 
@@ -205,9 +201,13 @@ class RECOM_PT_log_to_file(Panel):
 
         # col = layout.column()
         if prefs.log_to_file_location == "CUSTOM_PATH":
-            layout.prop(prefs, "log_custom_path", text="", placeholder="Logs Path")
+            layout.prop(prefs, "log_custom_path", text="Path")
 
-        layout.prop(prefs, "logs_folder_name", text="Sub-Folder")
+        folder_row = layout.row(heading="Sub-Folder")
+        folder_row.prop(prefs, "save_to_log_folder", text="")
+        sub_folder_row = folder_row.row()
+        sub_folder_row.active = prefs.save_to_log_folder
+        sub_folder_row.prop(prefs, "logs_folder_name", text="")
 
 
 class RECOM_PT_debug_arguments(Panel):
@@ -270,7 +270,7 @@ class RECOM_PT_ocio(Panel):
 
 
 class RECOM_PT_additional_scripts(Panel):
-    bl_label = "Python Scripts"
+    bl_label = "Scripts"
     bl_parent_id = "RECOM_PT_command_line"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
@@ -308,7 +308,7 @@ class RECOM_PT_additional_scripts(Panel):
 
         # Side controls
         col = row_main.column()
-        col.menu("RECOM_MT_scripts", text="", icon="COLLAPSEMENU")
+        col.menu("RECOM_MT_scripts", text="", icon="IMPORT")
         col.separator(factor=0.5)
 
         add_col = col.column(align=True)
@@ -532,11 +532,11 @@ class RECOM_PT_render_options(Panel):
         # Post-Render Actions
         if prefs.launch_mode == MODE_SINGLE:
             col = layout.column(heading="Render")
-            col.prop(prefs, "write_still", text="Save Image")
+            col.prop(prefs, "write_still", text="Write Still")
 
         # Terminal Behavior
         col = layout.column(heading="Terminal")
-        col.prop(prefs, "keep_terminal_open", text="Keep Open")
+        col.prop(prefs, "keep_terminal_open", text="Keep Window Open")
 
         render_engine = get_render_engine(context)
         is_parallel = prefs.launch_mode in {MODE_SEQ, MODE_LIST} and (
@@ -547,7 +547,7 @@ class RECOM_PT_render_options(Panel):
 
 
 class RECOM_PT_output_filename(Panel):
-    bl_label = "Output File"
+    bl_label = "File Namming"
     bl_parent_id = "RECOM_PT_render_options"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
@@ -566,7 +566,7 @@ class RECOM_PT_output_filename(Panel):
 
         sub = col.column(heading="Formatting")
         sep_row = sub.row()
-        sep_row.prop(prefs, "filename_separator", text="Separator", expand=True)
+        sep_row.prop(prefs, "filename_separator", text="Separator")
         sub.prop(prefs, "frame_length_digits", text="Frame Padding")
 
 
@@ -588,7 +588,7 @@ class RECOM_PT_export_options(Panel):
         col.prop(prefs, "export_output_target", text="Target")
         if prefs.export_output_target == "CUSTOM_PATH":
             col = layout.column()
-            col.prop(prefs, "custom_export_path", text="", placeholder="Scripts Path")
+            col.prop(prefs, "custom_export_path", text="Path")
 
         col = layout.column()
         folder_row = col.row(heading="Sub-Folder")

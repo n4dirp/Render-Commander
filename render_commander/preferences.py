@@ -137,7 +137,7 @@ class RECOM_PG_RenderHistoryItem(PropertyGroup):
     frames: StringProperty(name="Frames", default="")
     resolution_x: IntProperty(name="Width", default=0)
     resolution_y: IntProperty(name="Height", default=0)
-    samples: IntProperty(name="Samples", default=0)
+    samples: StringProperty(name="Samples", default="")
     output_folder: StringProperty(name="Output Folder", default="")
     output_filename: StringProperty(name="Output Filename", default="")
     file_format: StringProperty(name="File Format", default="")
@@ -762,13 +762,13 @@ class RECOM_Preferences(AddonPreferences):
     log_to_file_location: EnumProperty(
         name="Log Directory",
         items=[
-            ("EXECUTION_FILES", "Scripts Path", "Save logs in scripts directory"),
-            ("BLEND_PATH", "Blend File Path", "Save logs next to blend file"),
+            ("EXECUTION_FILES", "Scripts Path", "Save logs files in render scripts directory"),
+            ("BLEND_PATH", "Blend File Path", "Save logs files next to blend file"),
             ("CUSTOM_PATH", "Custom Path", "Specify custom log folder location"),
         ],
         default="EXECUTION_FILES",
     )
-    save_to_log_folder: BoolProperty(  # Deprecated
+    save_to_log_folder: BoolProperty(
         name="Save to Logs Folder",
         default=True,
         description="Save logs in a dedicated 'logs' folder within the blend file's directory",
@@ -851,9 +851,9 @@ class RECOM_Preferences(AddonPreferences):
         description="Open the output folder automatically when the render starts",
     )
     write_still: BoolProperty(
-        name="Save Image",
+        name="Write Still",
         default=True,
-        description="Auto-save the image render to the output path",
+        description="Write Image, Save the rendered image to the output path",
     )
 
     # Notification
@@ -900,10 +900,10 @@ class RECOM_Preferences(AddonPreferences):
         name="File Separator",
         description="Separator between filename and frame numbers",
         items=[
-            ("DOT", "Dot", "Filename.####"),
-            ("UNDERSCORE", "Underscore", "Filename_####"),
+            ("DOT", "Dot (.)", "Filename.####"),
+            ("UNDERSCORE", "Underscore (_)", "Filename_####"),
         ],
-        default="UNDERSCORE",
+        default="DOT",
     )
 
     # Append Scripts

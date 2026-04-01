@@ -52,7 +52,7 @@ class RECOM_PT_render_history_panel(Panel):
         menu_column.menu("RECOM_MT_render_history_item", text="", icon="DOWNARROW_HLT")
 
 
-def draw_kv(layout, label, value):
+def draw_kv(layout, label, value, operator=""):
     if label and value:
         row = layout.row(align=True)
         split = row.split(factor=0.4)
@@ -60,7 +60,12 @@ def draw_kv(layout, label, value):
         row1.alignment = "RIGHT"
         row2 = split.row()
         row1.label(text=label)
-        row2.label(text=str(value))
+        if operator:
+            row2.alignment = "LEFT"
+            op_folder = row2.operator(operator, text=f"{value}", icon="FILE_FOLDER")
+            op_folder.folder_path = value
+        else:
+            row2.label(text=str(value))
 
 
 class RECOM_PT_render_details_panel(Panel):
@@ -89,7 +94,7 @@ class RECOM_PT_render_details_panel(Panel):
             col = layout.column(align=True)
 
             draw_kv(col, "Blend File", active_item.blend_file_name)
-            draw_kv(col, "Blend Directory", active_item.blend_dir)
+            draw_kv(col, "Blend Directory", active_item.blend_dir, "recom.open_output_folder")
             col.separator(type="AUTO")
             draw_kv(col, "Render ID", active_item.render_id)
             draw_kv(col, "Render Date", active_item.date)
@@ -100,7 +105,7 @@ class RECOM_PT_render_details_panel(Panel):
             draw_kv(col, "Resolution", f"{active_item.resolution_x} x {active_item.resolution_y} px")
             draw_kv(col, "Frame", active_item.frames.replace(" - ", "-"))
             draw_kv(col, "Format", active_item.file_format)
-            draw_kv(col, "Output", active_item.output_folder)
+            draw_kv(col, "Output", active_item.output_folder, "recom.open_output_folder")
             draw_kv(col, "Filename", active_item.output_filename)
 
 

@@ -23,16 +23,6 @@ class RECOM_MT_resolved_path(Menu):
         layout.prop(prefs, "show_custom_variables_panel", text="Custom Variables")
 
 
-class RECOM_MT_preferences_menu(Menu):
-    bl_label = "Preferences Menu"
-
-    def draw(self, context):
-        layout = self.layout
-
-        prefs = get_addon_preferences(context)
-        layout.operator("recom.open_pref", text="Addon Preferences", icon="PREFERENCES")
-
-
 class RECOM_MT_recent_blend_files(Menu):
     bl_label = "Recent Files Menu"
 
@@ -560,7 +550,6 @@ classes = (
     RECOM_MT_custom_variables,
     RECOM_MT_render_history_item,
     RECOM_MT_render_history,
-    RECOM_MT_preferences_menu,
 )
 
 

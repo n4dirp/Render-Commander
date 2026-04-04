@@ -3,140 +3,41 @@
 import subprocess
 import atexit
 import sys
-import os
-import threading
+import ctypes
 from pathlib import Path
-import importlib.util
 
 
 _IS_WINDOWS = sys.platform == "win32"
 _IS_MACOS = sys.platform == "darwin"
 _IS_LINUX = sys.platform.startswith("linux")
-_WIN11TOAST_AVAILABLE = _IS_WINDOWS and importlib.util.find_spec("win11toast") is not None
 
 # Variables
 NOTIFICATION_DETAIL_LEVEL = "DETAILED"
-TOAST_SHOW_PREVIEW = True
-TOAST_SHOW_BUTTONS = True
 NOTIFICATION_TIMEOUT = 10
 
 
-def _send_win11toast_notification(title, message, output_dir_path, preview_path):
-    """Sends a rich notification on Windows using the win11toast library."""
+def show_windows_alert(title, message):
+    """Open a pop-up alert box with a timeout"""
+    print(f"Sending notification via Windows MessageBox (timeout: {NOTIFICATION_TIMEOUT}s)...")
+    timeout_ms = NOTIFICATION_TIMEOUT * 1000
+
     try:
-        from contextlib import contextmanager
-        from win11toast import toast
-
-        @contextmanager
-        def suppress_stdout_stderr():
-            """Redirect stdout/stderr to devnull to prevent toast console output."""
-            with open(os.devnull, "w") as fnull:
-                old_stdout, old_stderr = sys.stdout, sys.stderr
-                sys.stdout, sys.stderr = fnull, fnull
-                try:
-                    yield
-                finally:
-                    sys.stdout, sys.stderr = old_stdout, old_stderr
-
-        buttons = []
-
-        if NOTIFICATION_DETAIL_LEVEL != "SIMPLE" and TOAST_SHOW_BUTTONS:
-            if preview_path and preview_path.is_file():
-                buttons.append(
-                    {
-                        "activationType": "protocol",
-                        "arguments": str(preview_path.resolve()),
-                        "content": "Open Image",
-                    }
-                )
-            else:
-                print(f"Toast: No valid preview image at: {preview_path}")
-
-            if output_dir_path and output_dir_path.is_dir():
-                buttons.append(
-                    {
-                        "activationType": "protocol",
-                        "arguments": str(output_dir_path.resolve()),
-                        "content": "Open Folder",
-                    }
-                )
-            else:
-                print(f"Toast: No valid output folder at: {output_dir_path}")
-
-        def run_toast():
-            try:
-                print("Toast: Showing Windows toast notification...")
-
-                if NOTIFICATION_DETAIL_LEVEL != "SIMPLE" and TOAST_SHOW_PREVIEW:
-                    image_arg = str(preview_path.resolve()) if preview_path and preview_path.is_file() else None
-                else:
-                    image_arg = ""
-
-                with suppress_stdout_stderr():
-                    toast(
-                        title,
-                        message,
-                        image=image_arg,
-                        buttons=buttons if buttons else None,
-                    )
-            except Exception as e:
-                print(f"Toast: An error occurred inside the notification thread: {e}")
-
-        # Launch toast in a thread with a timeout to prevent blocking.
-        t = threading.Thread(target=run_toast, daemon=True)
-        t.start()
-        t.join(timeout=NOTIFICATION_TIMEOUT)
-        if t.is_alive():
-            print("Toast: Toast did not close within 10s, terminating thread reference.")
-
+        # MessageBoxTimeoutW arguments: hWnd, lpText, lpCaption, uType, wLanguageId, dwMilliseconds
+        ctypes.windll.user32.MessageBoxTimeoutW(0, str(message), str(title), 0x40, 0, timeout_ms)
+    except AttributeError:
+        print("MessageBoxTimeoutW not available. Falling back to blocking MessageBoxW...")
+        try:
+            ctypes.windll.user32.MessageBoxW(0, str(message), str(title), 0x40)
+        except Exception as e:
+            print(f"Windows MessageBox fallback failed: {e}", file=sys.stderr)
     except Exception as e:
-        print(f"Failed to initialize or send win11toast notification: {e}")
+        print(f"Windows Notification Error: {e}", file=sys.stderr)
 
 
-def _send_powershell_notification(title, message):
-    """Sends a fallback notification on Windows using PowerShell."""
-    try:
-
-        def sanitize_for_powershell(text):
-            return text.replace("`", "``").replace('"', '`"').replace("$", "`$").replace("\n", "`n")
-
-        ps_title = sanitize_for_powershell(title)
-        ps_message = sanitize_for_powershell(message)
-
-        ps_command = f"""
-        [void] [System.Reflection.Assembly]::LoadWithPartialName('System.Windows.Forms');
-        $notifyIcon = New-Object System.Windows.Forms.NotifyIcon;
-        $notifyIcon.Icon = [System.Drawing.Icon]::ExtractAssociatedIcon((Get-Process -Id $pid).Path);
-        $notifyIcon.BalloonTipTitle = "{ps_title}";
-        $notifyIcon.BalloonTipText = "{ps_message}";
-        $notifyIcon.Visible = $true;
-        $notifyIcon.ShowBalloonTip(10000);
-        Start-Sleep -Seconds 15;
-        $notifyIcon.Dispose();
-        """
-        # The 0x08000000 creation flag (CREATE_NO_WINDOW) prevents a PowerShell window from appearing.
-        subprocess.run(
-            ["powershell", "-ExecutionPolicy", "Bypass", "-Command", ps_command],
-            check=True,
-            capture_output=True,
-            text=True,
-            creationflags=0x08000000,
-            timeout=20,  # Safety timeout
-        )
-    except subprocess.CalledProcessError as e:
-        print(f"PowerShell - Command failed: {e.args}")
-        print(f"PowerShell - Stdout: {e.stdout}")
-        print(f"PowerShell - Stderr: {e.stderr}")
-    except subprocess.TimeoutExpired:
-        print("PowerShell - Notification process exceeded timeout (20s).")
-    except Exception as e:
-        print(f"An unexpected error occurred while sending PowerShell notification: {e}")
-
-
-def _send_macos_notification(title, message):
+def send_macos_notification(title, message):
     """Sends a notification on macOS using osascript."""
     try:
-        print("Sending macOS notification via osascript...")
+        print("Sending notification via osascript...")
         subprocess.run(
             ["osascript", "-e", f'display notification "{message}" with title "{title}"'],
             check=True,
@@ -146,7 +47,7 @@ def _send_macos_notification(title, message):
         print(f"macOS Notification Error: {e}")
 
 
-def _send_linux_notification(title, message):
+def send_linux_notification(title, message):
     """Sends a notification on Linux using notify-send."""
 
     try:
@@ -167,7 +68,7 @@ def _send_linux_notification(title, message):
         if not icon_path:
             icon_path = "dialog-information"
 
-        print("Sending Linux notification via notify-send...")
+        print("Sending notification via notify-send...")
         subprocess.run(
             ["notify-send", "-i", icon_path, "-a", "Blender", title, message],
             check=True,
@@ -181,19 +82,14 @@ def send_desktop_notification(title, message, output_path, preview_image_path=No
     """
     Sends a desktop notification by choosing the best available method for the current OS.
     """
-    preview_path = Path(preview_image_path) if preview_image_path else None
     output_dir_path = Path(output_path) if output_path else None
 
     if _IS_WINDOWS:
-        if _WIN11TOAST_AVAILABLE:
-            _send_win11toast_notification(title, message, output_dir_path, preview_path)
-        else:
-            print("win11toast not found. Falling back to PowerShell notification.")
-            _send_powershell_notification(title, message)
+        show_windows_alert(title, message)
     elif _IS_MACOS:
-        _send_macos_notification(title, message)
+        send_macos_notification(title, message)
     elif _IS_LINUX:
-        _send_linux_notification(title, message)
+        send_linux_notification(title, message)
     else:
         print(f"Desktop notifications not supported on this platform: {sys.platform}")
 
@@ -237,46 +133,8 @@ def _build_notification_message(max_len: int = 50) -> str:
     return f"{line1}\n{line2}\n{line3}"
 
 
-def _get_output_image_path() -> Path:
-    output_format = bpy.context.scene.render.image_settings.file_format
-    EXTENSIONS = {
-        "PNG": ".png",
-        "OPEN_EXR": ".exr",
-        "OPEN_EXR_MULTILAYER": ".exr",
-        "JPEG": ".jpg",
-        "BMP": ".bmp",
-        "TGA": ".tga",
-        "TIFF": ".tif",
-        "HDR": ".hdr",
-    }
-    extension = EXTENSIONS.get(output_format, ".png")
-
-    image_path: Path
-    frame_length_digits = 4
-    hash_string = "#" * frame_length_digits
-
-    # Check if the path is a template for an animation frame sequence
-    if str(output_path).endswith(hash_string):
-        # Construct the specific path for the current frame
-        base_path_str = str(output_path).removesuffix(hash_string)
-        frame_path = bpy.context.scene.frame_current
-        frame_number_str = str(frame_path).zfill(frame_length_digits)
-        image_path = Path(f"{base_path_str}{frame_number_str}{extension}")
-    else:
-        # This is a single image render; check if an extension is missing
-        image_path = output_path
-        known_extensions = set(EXTENSIONS.values())
-
-        if image_path.suffix.lower() not in known_extensions:
-            # Append the correct extension if it's not already part of the path
-            image_path = Path(f"{str(image_path)}{extension}")
-
-    return image_path
-
-
 notification_title = "Blender" if NOTIFICATION_DETAIL_LEVEL == "SIMPLE" else "Blender - Render Finished"
 notification_message = _build_notification_message()
-preview_image_path = _get_output_image_path()
 
 # Register the notification function to be called on exit.
 atexit.register(
@@ -284,5 +142,4 @@ atexit.register(
     notification_title,
     notification_message,
     folder_path,
-    preview_image_path,
 )

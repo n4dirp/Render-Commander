@@ -472,7 +472,6 @@ def _apply_cycles_settings(context, prefs, settings, selected_ids, script_lines)
     )
 
     _apply_cycles_sampling_settings(override_settings, script_lines)
-    _apply_cycles_light_paths_settings(override_settings, script_lines)
     _apply_cycles_performance_settings(override_settings, script_lines)
 
 
@@ -488,7 +487,7 @@ def _apply_cycles_sampling_settings(override_settings, script_lines):
         factor = float(cycles.sampling_factor)
         lines.extend(
             [
-                f"    # Sampling Factor Override ({cycles.sampling_factor}x)",
+                "    # Sampling Factor Override",
                 f"    quality_factor = {factor}",
                 "    bpy.context.scene.cycles.samples = max(1, int(bpy.context.scene.cycles.samples * quality_factor))",
                 "    bpy.context.scene.cycles.adaptive_min_samples = int(bpy.context.scene.cycles.adaptive_min_samples * quality_factor)",
@@ -540,30 +539,6 @@ def _apply_cycles_sampling_settings(override_settings, script_lines):
                     "",
                 ]
             )
-
-    script_lines.extend(lines)
-
-
-def _apply_cycles_light_paths_settings(override_settings, script_lines):
-    """Apply Cycles light paths settings."""
-    if not override_settings.cycles.light_path_override:
-        return
-
-    cycles = override_settings.cycles
-    lines = [
-        f"    bpy.context.scene.cycles.max_bounces = {cycles.max_bounces}",
-        f"    bpy.context.scene.cycles.diffuse_bounces = {cycles.diffuse_bounces}",
-        f"    bpy.context.scene.cycles.glossy_bounces = {cycles.glossy_bounces}",
-        f"    bpy.context.scene.cycles.transmission_bounces = {cycles.transmission_bounces}",
-        f"    bpy.context.scene.cycles.volume_bounces = {cycles.volume_bounces}",
-        f"    bpy.context.scene.cycles.transparent_max_bounces = {cycles.transparent_bounces}",
-        f"    bpy.context.scene.cycles.sample_clamp_direct = {cycles.sample_clamp_direct}",
-        f"    bpy.context.scene.cycles.sample_clamp_indirect = {cycles.sample_clamp_indirect}",
-        f"    bpy.context.scene.cycles.caustics_reflective = {cycles.caustics_reflective}",
-        f"    bpy.context.scene.cycles.caustics_refractive = {cycles.caustics_refractive}",
-        f"    bpy.context.scene.cycles.blur_glossy = {cycles.blur_glossy}",
-        "",
-    ]
 
     script_lines.extend(lines)
 
@@ -649,14 +624,6 @@ def _add_notification_script(prefs, script_lines):
             .replace(
                 'NOTIFICATION_DETAIL_LEVEL = "DETAILED"',
                 f'NOTIFICATION_DETAIL_LEVEL = "{prefs.notification_detail_level}"',
-            )
-            .replace(
-                "TOAST_SHOW_PREVIEW = True",
-                f"TOAST_SHOW_PREVIEW = {prefs.notification_show_preview}",
-            )
-            .replace(
-                "TOAST_SHOW_BUTTONS = True",
-                f"TOAST_SHOW_BUTTONS = {prefs.notification_show_buttons}",
             )
         )
 

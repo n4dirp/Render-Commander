@@ -30,19 +30,16 @@ from ...utils.helpers import (
     get_addon_temp_dir,
     is_blend_or_backup_file,
     replace_variables,
-    sanitize_filename,
     open_folder,
     calculate_auto_width,
     calculate_auto_height,
     format_to_title_case,
     get_render_engine,
-    get_default_render_output_path,
     redraw_ui,
 )
 from .generate_scripts import (
     _generate_base_script,
     _add_notification_script,
-    _add_prevent_sleep_commands,
 )
 
 _IS_WINDOWS = sys.platform == "win32"
@@ -95,7 +92,6 @@ def format_frame_range(frames_list: list) -> str:
     if not frames_list:
         return "[]"
 
-    # Ensure sorting and uniqueness
     sorted_frames = sorted(set(map(int, frames_list)))
 
     ranges = []
@@ -108,7 +104,7 @@ def format_frame_range(frames_list: list) -> str:
             ranges.append((start, end))
             start = end = num
         end = num
-    ranges.append((start, end))  # Add the last range
+    ranges.append((start, end))
 
     formatted_ranges = []
     for r in ranges:
@@ -127,13 +123,18 @@ def reset_button_state() -> None:
         if wm is not None and hasattr(wm, "recom_render_settings"):
             wm.recom_render_settings.disable_render_button = False
             redraw_ui()
-    except:
+    except Exception:
         pass
     return None
 
 
 def get_timestamp() -> str:
     return datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+
+
+def get_default_render_output_path() -> Path:
+    """Get the default temporary directory path for renders."""
+    return Path(tempfile.gettempdir())
 
 
 def validate_render_settings(operator, context) -> bool:
@@ -169,7 +170,6 @@ def validate_render_settings(operator, context) -> bool:
             msg = "Save the blend file before exporting scripts"
         operator.report({"INFO"}, msg)
         log.error(msg)
-        # bpy.ops.wm.save_as_mainfile("INVOKE_DEFAULT")
         return False
 
     # Save Blend
@@ -279,7 +279,6 @@ class RECOM_OT_BackgroundRender(Operator):
             else bpy.data.filepath
         )
 
-        # Only UI locking if we are actually rendering immediately
         if self.action_type == "RENDER":
             settings.disable_render_button = True
             bpy.app.timers.register(reset_button_state, first_interval=0.75)
@@ -533,8 +532,7 @@ class RECOM_OT_BackgroundRender(Operator):
             frames_per_process = 0
 
         for i in range(actual_process_count):
-            # For Eevee/Workbench, we usually rely on the OS/Driver to handle resource allocation,
-            # so we pass an empty list for device_ids.
+            # For Eevee/Workbench pass an empty list for device_ids.
             device_ids = []
 
             if prefs.frame_allocation == "FRAME_SPLIT":
@@ -578,7 +576,7 @@ class RECOM_OT_BackgroundRender(Operator):
         current_idx = 0
 
         for i in range(actual_process_count):
-            # Empty device list for Eevee/Workbench (handled by OS/Driver)
+            # Empty device list for Eevee/Workbench
             device_ids = []
 
             # Determine how many frames this process gets
@@ -598,8 +596,6 @@ class RECOM_OT_BackgroundRender(Operator):
     def _calculate_chunks_single_process(self, prefs, settings, scene, selected_ids) -> List[RenderJobChunk]:
         """Create a single job chunk for standard execution."""
 
-        print("_calculate_chunks_single_process")
-
         if prefs.launch_mode == MODE_LIST:
             frames = parse_frame_string(settings.frame_list)
             is_animation = False  # List mode processes frames individually in the script
@@ -617,9 +613,6 @@ class RECOM_OT_BackgroundRender(Operator):
             frames = (frame_start, frame_end, frame_step)
             is_animation = prefs.launch_mode == MODE_SEQ
             desc_frames = f"{frame_start}" if frame_start == frame_end else f"{frame_start}-{frame_end}"
-
-        # device_str = "CPU/GPU" if not selected_ids else f"{len(selected_ids)} Devices"
-        # devices_description = f" | {device_str}" if selected_ids else ""
 
         return [
             RenderJobChunk(
@@ -784,7 +777,6 @@ class RECOM_OT_BackgroundRender(Operator):
             return {"CANCELLED"}
 
         master_script_path = None
-        # if len(chunks) > 1:
         if self.action_type == "RENDER":
             master_script_path = self._create_master_script(
                 prefs, settings, blend_file, target_dir, generated_script_paths
@@ -802,7 +794,7 @@ class RECOM_OT_BackgroundRender(Operator):
                 self.report({"ERROR"}, f"Failed to start render: {exc}")
                 return {"CANCELLED"}
 
-        if prefs.external_terminal and prefs.exit_active_session:
+        if prefs.exit_active_session:
             bpy.app.timers.register(lambda: bpy.ops.wm.quit_blender(), first_interval=OPEN_FOLDER_DELAY + 0.1)
 
         return {"FINISHED"}
@@ -851,10 +843,6 @@ class RECOM_OT_BackgroundRender(Operator):
         if (any(d.type == "CPU" and d.use for d in prefs.devices)) and (prefs.cpu_threads_limit != 0):
             script_lines.append(f"bpy.context.scene.cycles.threads = {prefs.cpu_threads_limit}")
 
-        # System Sleep (First process only)
-        if chunk.process_index == 0 and prefs.set_system_power and (prefs.prevent_sleep or prefs.prevent_monitor_off):
-            _add_prevent_sleep_commands(prefs, script_lines)
-
         # Output Path & Render Call Logic
 
         # Helper to set path and add render call
@@ -888,7 +876,6 @@ class RECOM_OT_BackgroundRender(Operator):
             add_render_cmd(f_start, True, False)
         elif isinstance(chunk.frames, tuple):
             # Mode: Single Frame (tuple used in single process fallback)
-            # Only write still if user pref dictates or using Single Mode
             write_s = prefs.write_still or settings.override_settings.output_path_override
             add_render_cmd(f_start, False, write_s)
         else:
@@ -922,24 +909,22 @@ class RECOM_OT_BackgroundRender(Operator):
             # _add_notification_script(context, prefs, script_lines)
 
         # Parallel Sync Logic
-        requires_sync = (
-            prefs.set_system_power and (prefs.shutdown_after_render or prefs.prevent_sleep)
-        ) or prefs.send_desktop_notifications
+        requires_sync = prefs.send_desktop_notifications
 
         if total_processes > 1 and requires_sync:
             self._add_create_temp_files_script(context, prefs, script_lines, settings.render_id, chunk.process_index)
             if chunk.process_index == 0:
                 self._add_wait_for_all_processes(context, prefs, script_lines, settings.render_id, total_processes)
-                if prefs.set_system_power and prefs.shutdown_after_render:
+                if prefs.shutdown_after_render:
                     self._add_sys_shutdown_execute(context, prefs, script_lines)
-        elif chunk.process_index == 0 and prefs.set_system_power and prefs.shutdown_after_render:
+        elif chunk.process_index == 0 and prefs.shutdown_after_render:
             # Single process shutdown
             self._add_sys_shutdown_execute(context, prefs, script_lines)
 
         # Cleanup Temp Script (if RENDER mode)
         if self.action_type == "RENDER":
             process_id = f"{settings.render_id}_script{chunk.process_index}"
-            script_name = f"{sanitize_filename(Path(blend_file).stem)}_{process_id}.py"
+            script_name = f"{bpy.path.clean_name(Path(blend_file).stem)}_{process_id}.py"
             self._add_remove_temp_script(script_lines, target_dir / script_name)
 
         return script_lines
@@ -962,7 +947,7 @@ class RECOM_OT_BackgroundRender(Operator):
         """Creates the .py script and the OS-specific shell/batch script."""
 
         blend_name = Path(blend_file).stem
-        sanitized_blend_name = sanitize_filename(blend_name)
+        sanitized_blend_name = bpy.path.clean_name(blend_name)
         timestamp = get_timestamp()
         render_id = settings.render_id
 
@@ -1008,7 +993,6 @@ class RECOM_OT_BackgroundRender(Operator):
                 "",
                 f"RC_BLENDER={shlex.quote(str(blender_exec))}",
                 f"RC_BLEND={shlex.quote(str(blend_file))}",
-                # Combine pwd logic safely
                 f'RC_SCRIPT="$(pwd)/{py_filename}"',
             ]
             if prefs.set_ocio and prefs.ocio_path:
@@ -1071,7 +1055,6 @@ class RECOM_OT_BackgroundRender(Operator):
 
         # Log Redirection
         if prefs.log_to_file:
-            # Default to temp if empty
             log_file_path = self._get_log_file_path(prefs, settings, blend_file, process_id, target_dir)
             if _IS_WINDOWS:
                 RC_LOG = str(log_file_path)
@@ -1129,7 +1112,7 @@ class RECOM_OT_BackgroundRender(Operator):
             return None
 
         render_id = settings.render_id
-        sanitized_blend_name = sanitize_filename(Path(blend_file).stem)
+        sanitized_blend_name = bpy.path.clean_name(Path(blend_file).stem)
 
         if _IS_WINDOWS:
             master_name = f"{sanitized_blend_name}_{render_id}_master.bat"
@@ -1264,39 +1247,41 @@ class RECOM_OT_BackgroundRender(Operator):
             self.report({"ERROR"}, msg)
 
     def _get_linux_terminal_command(self, prefs):
-        term_map = {
-            "GNOME": "gnome-terminal --",
-            "XFCE": "xfce4-terminal -x",
-            "KONSOLE": "konsole -e",
-            "XTERM": "xterm -e",
-            "TERMINATOR": "terminator -x",
-        }
-
-        DEFAULT_TERMINAL = "xterm"
-
-        # Helper to check if the binary exists (ignoring flags like '--' or '-e')
-        def is_installed(cmd_str):
+        # Helper to check if the binary exists (safely ignoring flags like '--' or '-e')
+        def is_installed(cmd_str: str) -> bool:
             if not cmd_str:
                 return False
-            binary = cmd_str.split()[0]
-            return shutil.which(binary) is not None
+            try:
+                # Safely split "alacritty -e" -> "alacritty"
+                binary = shlex.split(cmd_str)[0]
+                return shutil.which(binary) is not None
+            except ValueError:
+                return False
 
-        if prefs.set_linux_terminal:
-            terminal_cmd = term_map.get(prefs.linux_terminal, DEFAULT_TERMINAL)
-        else:
-            # Auto-detect: Find the first available terminal from the map
-            terminal_cmd = next((t for t in term_map.values() if is_installed(t)), DEFAULT_TERMINAL)
-
-        # Final verification
-        if not is_installed(terminal_cmd):
-            # Fallback to x-terminal-emulator if preferred specific fails, or standard xterm
-            if shutil.which("x-terminal-emulator"):
-                terminal_cmd = "x-terminal-emulator -e"
+        custom_cmd = getattr(prefs, "linux_terminal_config", "").strip()
+        if custom_cmd:
+            if is_installed(custom_cmd):
+                return custom_cmd
             else:
-                log.warning(f"Preferred terminal '{terminal_cmd}' not found. Falling back to {DEFAULT_TERMINAL}.")
-                terminal_cmd = DEFAULT_TERMINAL
+                log.warning(f"Custom terminal configuration '{custom_cmd}' not found. Falling back to auto-detect.")
 
-        return terminal_cmd
+        fallback_terminals = [
+            "gnome-terminal --",
+            "xfce4-terminal -x",
+            "konsole -e",
+            "terminator -x",
+            "xterm -e",
+        ]
+
+        for term in fallback_terminals:
+            if is_installed(term):
+                return term
+
+        if shutil.which("x-terminal-emulator"):
+            return "x-terminal-emulator -e"
+
+        log.warning("No standard terminal emulator found on system. Defaulting to 'xterm -e'.")
+        return "xterm -e"
 
     # SHARED HELPERS (Frame parsing, etc)
 
@@ -1530,7 +1515,7 @@ class RECOM_OT_BackgroundRender(Operator):
             return ""
 
         return str(
-            log_folder / f"{sanitize_filename(Path(blend_file).stem)}_{settings.render_id}_worker{process_id}.log"
+            log_folder / f"{bpy.path.clean_name(Path(blend_file).stem)}_{settings.render_id}_worker{process_id}.log"
         )
 
 
@@ -1639,66 +1624,6 @@ class RECOM_OT_ExportRenderScript(Operator):
         col.prop(prefs, "auto_open_exported_folder", text="Open Scripts Folder")
 
 
-class RECOM_OT_CleanTempFiles(Operator):
-    """Delete residual temporary files."""
-
-    bl_idname = "recom.clean_temp_files"
-    bl_label = "Clean Temp Files"
-    bl_description = "Delete residual execution scripts and logs"
-    bl_options = {"REGISTER", "INTERNAL"}
-
-    def execute(self, context):
-        prefs = get_addon_preferences(context)
-        try:
-            temp_dir = get_addon_temp_dir(prefs)
-        except:
-            return {"CANCELLED"}
-
-        if not temp_dir.exists():
-            return {"FINISHED"}
-
-        targets = {".bat", ".sh", ".py", ".log", ".tmp"}
-        count, errors = 0, 0
-        for f in temp_dir.iterdir():
-            if f.is_file() and f.suffix.lower() in targets:
-                try:
-                    f.unlink()
-                    count += 1
-                except:
-                    errors += 1
-
-        msg = f"Cleaned {count} files." + (f" (Failed: {errors})" if errors else "")
-        self.report({"INFO"}, msg if count else "No residual files found.")
-        return {"FINISHED"}
-
-
-class RECOM_OT_OpenTempDir(Operator):
-    """Open the addon's temporary directory in file explorer"""
-
-    bl_idname = "recom.open_temp_dir"
-    bl_label = "Open Temp Directory"
-    bl_description = "Open the addon's temporary directory in file explorer"
-    bl_options = {"REGISTER", "INTERNAL"}
-
-    def execute(self, context):
-        prefs = get_addon_preferences(context)
-
-        try:
-            temp_dir = get_addon_temp_dir(prefs)
-
-            if not temp_dir.exists():
-                temp_dir.mkdir(parents=True, exist_ok=True)
-
-            open_folder(temp_dir)
-            log.debug(f"Opened temporary directory: {temp_dir}")
-
-        except Exception as e:
-            self.report({"ERROR"}, f"Failed to open temp directory: {e}")
-            return {"CANCELLED"}
-
-        return {"FINISHED"}
-
-
 class RECOM_OT_RenderImage(Operator):
     bl_idname = "recom.render_image"
     bl_label = "Render Image"
@@ -1786,8 +1711,6 @@ class RECOM_OT_ExportAnimation(Operator):
 classes = (
     RECOM_OT_BackgroundRender,
     RECOM_OT_ExportRenderScript,
-    RECOM_OT_CleanTempFiles,
-    RECOM_OT_OpenTempDir,
     RECOM_OT_RenderImage,
     RECOM_OT_RenderAnimation,
     RECOM_OT_ExportImage,

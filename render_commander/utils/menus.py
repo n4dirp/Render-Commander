@@ -244,7 +244,7 @@ class RECOM_MT_eevee_samples(Menu):
         layout.label(text="Render Samples")
         layout.separator()
 
-        values = [64, 128, 256, 512, 1024, 2048]
+        values = [64, 128, 256, 512, 1024]
         values.sort(reverse=True)
 
         for val in values:
@@ -338,7 +338,7 @@ class RECOM_MT_cycles_render_devices(Menu):
         layout.operator("recom.import_from_cycles_settings", text="Import Device Settings", icon=ICON_SYNC)
         layout.operator("recom.reinitialize_devices", icon="FILE_REFRESH")
         layout.separator()
-        layout.operator("recom.cycles_device_ids", text="Show Device ID", icon="INFO")
+        layout.operator("recom.cycles_device_ids", text="Show Device IDs", icon="INFO")
 
 
 class RECOM_MT_scripts(Menu):
@@ -360,20 +360,15 @@ class RECOM_MT_scripts(Menu):
         layout.separator()
 
         if scripts_dir.exists():
-            # Convert to list to check length
             scripts = list(scripts_dir.rglob("*.py"))
 
             if scripts:
-                # Optional: Sort the list so menu items are always in the same order
                 scripts.sort()
 
                 for script_path in scripts:
                     relative_path = script_path.relative_to(scripts_dir)
-
-                    # Remove extension and format name
-                    clean_parts = relative_path.with_suffix("").parts
-                    display_name = (" / ".join(clean_parts)).replace("_", " ")
-
+                    clean_parts = [bpy.path.display_name(part) for part in relative_path.with_suffix("").parts]
+                    display_name = " / ".join(clean_parts)
                     op = layout.operator("recom.add_script_from_menu", text=display_name, icon="FILE_SCRIPT")
                     op.script_path = str(script_path)
 
@@ -466,8 +461,10 @@ class RECOM_MT_custom_blender(Menu):
     def draw(self, context):
         layout = self.layout
 
+        prefs = get_addon_preferences(context)
+        layout.enabled = bool(prefs.custom_executable_path)
+
         layout.operator("recom.launch_custom_blender", text="Launch Custom Blender", icon="BLANK1")
-        # layout.separator()
         layout.operator("recom.check_blender_version", text="Version Details...", icon="BLANK1")
 
 

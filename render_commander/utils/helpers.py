@@ -2,19 +2,15 @@
 
 import json
 import os
+import shlex
 import socket
-import re
 import sys
 import logging
 import subprocess
 import threading
-import datetime
-import fractions
 import pathlib
-import shlex
 import shutil
 import tempfile
-import time
 
 from datetime import datetime
 from fractions import Fraction
@@ -33,75 +29,44 @@ _IS_MACOS = sys.platform == "darwin"
 _IS_LINUX = sys.platform.startswith("linux")
 
 
-def sanitize_filename(name: str) -> str:
-    """Sanitize a filename by replacing invalid characters with underscores."""
-    return re.sub(r'[\\/*?:"<>|]', "_", name)
-
-
 def get_addon_temp_dir(prefs: object) -> Path:
-    if bpy.app.version < (4, 2):
-        use_user_extension = False
-    else:
-        use_user_extension = True
+    """Get the temporary directory for addon-specific files."""
+    try:
+        # Determine if we use user extensions (Blender 4.2+)
+        use_user_extension = bpy.app.version >= (4, 2)
 
-    if prefs.use_custom_temp and prefs.custom_temp_path:
-        custom = Path(bpy.path.abspath(prefs.custom_temp_path)).resolve()
-        if custom.exists():
-            return custom / ADDON_NAME
+        if prefs.use_custom_temp and prefs.custom_temp_path:
+            custom = Path(bpy.path.abspath(prefs.custom_temp_path)).resolve()
+            if custom.exists():
+                return custom / ADDON_NAME
 
-    if use_user_extension:
+        if use_user_extension:
+            try:
+                p = Path(bpy.utils.extension_path_user(base_package, create=True))
+                if p.exists():
+                    return p
+            except (OSError, RuntimeError) as e:
+                log.warning(f"Could not access user extension path: {e}")
+
+        # Fallback to standard temp directory
         try:
-            p = Path(bpy.utils.extension_path_user(base_package, create=True))
-            if p.exists():
-                return p
-        except:
-            pass
+            t = Path(bpy.app.tempdir).resolve().parent
+            if not t.exists():
+                t = Path(tempfile.gettempdir()).resolve()
+            return t / ADDON_NAME
+        except (OSError, RuntimeError) as e:
+            raise RuntimeError(f"Failed to determine a valid temp directory: {e}")
 
-    # Fallback
-    try:
-        t = Path(bpy.app.tempdir).resolve().parent
-        if not t.exists():
-            t = Path(tempfile.gettempdir()).resolve()
-        return t / ADDON_NAME
-    except:
-        raise RuntimeError("Failed to get temp dir")
-
-
-def get_blender_version(exec_path: str) -> str:
-    """Retrieve Blender version from an executable path."""
-    exec_path = Path(exec_path)
-
-    if not exec_path.is_file():
-        return ""
-
-    try:
-        import subprocess
-
-        result = subprocess.run(
-            [exec_path, "--version"],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            check=True,
-            text=True,
-            creationflags=subprocess.CREATE_NO_WINDOW if _IS_WINDOWS else 0,
-        )
-
-        for line in result.stdout.splitlines():
-            if "Blender" in line:
-                parts = line.strip().split()
-                for part in parts:
-                    if part.count(".") >= 2:
-                        return part
-        return ""
-    except subprocess.CalledProcessError as e:
-        log.error(f"Blender version check failed (code {e.returncode}): {e.stderr}")
     except Exception as e:
-        log.error(f"Error checking Blender version: {str(e)}")
-    return ""
+        log.error(f"Critical error in get_addon_temp_dir: {e}")
+        raise
 
 
 def get_aspect_ratio(width: int, height: int, tolerance: float = 0.02) -> str:
     """Calculate and return the closest common aspect ratio or a fraction."""
+    if height == 0 or width == 0:
+        return "0x0"
+
     exact_ratio = width / height
     common_ratios = {
         "32x9": 32 / 9,
@@ -123,6 +88,7 @@ def get_aspect_ratio(width: int, height: int, tolerance: float = 0.02) -> str:
         "9x16": 9 / 16,
     }
 
+    # Find the closest named ratio
     closest_name, closest_value = min(common_ratios.items(), key=lambda x: abs(x[1] - exact_ratio))
 
     if abs(closest_value - exact_ratio) / exact_ratio <= tolerance:
@@ -205,11 +171,8 @@ def replace_variables(path_template: str) -> str:
             else:
                 base_x, base_y = get_default_resolution(context)
 
-            scale = (
-                float(settings.override_settings.render_scale)
-                if settings.override_settings.render_scale != "CUSTOM"
-                else settings.override_settings.custom_render_scale / 100
-            )
+            scale = settings.override_settings.custom_render_scale / 100
+
             width, height = int(base_x * scale), int(base_y * scale)
             scale_val = int(scale * 100)
         else:
@@ -294,17 +257,10 @@ def replace_variables(path_template: str) -> str:
             view_transform_val = str(scene.view_settings.view_transform)
             look_val = str(scene.view_settings.look)
 
-        # Blender Version
-        blender_version_val = ""
-        if "{bl_ver}" in path_template.lower():  # Check lower for case-insensitivity
-            if prefs.custom_executable and prefs.custom_executable_path:
-                blender_version_val = get_blender_version(prefs.custom_executable_path)
-            else:
-                blender_version_val = ".".join(map(str, bpy.app.version))
-
         # Date/time
         now = datetime.now()
-        date_val, time_val = now.strftime("%Y-%m-%d"), now.strftime("%H-%M-%S")
+        date_val = now.strftime("%Y-%m-%d")
+        time_val = now.strftime("%H-%M-%S")
         year_val, month_val, day_val = now.strftime("%Y"), now.strftime("%m"), now.strftime("%d")
 
         # System info
@@ -327,7 +283,6 @@ def replace_variables(path_template: str) -> str:
         variables_map = {
             "blend_name": blend_file_name_no_ext,
             "blend_dir": str(blend_folder_path),
-            "bl_ver": str(blender_version_val).replace(".", "_"),
             "engine": engine_val or "",
             "scene_name": scene_name_val,
             "view_name": view_layer_name_val,
@@ -358,9 +313,7 @@ def replace_variables(path_template: str) -> str:
             "os": os_val,
         }
 
-        # Add custom variables
-        for var in prefs.custom_variables:
-            variables_map[var.token] = var.value
+        variables_map.update({var.token: var.value for var in prefs.custom_variables})
 
         # Sanitize values
         for key, value in variables_map.items():
@@ -393,11 +346,6 @@ def redraw_ui() -> None:
     bpy.context.window_manager.update_tag()
 
 
-def get_default_render_output_path() -> Path:
-    """Get the default temporary directory path for renders."""
-    return Path(tempfile.gettempdir())
-
-
 def is_blend_or_backup_file(file_path: str) -> bool:
     """Check if a file is a valid Blender blend file."""
     if file_path.startswith("//"):
@@ -420,28 +368,38 @@ def open_folder(folder_path: str) -> bool:
 
     folder_path = Path(folder_path).resolve()
 
-    # Create directory first, but don't block on this operation
     try:
         folder_path.mkdir(parents=True, exist_ok=True)
     except Exception as e:
         log.error(f"Failed to create directory: {e}")
         return False
 
-    if not folder_path.exists():
-        log.error(f"Folder does not exist after creation: '{folder_path}'")
-        return False
+    try:
+        if _IS_WINDOWS:
+            os.startfile(folder_path)
 
-    # Create a new thread to handle the folder opening
-    def open_folder_in_thread():
-        try:
-            if _IS_WINDOWS:
-                os.startfile(folder_path)
-            elif _IS_MACOS:
-                subprocess.Popen(["open", folder_path])
-            elif _IS_LINUX:
-                prefs = get_addon_preferences()
-                explorer_choice = prefs.linux_file_explorer
+        elif _IS_MACOS:
+            subprocess.Popen(["open", str(folder_path)])
 
+        elif _IS_LINUX:
+            prefs = get_addon_preferences()
+
+            binary = None
+            extra_args = []
+
+            custom_config = getattr(prefs, "linux_explorer_config", "").strip()
+            if custom_config:
+                cmd_parts = shlex.split(custom_config)  # Safely splits "cmd --arg" into ["cmd", "--arg"]
+                if cmd_parts:
+                    potential_binary = cmd_parts[0]
+                    if shutil.which(potential_binary):
+                        binary = potential_binary
+                        extra_args = cmd_parts[1:]
+                    else:
+                        log.warning(f"Custom Linux explorer '{potential_binary}' not found. Falling back.")
+
+            if not binary:
+                explorer_choice = getattr(prefs, "linux_file_explorer", "XDG_OPEN")
                 explorer_map = {
                     "NAUTILUS": ("nautilus", ["--no-desktop"]),
                     "DOLPHIN": ("dolphin", ["--select"]),
@@ -457,17 +415,15 @@ def open_folder(folder_path: str) -> bool:
                     binary = "xdg-open"
                     extra_args = []
 
-                cmd = [binary] + extra_args + [folder_path]
-                subprocess.Popen(cmd)
+            # Execute non-blocking process
+            subprocess.Popen([binary] + extra_args + [str(folder_path)])
 
-            log.debug(f'Opened folder in background: "{folder_path}"')
+        log.debug(f'Opened folder: "{folder_path}"')
+        return True
 
-        except Exception as e:
-            log.error(f"Failed to open folder in background: {e}")
-
-    threading.Thread(target=open_folder_in_thread, daemon=True).start()
-
-    return True
+    except Exception as e:
+        log.error(f"Failed to open folder: {e}")
+        return False
 
 
 def get_default_resolution(context) -> tuple:
@@ -494,7 +450,7 @@ def calculate_auto_width(context) -> int:
     """Calculate auto width based on height and aspect ratio."""
     settings = context.window_manager.recom_render_settings
     default_res = get_default_resolution(context)
-    aspect_ratio = default_res[0] / default_res[1] if default_res[1] else 1.0
+    aspect_ratio = default_res[0] / default_res[1] if default_res[1] > 0 else 1.0
     height = settings.override_settings.resolution_y
     return int(height * aspect_ratio)
 
@@ -503,96 +459,9 @@ def calculate_auto_height(context) -> int:
     """Calculate auto height based on width and aspect ratio."""
     settings = context.window_manager.recom_render_settings
     default_res = get_default_resolution(context)
-    aspect_ratio = default_res[0] / default_res[1] if default_res[1] else 1.0
+    aspect_ratio = default_res[0] / default_res[1] if default_res[1] > 0 else 1.0
     width = settings.override_settings.resolution_x
     return int(width / aspect_ratio)
-
-
-def run_in_terminal(prefs, command: str, keep_open: bool = False) -> bool:
-    """Run a command in a terminal window, respecting user preferences."""
-    try:
-        if not command or not isinstance(command, str):
-            log.error("Invalid command: Command is empty or not a string.")
-            return False
-
-        terminal_commands = {
-            "GNOME": "gnome-terminal",
-            "XFCE": "xfce4-terminal",
-            "KONSOLE": "konsole",
-            "XTERM": "xterm",
-            "TERMINATOR": "terminator",
-        }
-
-        DEFAULT_TERMINAL = "xterm"
-
-        if prefs.set_linux_terminal:
-            terminal_cmd = terminal_commands.get(prefs.linux_terminal, DEFAULT_TERMINAL)
-        else:
-            terminal_cmd = next((t for t in terminal_commands.values() if shutil.which(t)), DEFAULT_TERMINAL)
-
-        if not shutil.which(terminal_cmd):
-            log.warning(f"Preferred terminal '{terminal_cmd}' not found. Falling back to xterm.")
-            terminal_cmd = DEFAULT_TERMINAL
-
-        terminal_args = {
-            "gnome-terminal": f'-- bash -c "{command}{"; exec bash" if keep_open else ""}"',
-            "xfce4-terminal": f'--hold --command="{command}"' if keep_open else f'--command="{command}"',
-            "konsole": f'--hold -e bash -c "{command}"' if keep_open else f'-e bash -c "{command}"',
-            "xterm": f'-hold -e bash -c "{command}"' if keep_open else f'-e bash -c "{command}"',
-            "terminator": f'-x bash -c "{command}; bash"' if keep_open else f'-x bash -c "{command}"',
-        }
-
-        final_args = terminal_args.get(terminal_cmd, f'-e bash -c "{command}"')
-        full_cmd = f"{terminal_cmd} {final_args}"
-
-        log.debug(f"Launch Command: {full_cmd}")
-        subprocess.Popen(full_cmd, shell=True)
-
-        return True
-
-    except Exception as e:
-        log.error(f"Failed to launch terminal command: {str(e)}", exc_info=True)
-        return False
-
-
-def shell_quote(arg: str) -> str:
-    """Quote a string for safe shell usage across platforms."""
-    if _IS_WINDOWS:
-        if not arg:
-            return '""'
-
-        special_chars = r' \t&()[]{}^=;!\'`+,"~<>|%'
-        arg = arg.replace('"', '""')
-
-        if not any(c in special_chars for c in arg):
-            return arg
-
-        arg = re.sub(r"([&(){}\[\]^=;!+,\`~<>|%])", r"^\1", arg)
-
-        return f'"{arg}"'
-    else:
-        return shlex.quote(arg)
-
-
-def launch_cmd(
-    command: str,
-    title: Optional[str] = None,
-    keep_open: bool = True,
-) -> None:
-    """Launch a command in a new terminal window with optional title."""
-    terminator = "/k" if keep_open else "/c"
-    command_parts = []
-
-    if title:
-        safe_title = title.replace('"', "").replace("&", "").replace("|", "").replace(">", "").replace("<", "")
-        command_parts.append(f'title "{safe_title}"')
-    command_parts.append(command)
-
-    inner_command = " & ".join(command_parts)
-    full_command = f'start "" cmd {terminator} "{inner_command}"'
-
-    log.debug(f"Launching on Windows: {full_command}")
-    subprocess.Popen(full_command, shell=True)
 
 
 def format_to_title_case(input_string: str) -> str:
@@ -618,16 +487,3 @@ def get_render_engine(context) -> str:
         engine_name = context.scene.render.engine
 
     return engine_name
-
-
-def logical_width(width: int) -> int:
-    """Convert screen width to logical width based on UI scale and DPI."""
-    if not width:
-        return 0
-
-    ui_scale = bpy.context.preferences.system.ui_scale
-    dpi = bpy.context.preferences.system.dpi
-
-    logical_width = width / (ui_scale * dpi / 72.0)
-
-    return int(logical_width)

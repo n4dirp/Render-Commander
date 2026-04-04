@@ -67,7 +67,6 @@ class RECOM_PG_RenderSettings(PropertyGroup):
     )
     external_blend_file_path: StringProperty(
         name="External Blend File",
-        # subtype="FILE_PATH",
         default="",
         description="Path to an external blend file for rendering",
         update=_check_external_blend_file_path,
@@ -140,11 +139,8 @@ def register():
     try:
         wm = bpy.types.WindowManager
         wm.recom_render_settings = PointerProperty(type=RECOM_PG_RenderSettings)
-        wm.recom_external_scene_info_items = CollectionProperty(
-            type=RECOM_PG_ExternalSceneInfoItem,
-        )
+        wm.recom_external_scene_info_items = CollectionProperty(type=RECOM_PG_ExternalSceneInfoItem)
         wm.recom_external_scene_info_active = IntProperty(name="Active Index")
-
     except Exception as e:
         log.error("Failed to register custom properties", exc_info=True)
 
@@ -158,6 +154,5 @@ def unregister():
         del wm.recom_external_scene_info_active
         del wm.recom_external_scene_info_items
         del wm.recom_render_settings
-
     except Exception as e:
         log.error("Failed to unregister custom properties", exc_info=True)

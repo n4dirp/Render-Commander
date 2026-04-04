@@ -1,4 +1,4 @@
-# ./properties/properties.py
+# ./properties/override_settings.py
 
 import logging
 import os
@@ -23,7 +23,6 @@ from ..utils.helpers import (
     redraw_ui,
     calculate_auto_width,
     calculate_auto_height,
-    get_default_render_output_path,
 )
 
 log = logging.getLogger(__name__)
@@ -39,16 +38,8 @@ class RECOM_PG_CyclesRenderOverrides(PropertyGroup):
     device: EnumProperty(
         name="",
         items=[
-            (
-                "CPU",
-                "CPU",
-                "Use CPU for rendering",
-            ),
-            (
-                "GPU",
-                "GPU",
-                "Use GPU compute devices for rendering",
-            ),
+            ("CPU", "CPU", "Use CPU for rendering"),
+            ("GPU", "GPU", "Use GPU compute devices for rendering"),
         ],
         default="GPU",
         description="Device to use for rendering",
@@ -176,83 +167,6 @@ class RECOM_PG_CyclesRenderOverrides(PropertyGroup):
         description="Store the denoising feature passes and noisy image.\nThe passes adapt to the denoiser selected for rendering.",
     )
 
-    # Light Paths
-    light_path_override: BoolProperty(name="Override Light Paths", default=False)
-    max_bounces: IntProperty(
-        name="Max Bounces",
-        description="Maximum number of light bounces",
-        default=12,
-        min=0,
-        max=1024,
-        update=lambda self, context: redraw_ui(),
-    )
-    diffuse_bounces: IntProperty(
-        name="Diffuse",
-        description="Maximum number of diffuse light bounces. Affects how light scatters off matte surfaces.",
-        default=3,
-        min=0,
-        max=1024,
-    )
-    glossy_bounces: IntProperty(
-        name="Glossy",
-        description="Maximum number of glossy light bounces. Influences reflections on shiny surfaces.",
-        default=4,
-        min=0,
-        max=1024,
-    )
-    transmission_bounces: IntProperty(
-        name="Transmission",
-        description="Maximum number of transmission bounces for transparent and refractive surfaces like glass",
-        default=12,
-        min=0,
-        max=1024,
-    )
-    volume_bounces: IntProperty(
-        name="Volume",
-        description="Maximum number of light bounces inside volumetric objects (e.g., smoke, fog)",
-        default=0,
-        min=0,
-        max=1024,
-    )
-    transparent_bounces: IntProperty(
-        name="Transparent",
-        description="Maximum number of transparent bounces (used for materials like glass or alpha-mapped textures)",
-        default=8,
-        min=0,
-        max=1024,
-    )
-    sample_clamp_direct: FloatProperty(
-        name="Clamp Direct",
-        description="Clamp the brightness of directly-lit samples to reduce fireflies (noise). Lower values give more clamping.",
-        default=32.0,
-        min=0.0,
-        max=1024.0,
-    )
-    sample_clamp_indirect: FloatProperty(
-        name="Clamp Indirect",
-        description="Clamp the brightness of indirectly-lit samples to reduce fireflies. Especially useful in complex lighting scenarios.",
-        default=10.0,
-        min=0.0,
-        max=1024.0,
-    )
-    caustics_reflective: BoolProperty(
-        name="Reflective Caustics",
-        description="Use reflective caustics, resulting in a brighter image (more noise but added realism)",
-        default=True,
-    )
-    caustics_refractive: BoolProperty(
-        name="Refractive Caustics",
-        description="Use refractive caustics, resulting in a brighter image (more noise but added realism)",
-        default=True,
-    )
-    blur_glossy: FloatProperty(
-        name="Filter Glossy",
-        description="Adaptively blur glossy shaders after blurry bounces, " "to reduce noise at the cost of accuracy",
-        min=0.0,
-        max=10.0,
-        default=1.0,
-    )
-
     # Performance
     performance_override: BoolProperty(
         name="Override Performance",
@@ -296,118 +210,6 @@ class RECOM_PG_EEVEERenderOverrides(PropertyGroup):
         description="EEVEE TAA render samples",
         update=lambda self, context: redraw_ui(),
     )
-    use_shadows: BoolProperty(
-        name="Shadows",
-        default=True,
-        description="Enable Shadows for EEVEE",
-    )
-    shadow_ray_count: IntProperty(
-        name="Shadow Ray Count",
-        default=1,
-        min=1,
-        max=4,
-        description="Number of rays for shadow calculations",
-    )
-    shadow_step_count: IntProperty(
-        name="Shadow Step Count",
-        default=12,
-        min=1,
-        max=16,
-        description="Steps for shadow sampling",
-    )
-    use_raytracing: BoolProperty(
-        name="Use Raytracing",
-        default=True,
-        description="Enable Raytracing for EEVEE",
-    )
-    ray_tracing_method: EnumProperty(
-        name="Raytracing Method",
-        items=[
-            ("SCREEN", "Screen-Trace", ""),
-            ("PROBE", "Light Probe", ""),
-        ],
-        default="SCREEN",
-        description="Raytracing method for EEVEE",
-    )
-    ray_tracing_resolution: EnumProperty(
-        name="Raytracing Resolution",
-        items=[
-            ("1", "1:1", ""),
-            ("2", "1:2", ""),
-            ("4", "1:4", ""),
-            ("8", "1:8", ""),
-            ("16", "1:16", ""),
-        ],
-        default="2",
-        description="Resolution scale for raytracing",
-    )
-    ray_tracing_denoise: BoolProperty(
-        name="Denoise",
-        default=True,
-        description="Enable denoising for raytraced effects",
-    )
-    ray_tracing_denoise_temporal: BoolProperty(
-        name="Temporal Accumulation",
-        default=False,
-        description="Accumulate samples by reprojecting last tracing results",
-    )
-    fast_gi: BoolProperty(
-        name="Fast GI Approximation",
-        default=True,
-        description="Use fast GI approximation for faster rendering",
-    )
-    trace_max_roughness: FloatProperty(
-        name="Threshold",
-        default=0.5,
-        min=0.0,
-        max=1.0,
-        description="Raytrace Max Roughness",
-    )
-    fast_gi_resolution: EnumProperty(
-        name="Fast GI Resolution",
-        items=[
-            ("1", "1:1", ""),
-            ("2", "1:2", ""),
-            ("4", "1:4", ""),
-            ("8", "1:8", ""),
-            ("16", "1:16", ""),
-        ],
-        default="2",
-        description="Resolution scale for GI",
-    )
-    fast_gi_step_count: IntProperty(
-        name="Fast GI Step Count",
-        default=8,
-        min=1,
-        max=16,
-        description="Steps for GI sampling",
-    )
-    fast_gi_distance: FloatProperty(
-        name="Fast GI Distance",
-        default=0.0,
-        min=0.0,
-        description="",
-        unit="LENGTH",
-    )
-    volumetric_tile_size: EnumProperty(
-        name="Volume Resolution",
-        items=[
-            ("1", "1:1", ""),
-            ("2", "1:2", ""),
-            ("4", "1:4", ""),
-            ("8", "1:8", ""),
-            ("16", "1:16", ""),
-        ],
-        default="8",
-        description="Control volume quality",
-    )
-    volume_samples: IntProperty(
-        name="Volume Steps",
-        default=64,
-        min=1,
-        max=256,
-        description="Number of steps for volumetric effects",
-    )
 
 
 class RECOM_PG_CustomAPIOverride(PropertyGroup):
@@ -435,12 +237,71 @@ class RECOM_PG_CustomAPIOverride(PropertyGroup):
     value_color_4: FloatVectorProperty(name="Value", size=4, subtype="COLOR", min=0.0, max=1.0)
 
 
+def api_search_callback(self, context, edit_text):
+    """Provides autocomplete suggestions for Blender API paths."""
+    import bpy
+
+    items = []
+    text = edit_text.strip()
+
+    # Default suggestions if the box is empty
+    if not text:
+        return [
+            "bpy.context.scene",
+            "bpy.context.scene.render",
+            "bpy.context.scene.cycles",
+            "bpy.context.scene.eevee",
+            "bpy.context.view_layer",
+        ]
+
+    # Allow shorthand like "scene.render" -> "bpy.context.scene.render"
+    eval_text = text
+    if text.startswith("scene.") or text.startswith("render.") or text.startswith("view_layer."):
+        eval_text = "bpy.context." + text
+
+    if "." in eval_text:
+        parts = eval_text.split(".")
+        base_path = ".".join(parts[:-1])
+        prefix = parts[-1]
+
+        try:
+            # Safely evaluate the base path (e.g., "bpy.context.scene")
+            base_obj = eval(base_path, {"bpy": bpy})
+
+            # Extract valid properties
+            if hasattr(base_obj, "bl_rna"):
+                props = [p.identifier for p in base_obj.bl_rna.properties]
+            else:
+                props = [p for p in dir(base_obj) if not p.startswith("_")]
+
+            # Filter by what the user is currently typing
+            for p in props:
+                if p.startswith(prefix):
+                    items.append(f"{base_path}.{p}")
+        except Exception:
+            pass
+
+    # If no items found, return the text itself to prevent an empty dropdown
+    if not items and text:
+        items.append(text)
+
+    # Limit results
+    return items[:30]
+
+
 class RECOM_PG_OverrideSettings(PropertyGroup):
     """Stores override settings"""
 
     # Custom API Overrides
+    api_search_query: StringProperty(
+        name="Data Path Property",
+        description="Type to search or paste a Blender property data path to override.\nExample: bpy.context.scene.render.use_simplify",
+        search=api_search_callback,
+    )
     use_custom_api_overrides: BoolProperty(
-        name="Override Custom API", default=False, description="Enable custom python property overrides"
+        name="Override Custom API",
+        default=False,
+        description="Enable custom python property overrides",
     )
     custom_api_overrides: CollectionProperty(type=RECOM_PG_CustomAPIOverride)
     active_custom_api_index: IntProperty(default=0)
@@ -579,26 +440,6 @@ class RECOM_PG_OverrideSettings(PropertyGroup):
         default=0,
         description="Cached height that keeps the aspect ratio when SET_WIDTH is active",
         subtype="PIXEL",
-    )
-    # Deprecated: render_scale
-    render_scale: EnumProperty(
-        name="Render Scale",
-        items=[
-            ("CUSTOM", "Custom", "Custom Scale"),
-            ("4.00", "400%", "4x resolution multiplier"),
-            ("3.00", "300%", "3x resolution multiplier"),
-            ("2.00", "200%", "2x resolution multiplier"),
-            ("1.50", "150%", "1.5x resolution multiplier"),
-            ("1.00", "100%", "Native resolution"),
-            ("0.6667", "66.7% (2/3)", "2/3 resolution"),
-            ("0.50", "50%", "Half resolution"),
-            ("0.3333", "33.3% (1/3)", "1/3 resolution"),
-            ("0.25", "25%", "Quarter resolution"),
-        ],
-        default="CUSTOM",
-        description=(
-            "Resolution scaling factor.\n" ">100% for supersampling (sharper results).\n" "<100% for faster previews."
-        ),
     )
     custom_render_scale: FloatProperty(
         name="Custom Render Scale",
@@ -774,12 +615,6 @@ class RECOM_PG_OverrideSettings(PropertyGroup):
 
             if resolved_dir_str:
                 folder_path_display = resolved_dir_str
-            # else:
-            #    folder_path_display = str(get_default_render_output_path())
-
-            # Ensure trailing slash for display
-            # if folder_path_display and not folder_path_display.endswith(("/", "\\")):
-            #    folder_path_display += "/"
 
             if folder_path_display and not folder_path_display.endswith(os.sep):
                 folder_path_display += os.sep
@@ -859,7 +694,12 @@ class RECOM_PG_OverrideSettings(PropertyGroup):
         ],
         default="CENTER",
     )
-    motion_blur_shutter: FloatProperty(name="Shutter Length", default=0.5, min=0.0, max=1.0)
+    motion_blur_shutter: FloatProperty(
+        name="Shutter Length",
+        default=0.5,
+        min=0.0,
+        max=1.0,
+    )
 
     # Compositor
     compositor_override: BoolProperty(

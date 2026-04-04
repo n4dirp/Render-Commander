@@ -1,34 +1,14 @@
 schema_version = "1.0.0"
 id = "render_commander"
-version = "1.1.4"
+version = "1.1.5"
 name = "Render Commander"
-tagline = "Background render launcher for Cycles & EEVEE"
+tagline = "Configure, launch, and export command-line render jobs"
 maintainer = "Nadir Perazzo"
 type = "add-on"
 website = "https://github.com/n4dirp/Render-Commander"
-tags = ["Render"]
+tags = ["Render", "Import-Export"]
 blender_version_min = "4.2.0"
-license = [
-  "SPDX:GPL-3.0-or-later",
-]
+license = ["SPDX:GPL-3.0-or-later"]
 platforms = ["windows-x64", "linux-x64"]
-wheels = [
-  # Wheels for Windows notifications - Python 3.11
-  "./wheels/typing_extensions-4.15.0-py3-none-any.whl",
-  "./wheels/win11toast-0.36.2-py3-none-any.whl",
-  "./wheels/winrt_runtime-3.2.1-cp311-cp311-win_amd64.whl",
-  "./wheels/winrt_windows_data_xml_dom-3.2.1-cp311-cp311-win_amd64.whl",
-  "./wheels/winrt_windows_foundation-3.2.1-cp311-cp311-win_amd64.whl",
-  "./wheels/winrt_windows_foundation_collections-3.2.1-cp311-cp311-win_amd64.whl",
-  "./wheels/winrt_windows_globalization-3.2.1-cp311-cp311-win_amd64.whl",
-  "./wheels/winrt_windows_graphics_imaging-3.2.1-cp311-cp311-win_amd64.whl",
-  "./wheels/winrt_windows_media_core-3.2.1-cp311-cp311-win_amd64.whl",
-  "./wheels/winrt_windows_media_ocr-3.2.1-cp311-cp311-win_amd64.whl",
-  "./wheels/winrt_windows_media_playback-3.2.1-cp311-cp311-win_amd64.whl",
-  "./wheels/winrt_windows_media_speechsynthesis-3.2.1-cp311-cp311-win_amd64.whl",
-  "./wheels/winrt_windows_storage-3.2.1-cp311-cp311-win_amd64.whl",
-  "./wheels/winrt_windows_storage_streams-3.2.1-cp311-cp311-win_amd64.whl",
-  "./wheels/winrt_windows_ui_notifications-3.2.1-cp311-cp311-win_amd64.whl",
-]
 [permissions]
 files = "Render output files and temporary data used during rendering"

@@ -143,53 +143,27 @@ class RECOM_PG_RenderHistoryItem(PropertyGroup):
     file_format: StringProperty(name="File Format", default="")
 
 
-class RECOM_PG_RecentFile(PropertyGroup):
+class RECOM_PG_RecentBlendFile(PropertyGroup):
     path: StringProperty(name="Blend File Path")
 
 
 # Visibility settings for addon panels
 class RECOM_PG_VisiblePanels(PropertyGroup):
     external_scene: BoolProperty(name="Blend File", default=True, update=lambda self, context: redraw_ui())
-    external_scene_details: BoolProperty(
-        name="Scene Details", default=True, description="Display external scene information in the UI"
-    )
-
-    override_settings: BoolProperty(name="Scene Overrides", default=True, update=lambda self, context: redraw_ui())
-    frame_range: BoolProperty(name="Frame Range", default=True)
-    resolution: BoolProperty(name="Format", default=True)
-    overscan: BoolProperty(name="Overscan", default=True)
-    camera_shift: BoolProperty(name="Camera Shift", default=False)
-    motion_blur: BoolProperty(name="Motion Blur", default=True)
-    output_path: BoolProperty(name="Output Path", default=True)
-    file_format: BoolProperty(name="Output Format", default=True)
-    compositor: BoolProperty(name="Compositor", default=False)
-    compute_device: BoolProperty(name="Compute Device", default=False)
-    samples: BoolProperty(name="Sampling", default=True)
-    light_paths: BoolProperty(name="Light Paths", default=False)
-    performance: BoolProperty(name="Performance", default=False)
-
-    preferences: BoolProperty(name="Render Preferences", default=True, update=lambda self, context: redraw_ui())
-    cycles_device_ids: BoolProperty(name="Device IDs", default=False)
-    system_power: BoolProperty(name="Power Management", default=False)
+    override_settings: BoolProperty(name="Override Settings", default=True, update=lambda self, context: redraw_ui())
+    preferences: BoolProperty(name="Preferences", default=True, update=lambda self, context: redraw_ui())
     ocio: BoolProperty(name="OCIO Configuration", default=False)
-    blender_executable: BoolProperty(name="Blender Executable", default=True)
-    command_line_arguments: BoolProperty(name="Command Line Arguments", default=True)
-    append_scripts: BoolProperty(name="Python Scripts", default=True)
-
-    history: BoolProperty(name="Render History", default=True, update=lambda self, context: redraw_ui())
-    # deprecated: render_details
-    render_details: BoolProperty(name="Render Details", default=True)
+    history: BoolProperty(name="History", default=True, update=lambda self, context: redraw_ui())
 
 
-class RECOM_PG_OverrideSettings(PropertyGroup):
+class RECOM_PG_OverrideImportSettings(PropertyGroup):
     """Import‑group toggles"""
 
     import_compute_device: BoolProperty(name="Compute Device", default=False)
     import_frame_range: BoolProperty(name="Frame Range", default=True)
     import_resolution: BoolProperty(name="Resolution", default=True)
     import_sampling: BoolProperty(name="Sampling", default=False)
-    import_light_paths: BoolProperty(name="Light Paths", default=False)
-    import_eevee_settings: BoolProperty(name="EEVEE Settings", default=False)
+    import_eevee_settings: BoolProperty(name="EEVEE", default=False)
     import_motion_blur: BoolProperty(name="Motion Blur", default=False)
     import_output_path: BoolProperty(name="Output Path", default=True)
     import_output_format: BoolProperty(name="File Format", default=False)
@@ -202,6 +176,10 @@ class RECOM_Preferences(AddonPreferences):
     """Preferences for the addon settings"""
 
     bl_idname = __package__
+
+    # -------------------------------------------------------------------
+    # Addon Cycles Devices Configuration
+    # -------------------------------------------------------------------
 
     _device_types_cache = None
 
@@ -499,7 +477,9 @@ class RECOM_Preferences(AddonPreferences):
         self.update_device_entries(device_list, compute_device_type_str_enum_val)
         return device_list
 
-    # === RENDER OPTIONS AND BEHAVIOR PROPERTIES ===
+    # -------------------------------------------------------------------
+    # Render Options And Behavior Properties
+    # -------------------------------------------------------------------
 
     # Device parallel
     device_parallel: BoolProperty(
@@ -511,7 +491,7 @@ class RECOM_Preferences(AddonPreferences):
         name="Multi-Process Start Delay",
         description="Delay before starting each additional render process to avoid resource conflicts",
         min=0.0,
-        default=2.0,
+        default=1.0,
         step=100.0,
         unit="TIME_ABSOLUTE",
     )
@@ -586,8 +566,7 @@ class RECOM_Preferences(AddonPreferences):
                 if potential_exe.is_file():
                     found_exe = potential_exe
                 else:
-                    potential_app_path = path / "Blender.app"
-                    potential_exe_in_app = potential_app_path / "Contents" / "MacOS" / "Blender"
+                    potential_exe_in_app = path / "Blender.app" / "Contents" / "MacOS" / "Blender"
                     if potential_exe_in_app.is_file():
                         found_exe = potential_exe_in_app
 
@@ -622,14 +601,14 @@ class RECOM_Preferences(AddonPreferences):
                 return
 
         # Get and display version info
-        version_info = self._get_blender_version_info(str(executable_path))
-        if version_info:
-            formatted = "\n".join(f"{k.capitalize().replace('_', ' ')}: {v}" for k, v in version_info.items())
-            self.custom_executable_version = formatted
+        version_str = self._get_blender_version_info(str(executable_path))
+        if version_str:
+            self.custom_executable_version = version_str
         else:
             log.error(f"Could not determine Blender version from: {executable_path}")
 
     def _get_blender_version_info(self, blender_path):
+        """Returns the version string of the external Blender executable."""
         try:
             result = subprocess.run(
                 [blender_path, "--version"],
@@ -638,65 +617,14 @@ class RECOM_Preferences(AddonPreferences):
                 text=True,
                 check=True,
             )
-            lines = result.stdout.splitlines()
 
-            info = {}
-            commit_date = None
-            commit_time = None
-
-            for line in lines:
+            for line in result.stdout.splitlines():
                 if line.startswith("Blender "):
-                    info["version"] = line[len("Blender ") :].strip()
-                elif "build commit date:" in line:
-                    commit_date = line.split(":", 1)[1].strip()
-                elif "build commit time:" in line:
-                    commit_time = line.split(":", 1)[1].strip()
-                elif "build hash:" in line:
-                    info["hash"] = line.split(":", 1)[1].strip()
+                    return line[len("Blender ") :].strip()
 
-            # Combine commit date and time into a single "Date" field
-            if commit_date and commit_time:
-                info["Date"] = f"{commit_date} {commit_time}"
-
-            ordered_info = {
-                "version": info.get("version", ""),
-                "Date": info.get("Date", ""),
-                "hash": info.get("hash", ""),
-            }
-
-            # Set custom_executable_version_tuple
-            try:
-                # Parse version string safely
-                version_str = info.get("version", "4.0.0")
-                # Remove any suffix after dash (e.g., "4.0.0-alpha" → "4.0.0")
-                version_str = version_str.split("-")[0].split("+")[0]  # also handle build metadata like "+git..."
-                version_parts = version_str.split(".")
-
-                # Normalize to exactly 3 numeric parts
-                normalized = []
-                for i in range(3):
-                    if i < len(version_parts):
-                        part = version_parts[i].strip()
-                        # Handle cases like "4a" → just take digits (optional, but defensive)
-                        num_str = "".join(filter(str.isdigit, part)) or "0"
-                        normalized.append(int(num_str))
-                    else:
-                        normalized.append(0)
-
-                self.custom_executable_version_tuple = normalized
-
-                # print(list(self.custom_executable_version_tuple))
-                # print(type(self.custom_executable_version_tuple))
-
-            except Exception as e:
-                log.warning(f"Failed to get custom executable version: {e}")
-
-            if ordered_info["version"]:
-                return ordered_info
-            else:
-                return None
-
-        except Exception:
+            return None
+        except Exception as e:
+            log.error(f"Failed to fetch Blender version: {e}")
             return None
 
     blender_executable_source: EnumProperty(
@@ -709,19 +637,6 @@ class RECOM_Preferences(AddonPreferences):
         ],
         default="CURRENT",
     )
-
-    custom_executable_version: StringProperty(
-        name="External Blender --version",
-        description="",
-        default="",
-    )
-    custom_executable_version_tuple: bpy.props.IntVectorProperty(
-        name="Blender Version",
-        description="Stored external Blender version",
-        size=3,
-        subtype="NONE",
-        default=(0, 0, 0),
-    )
     custom_executable_path: StringProperty(
         name="Executable Path",
         description="Custom Blender executable path",
@@ -730,18 +645,13 @@ class RECOM_Preferences(AddonPreferences):
         update=_validate_custom_blender_path,
         options={"SKIP_SAVE"},
     )
-    custom_executable: BoolProperty(
-        name="Custom Blender Executable",
-        description="Override default Blender with a custom executable for rendering",
-        default=False,
+    custom_executable_version: StringProperty(
+        name="External Blender --version",
+        description="",
+        default="",
     )
 
     # External Terminal
-    external_terminal: BoolProperty(
-        name="Use External Terminal",
-        description="Launch the render process in an external terminal",
-        default=True,
-    )
     keep_terminal_open: BoolProperty(
         name="Keep Terminal Open",
         description="Keep the terminal window open after the render finishes",
@@ -751,6 +661,11 @@ class RECOM_Preferences(AddonPreferences):
         name="Close Blender",
         description="Automatically exit current Blender instance before rendering",
         default=False,
+    )
+    use_windows_terminal_tabs: BoolProperty(
+        name="Use Windows Terminal Tabs",
+        description="Open all render processes as tabs within one terminal window instead of separate windows",
+        default=True,
     )
 
     # Render logging
@@ -784,59 +699,13 @@ class RECOM_Preferences(AddonPreferences):
         default=RENDER_LOGS_FOLDER_NAME,
     )
 
-    # Output path variables groups
-    show_blend_file_info: BoolProperty(
-        name="Blend File Variables",
-        description="Toggle Blend File Variables",
-        default=False,
-    )
-    show_camera_info: BoolProperty(
-        name="Camera Variables",
-        description="Toggle Camera Variables",
-        default=False,
-    )
-    show_render_info: BoolProperty(
-        name="Render Variables",
-        description="Toggle Render Variables",
-        default=False,
-    )
-    show_date_system: BoolProperty(
-        name="System Variables",
-        description="Toggle System Variables",
-        default=False,
-    )
-    show_frame_range: BoolProperty(
-        name="Frame Variables",
-        description="Toggle Frame Variables",
-        default=False,
-    )
-    show_custom_variables: BoolProperty(
-        name="Custom Variables",
-        description="Toggle Custom Variables",
-        default=False,
-    )
-
-    # Render external files
-    recent_blend_files: CollectionProperty(type=RECOM_PG_RecentFile)
-
-    def add_recent_blend_file(self, new_path):
-        """Add a new blend file path to recent files, removing duplicates and prioritizing."""
-        # Remove existing entries with the same path
-        for i in reversed(range(len(self.recent_blend_files))):
-            if self.recent_blend_files[i].path == new_path:
-                self.recent_blend_files.remove(i)
-
-        new_entry = self.recent_blend_files.add()
-        new_entry.path = new_path
-
-        while len(self.recent_blend_files) > EXTERNAL_BLEND_FILE_HISTORY_LIMIT:
-            self.recent_blend_files.remove(0)
+    recent_blend_files: CollectionProperty(type=RECOM_PG_RecentBlendFile)
 
     # Render Options
 
     default_render_filename: StringProperty(
         name="Filename",
-        description="Default filename for render output files",
+        description="Default filename for render output files, used if the filename is empty.",
         default="render",
     )
 
@@ -847,7 +716,7 @@ class RECOM_Preferences(AddonPreferences):
     )
     auto_open_output_folder: BoolProperty(
         name="Auto-Open Output Folder",
-        default=True,
+        default=False,
         description="Open the output folder automatically when the render starts",
     )
     write_still: BoolProperty(
@@ -875,16 +744,6 @@ class RECOM_Preferences(AddonPreferences):
         ],
         default="DETAILED",
         description="How much detail to show in desktop notifications",
-    )
-    notification_show_preview: BoolProperty(
-        name="Show Render Preview",
-        description="Show preview image in the notification",
-        default=True,
-    )
-    notification_show_buttons: BoolProperty(
-        name="Show Buttons",
-        description="Show action buttons in the notification",
-        default=True,
     )
 
     # Filename
@@ -949,52 +808,26 @@ class RECOM_Preferences(AddonPreferences):
     )
 
     # Linux specific default applications
-    linux_terminal: EnumProperty(
-        name="",
-        items=[
-            ("GNOME", "GNOME Terminal", "GNOME Terminal"),
-            ("XFCE", "Xfce Terminal", "Xfce Terminal"),
-            ("KONSOLE", "KDE Konsole", "KDE Konsole"),
-            ("XTERM", "Xterm", "Xterm"),
-            ("TERMINATOR", "Terminator", "Terminator"),
-        ],
-        default="GNOME",
-        description="Select the terminal emulator for Linux",
+    linux_terminal_config: StringProperty(
+        name="Terminal Emulator Command",
+        description=(
+            "Enter the command and execution flag for your preferred terminal.\n"
+            "Example: 'konsole -e'.\n"
+            "Leave empty to auto-detect a standard installed terminal."
+        ),
+        default="",
     )
-    set_linux_terminal: BoolProperty(
-        name="Set Linux Terminal",
-        description="Select the terminal emulator",
-        default=False,
-    )
-    linux_file_explorer: EnumProperty(
-        name="Linux File Explorer",
-        description="Choose which file‑manager is used when opening folders on Linux",
-        items=[
-            ("NAUTILUS", "Nautilus", "GNOME Files (nautilus)"),
-            ("DOLPHIN", "Dolphin", "KDE Dolphin"),
-            ("THUNAR", "Thunar", "XFCE Thunar"),
-            ("NEMO", "Nemo", "MATE Nemo"),
-            ("XDG_OPEN", "xdg-open", "Fallback – use the system default (xdg‑open)"),
-        ],
-        default="XDG_OPEN",
+    linux_explorer_config: StringProperty(
+        name="File Explorer Command",
+        description=(
+            "Enter the command and any flags for your preferred file manager.\n"
+            "Example: 'dolphin --select'.\n"
+            "Leave empty to use system defaults or auto-detect."
+        ),
+        default="",
     )
 
     # System power management
-    set_system_power: BoolProperty(
-        name="System Power",
-        description="Enable system power options for rendering",
-        default=False,
-    )
-    prevent_sleep: BoolProperty(
-        name="Prevent Computer Sleep",
-        description=get_prevent_sleep_description(),
-        default=True,
-    )
-    prevent_monitor_off: BoolProperty(
-        name="Prevent Monitor Turn‑Off",
-        description="Keep the display on while rendering.\nExtends the sleep prevention to include display activity.",
-        default=False,
-    )
     shutdown_after_render: BoolProperty(
         name="Shutdown After Render",
         default=False,
@@ -1025,22 +858,11 @@ class RECOM_Preferences(AddonPreferences):
         default=True,
         description=("Show external blend scene info in a compact box"),
     )
-    path_preview: BoolProperty(
-        name="Show Resolved Path",
-        default=False,
-        description="Dynamically resolve and display the full output path with variables replaced",
-        # update=on_output_path_changed,
-    )
-    show_custom_variables_panel: BoolProperty(
-        name="Show Custom Variables Panel",
-        default=False,
-        description="Setup custom path variables",
-    )
     preset_installed: BoolProperty(
         default=False,
         description="Indicates if default presets have been installed",
     )
-    initial_setup_complete: BoolProperty(
+    cycles_setup_complete: BoolProperty(
         name="Cycles Render Devices Setup Complete",
         description="Indicates if the initial device configuration has been completed",
         default=False,
@@ -1064,6 +886,7 @@ class RECOM_Preferences(AddonPreferences):
     custom_variables: CollectionProperty(type=RECOM_PG_CustomVariable)
     active_custom_variable_index: IntProperty(default=-1, name="Active Custom Variable Index")
 
+    # Temporary files
     def _validate_custom_temp_folder(self, context):
         """Validate the custom temp folder path."""
         path_str = self.custom_temp_path.strip()
@@ -1102,6 +925,21 @@ class RECOM_Preferences(AddonPreferences):
         name="Custom Temp Folder",
         description="Use a custom folder for the addon's temporary files instead of the default one",
         default=False,
+    )
+    auto_clean_enabled: BoolProperty(
+        name="Enable Auto Clean",
+        description="Enable automatic cleanup of old temporary files on startup",
+        default=True,
+    )
+    auto_clean_older_than_days: FloatProperty(
+        name="Auto-Clean Older Than",
+        description="Automatically clean temporary files older than this time",
+        default=7 * 24 * 60 * 60,
+        min=60.0,
+        soft_min=24 * 60 * 60,
+        soft_max=365.0 * 24 * 60 * 60,
+        step=100.0 * 60 * 60 * 24,
+        unit="TIME_ABSOLUTE",
     )
     debug_mode: BoolProperty(
         name="Enable Debug Mode",
@@ -1161,7 +999,7 @@ class RECOM_Preferences(AddonPreferences):
     )
 
     # Import override settings
-    override_settings: PointerProperty(type=RECOM_PG_OverrideSettings)
+    override_import_settings: PointerProperty(type=RECOM_PG_OverrideImportSettings)
 
     # EEVEE & Workbench
     multi_instance: BoolProperty(
@@ -1174,41 +1012,11 @@ class RECOM_Preferences(AddonPreferences):
         description="Number of render iterations to run simultaneously",
         default=2,
         min=2,
-        soft_max=8,
-    )
-
-    # Clean temporary files
-    auto_clean_enabled: BoolProperty(
-        name="Enable Auto Clean",
-        description="Enable automatic cleanup of old temporary files on startup",
-        default=True,
-    )
-    auto_clean_older_than_days: FloatProperty(
-        name="Auto-Clean Older Than",
-        description="Automatically clean temporary files older than this time",
-        default=3 * 24 * 60 * 60,
-        min=60.0,
-        soft_min=24 * 60 * 60,
-        soft_max=365.0 * 24 * 60 * 60,
-        step=100.0 * 60 * 60 * 24,
-        unit="TIME_ABSOLUTE",
+        soft_max=4,
     )
 
     # Panel visibility settings
     visible_panels: PointerProperty(type=RECOM_PG_VisiblePanels)
-
-    # Preference groups for UI organization
-    group_box_visible_panels: BoolProperty(name="Display Preferences", default=False)
-    group_box_custom_variables: BoolProperty(name="Display Preferences", default=False)
-    group_box_default_filename: BoolProperty(name="Display Preferences", default=False)
-    group_box_default_applications: BoolProperty(name="Display Preferences", default=False)
-    group_box_development: BoolProperty(name="Display Preferences", default=False)
-
-    use_windows_terminal_tabs: BoolProperty(
-        name="Use Windows Terminal Tabs",
-        description="Open all render processes as tabs within one terminal window instead of separate windows",
-        default=True,
-    )
 
     # Command Line Debug
     debug_mode: BoolProperty(
@@ -1244,15 +1052,8 @@ class RECOM_Preferences(AddonPreferences):
         layout.label(text="Default Applications")
 
         root_col = layout.column()
-
-        terminal_row = root_col.row(align=True, heading="Terminal")
-        terminal_row.prop(self, "set_linux_terminal", text="")
-
-        terminal_path_row = terminal_row.row()
-        terminal_path_row.active = self.set_linux_terminal
-        terminal_path_row.prop(self, "linux_terminal", text="")
-
-        root_col.prop(self, "linux_file_explorer", text="File Explorer")
+        root_col.prop(self, "linux_terminal_config", text="Terminal Emulator")
+        root_col.prop(self, "linux_explorer_config", text="File Explorer")
 
     def draw(self, context):
         layout = self.layout
@@ -1314,13 +1115,13 @@ class RECOM_Preferences(AddonPreferences):
 
         if self.debug_mode:
             debug_col = root_col.column(heading="")
-            debug_col.prop(self, "initial_setup_complete", text="Cycles Setup Completed")
+            debug_col.prop(self, "cycles_setup_complete", text="Cycles Setup Completed")
 
 
 classes = (
-    RECOM_PG_OverrideSettings,
+    RECOM_PG_OverrideImportSettings,
     RECOM_PG_DeviceSettings,
-    RECOM_PG_RecentFile,
+    RECOM_PG_RecentBlendFile,
     RECOM_PG_RenderHistoryItem,
     RECOM_PG_ScriptEntry,
     RECOM_PG_CustomVariable,

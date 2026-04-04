@@ -11,33 +11,29 @@ def apply_metadata_settings():
     # --- CONFIGURATION ---
     # Set these to True/False to choose what gets burned into the image
     SHOW_DATE = True
-    SHOW_TIME = True  # Time code (HH:MM:SS:FF)
-    SHOW_RENDER_TIME = True  # How long the frame took to render
+    SHOW_TIME = True
+    SHOW_RENDER_TIME = True
     SHOW_FRAME = True
-    SHOW_MEMORY = True  # Peak memory usage
+    SHOW_MEMORY = True
     SHOW_CAMERA = True
     SHOW_LENS = False
     SHOW_SCENE = False
     SHOW_FILENAME = True
-    SHOW_LABELS = True  # Draws labels (e.g., "Camera: CameraName")
+    SHOW_LABELS = True
 
     # Appearance
-    FONT_SIZE = 12  # Range: 8 to 64
-    FONT_COLOR = (1.0, 1.0, 1.0, 1.0)  # RGBA (White)
-    BG_COLOR = (0.0, 0.0, 0.0, 0.5)  # RGBA (Semi-transparent Black)
+    FONT_SIZE = 12
+    FONT_COLOR = (1.0, 1.0, 1.0, 1.0)
+    BG_COLOR = (0.0, 0.0, 0.0, 0.5)
 
     # Custom Note (Optional)
-    # Leave empty "" to disable. Use "\n" for new lines.
     CUSTOM_NOTE = ""
     # ---------------------
 
     print(f"[:] Enabling Metadata Burn-in on scene: {scene.name}")
 
-    # 1. Enable the Master Switch
     r.use_stamp = True
 
-    # 2. Apply Boolean Flags (Safely)
-    # Dictionary mapping config variables to Blender property names
     settings_map = {
         "use_stamp_date": SHOW_DATE,
         "use_stamp_time": SHOW_TIME,
@@ -57,7 +53,6 @@ def apply_metadata_settings():
         else:
             print(f"[:] Warning: Property '{prop}' not found (Skipped).")
 
-    # 3. Apply Appearance Settings
     try:
         r.stamp_font_size = FONT_SIZE
         r.stamp_foreground = FONT_COLOR
@@ -66,7 +61,6 @@ def apply_metadata_settings():
     except AttributeError:
         print("[:] Warning: Could not set stamp visual properties.")
 
-    # 4. Apply Custom Note
     if CUSTOM_NOTE:
         if hasattr(r, "use_stamp_note"):
             r.use_stamp_note = True

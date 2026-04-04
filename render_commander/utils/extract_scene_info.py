@@ -189,21 +189,6 @@ def get_scene_info() -> dict:
                 data.update(
                     {
                         "eevee_samples": eevee.taa_render_samples,
-                        "eevee_use_shadows": eevee.use_shadows,
-                        "eevee_shadow_ray_count": eevee.shadow_ray_count,
-                        "eevee_shadow_step_count": eevee.shadow_step_count,
-                        "eevee_use_raytracing": eevee.use_raytracing,
-                        "eevee_ray_tracing_method": eevee.ray_tracing_method,
-                        "eevee_ray_tracing_resolution": eevee.ray_tracing_options.resolution_scale,
-                        "eevee_ray_tracing_denoise": eevee.ray_tracing_options.use_denoise,
-                        "eevee_ray_tracing_denoise_temporal": eevee.ray_tracing_options.denoise_temporal,
-                        "eevee_fast_gi": eevee.use_fast_gi,
-                        "eevee_trace_max_roughness": eevee.ray_tracing_options.trace_max_roughness,
-                        "fast_gi_resolution": eevee.fast_gi_resolution,
-                        "fast_gi_step_count": eevee.fast_gi_step_count,
-                        "fast_gi_distance": eevee.fast_gi_distance,
-                        "eevee_volumetric_tile_size": eevee.volumetric_tile_size,
-                        "eevee_volume_samples": eevee.volumetric_samples,
                     }
                 )
 

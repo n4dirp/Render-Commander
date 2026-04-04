@@ -5,7 +5,7 @@ from bpy.types import Panel, UIList
 
 from ..utils.constants import *
 from ..preferences import get_addon_preferences
-from ..utils.helpers import logical_width, get_render_engine
+from ..utils.helpers import get_render_engine
 
 
 class RECOM_PT_render_history_panel(Panel):
@@ -19,7 +19,7 @@ class RECOM_PT_render_history_panel(Panel):
     def poll(cls, context):
         prefs = get_addon_preferences(context)
         render_engine = get_render_engine(context)
-        return (prefs.initial_setup_complete if render_engine == RE_CYCLES else True) and prefs.visible_panels.history
+        return (prefs.cycles_setup_complete if render_engine == RE_CYCLES else True) and prefs.visible_panels.history
 
     def draw(self, context):
         layout = self.layout

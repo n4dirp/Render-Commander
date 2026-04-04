@@ -35,19 +35,6 @@ class RECOM_OT_overrides_preset(AddPresetBase, Operator):
         "settings.override_settings.cycles.denoising_quality",
         "settings.override_settings.cycles.denoising_use_gpu",
         "settings.override_settings.cycles.denoising_store_passes",
-        # Cycles Light Paths
-        "settings.override_settings.cycles.light_path_override",
-        "settings.override_settings.cycles.max_bounces",
-        "settings.override_settings.cycles.diffuse_bounces",
-        "settings.override_settings.cycles.glossy_bounces",
-        "settings.override_settings.cycles.transmission_bounces",
-        "settings.override_settings.cycles.volume_bounces",
-        "settings.override_settings.cycles.transparent_bounces",
-        "settings.override_settings.cycles.sample_clamp_direct",
-        "settings.override_settings.cycles.sample_clamp_indirect",
-        "settings.override_settings.cycles.caustics_reflective",
-        "settings.override_settings.cycles.caustics_refractive",
-        "settings.override_settings.cycles.blur_glossy",
         # Cycles Performance
         "settings.override_settings.cycles.device_override",
         "settings.override_settings.cycles.device",
@@ -60,21 +47,6 @@ class RECOM_OT_overrides_preset(AddPresetBase, Operator):
         # EEVEE
         "settings.override_settings.eevee_override",
         "settings.override_settings.eevee.samples",
-        "settings.override_settings.eevee.use_shadows",
-        "settings.override_settings.eevee.shadow_ray_count",
-        "settings.override_settings.eevee.shadow_step_count",
-        "settings.override_settings.eevee.use_raytracing",
-        "settings.override_settings.eevee.ray_tracing_method",
-        "settings.override_settings.eevee.ray_tracing_resolution",
-        "settings.override_settings.eevee.ray_tracing_denoise",
-        "settings.override_settings.eevee.ray_tracing_denoise_temporal",
-        "settings.override_settings.eevee.fast_gi",
-        "settings.override_settings.eevee.trace_max_roughness",
-        "settings.override_settings.eevee.fast_gi_resolution",
-        "settings.override_settings.eevee.fast_gi_step_count",
-        "settings.override_settings.eevee.fast_gi_distance",
-        "settings.override_settings.eevee.volumetric_tile_size",
-        "settings.override_settings.eevee.volume_samples",
         # Frame Range Settings
         "settings.override_settings.frame_range_override",
         "settings.override_settings.frame_current",
@@ -97,7 +69,6 @@ class RECOM_OT_overrides_preset(AddPresetBase, Operator):
         "settings.override_settings.resolution_mode",
         "settings.override_settings.resolution_x",
         "settings.override_settings.resolution_y",
-        # "settings.override_settings.render_scale",
         "settings.override_settings.custom_render_scale",
         # Overscan Settings
         "settings.override_settings.use_overscan",
@@ -123,7 +94,7 @@ class RECOM_OT_overrides_preset(AddPresetBase, Operator):
         # Data
         "settings.override_settings.use_custom_api_overrides",
     ]
-    preset_subdir = Path(ADDON_NAME) / "override_settings"
+    preset_subdir = Path(ADDON_NAME) / "overrides" / "override_settings"
 
     def execute(self, context):
         result = super().execute(context)
@@ -187,14 +158,13 @@ class RECOM_OT_resolution_preset(AddPresetBase, Operator):
         "settings.override_settings.resolution_mode",
         "settings.override_settings.resolution_x",
         "settings.override_settings.resolution_y",
-        "settings.override_settings.render_scale",
         "settings.override_settings.custom_render_scale",
         "settings.override_settings.use_overscan",
         "settings.override_settings.overscan_type",
         "settings.override_settings.overscan_percent",
         "settings.override_settings.overscan_width",
     ]
-    preset_subdir = Path(ADDON_NAME) / "resolution"
+    preset_subdir = Path(ADDON_NAME) / "overrides" / "resolution"
 
 
 class RECOM_OT_output_preset(AddPresetBase, Operator):
@@ -207,7 +177,7 @@ class RECOM_OT_output_preset(AddPresetBase, Operator):
         "settings.override_settings.output_directory",
         "settings.override_settings.output_filename",
     ]
-    preset_subdir = Path(ADDON_NAME) / "output_path"
+    preset_subdir = Path(ADDON_NAME) / "overrides" / "output_path"
 
 
 class RECOM_OT_samples_preset(AddPresetBase, Operator):
@@ -230,29 +200,7 @@ class RECOM_OT_samples_preset(AddPresetBase, Operator):
         "settings.override_settings.cycles.denoising_use_gpu",
         "settings.override_settings.cycles.denoising_store_passes",
     ]
-    preset_subdir = Path(ADDON_NAME) / "samples"
-
-
-class RECOM_OT_light_paths_preset(AddPresetBase, Operator):
-    bl_idname = "recom.light_paths_preset_add"
-    bl_label = "Add Light Paths Preset"
-    bl_description = "Add or remove a preset"
-    preset_menu = "RECOM_PT_light_paths_presets"
-    preset_defines = ["settings = bpy.context.window_manager.recom_render_settings"]
-    preset_values = [
-        "settings.override_settings.cycles.max_bounces",
-        "settings.override_settings.cycles.diffuse_bounces",
-        "settings.override_settings.cycles.glossy_bounces",
-        "settings.override_settings.cycles.transmission_bounces",
-        "settings.override_settings.cycles.volume_bounces",
-        "settings.override_settings.cycles.transparent_bounces",
-        "settings.override_settings.cycles.sample_clamp_direct",
-        "settings.override_settings.cycles.sample_clamp_indirect",
-        "settings.override_settings.cycles.caustics_reflective",
-        "settings.override_settings.cycles.caustics_refractive",
-        "settings.override_settings.cycles.blur_glossy",
-    ]
-    preset_subdir = Path(ADDON_NAME) / "light_paths"
+    preset_subdir = Path(ADDON_NAME) / "overrides" / "cycles_samples"
 
 
 class RECOM_OT_eevee_settings_preset(AddPresetBase, Operator):
@@ -263,23 +211,8 @@ class RECOM_OT_eevee_settings_preset(AddPresetBase, Operator):
     preset_defines = ["settings = bpy.context.window_manager.recom_render_settings"]
     preset_values = [
         "settings.override_settings.eevee.samples",
-        "settings.override_settings.eevee.use_shadows",
-        "settings.override_settings.eevee.shadow_ray_count",
-        "settings.override_settings.eevee.shadow_step_count",
-        "settings.override_settings.eevee.use_raytracing",
-        "settings.override_settings.eevee.ray_tracing_method",
-        "settings.override_settings.eevee.ray_tracing_resolution",
-        "settings.override_settings.eevee.ray_tracing_denoise",
-        "settings.override_settings.eevee.ray_tracing_denoise_temporal",
-        "settings.override_settings.eevee.fast_gi",
-        "settings.override_settings.eevee.trace_max_roughness",
-        "settings.override_settings.eevee.fast_gi_resolution",
-        "settings.override_settings.eevee.fast_gi_step_count",
-        "settings.override_settings.eevee.fast_gi_distance",
-        "settings.override_settings.eevee.volumetric_tile_size",
-        "settings.override_settings.eevee.volume_samples",
     ]
-    preset_subdir = Path(ADDON_NAME) / "eevee"
+    preset_subdir = Path(ADDON_NAME) / "overrides" / "eevee"
 
 
 class RECOM_OT_override_advanced_properties_preset(AddPresetBase, Operator):
@@ -293,7 +226,7 @@ class RECOM_OT_override_advanced_properties_preset(AddPresetBase, Operator):
         "settings.override_settings.use_custom_api_overrides",
         "settings.override_settings.custom_api_overrides",
     ]
-    preset_subdir = Path(ADDON_NAME) / "advanced_properties"
+    preset_subdir = Path(ADDON_NAME) / "overrides" / "advanced_properties"
 
     def execute(self, context):
         result = super().execute(context)
@@ -355,7 +288,6 @@ class RECOM_OT_render_preferences_preset(AddPresetBase, Operator):
     preset_values = [
         "settings.auto_save_before_render",
         "settings.write_still",
-        "settings.send_desktop_notifications",
         "settings.auto_open_output_folder",
         "settings.exit_active_session",
         "settings.keep_terminal_open",
@@ -363,13 +295,6 @@ class RECOM_OT_render_preferences_preset(AddPresetBase, Operator):
         "settings.default_render_filename",
         "settings.filename_separator",
         "settings.frame_length_digits",
-        # Power
-        "settings.set_system_power",
-        "settings.prevent_sleep",
-        "settings.prevent_monitor_off",
-        "settings.shutdown_after_render",
-        "settings.shutdown_type",
-        "settings.shutdown_delay",
         # Log to file
         "settings.log_to_file",
         "settings.log_to_file_location",
@@ -414,14 +339,11 @@ class RECOM_OT_render_preferences_preset(AddPresetBase, Operator):
         "settings.send_desktop_notifications",
         "settings.notification_detail_level",
         # Power Management
-        "settings.set_system_power",
-        "settings.prevent_sleep",
-        "settings.prevent_monitor_off",
         "settings.shutdown_after_render",
         "settings.shutdown_type",
         "settings.shutdown_delay",
     ]
-    preset_subdir = Path(ADDON_NAME) / "render_preferences"
+    preset_subdir = Path(ADDON_NAME) / "preferences" / "render_preferences"
 
 
 class RECOM_OT_blender_executable_preset(AddPresetBase, Operator):
@@ -434,7 +356,7 @@ class RECOM_OT_blender_executable_preset(AddPresetBase, Operator):
         "settings.blender_executable_source",
         "settings.custom_executable_path",
     ]
-    preset_subdir = Path(ADDON_NAME) / "custom_executable"
+    preset_subdir = Path(ADDON_NAME) / "preferences" / "custom_executable"
 
 
 class RECOM_OT_additional_script_preset(AddPresetBase, Operator):
@@ -444,7 +366,7 @@ class RECOM_OT_additional_script_preset(AddPresetBase, Operator):
     preset_menu = "RECOM_PT_additional_script_presets"
     preset_defines = [f"settings = bpy.context.preferences.addons['{base_package}'].preferences"]
     preset_values = ["settings.additional_scripts"]
-    preset_subdir = Path(ADDON_NAME) / "additional_scripts"
+    preset_subdir = Path(ADDON_NAME) / "preferences" / "additional_scripts"
 
 
 class RECOM_OT_ocio_preset(AddPresetBase, Operator):
@@ -454,7 +376,7 @@ class RECOM_OT_ocio_preset(AddPresetBase, Operator):
     preset_menu = "RECOM_PT_ocio_presets"
     preset_defines = [f"settings = bpy.context.preferences.addons['{base_package}'].preferences"]
     preset_values = ["settings.ocio_path"]
-    preset_subdir = Path(ADDON_NAME) / "ocio"
+    preset_subdir = Path(ADDON_NAME) / "preferences" / "ocio"
 
 
 class RECOM_OT_command_line_arguments_preset(AddPresetBase, Operator):
@@ -464,7 +386,7 @@ class RECOM_OT_command_line_arguments_preset(AddPresetBase, Operator):
     preset_menu = "RECOM_PT_command_line_arguments_presets"
     preset_defines = [f"settings = bpy.context.preferences.addons['{base_package}'].preferences"]
     preset_values = ["settings.custom_command_line_args"]
-    preset_subdir = Path(ADDON_NAME) / "command_line_arguments"
+    preset_subdir = Path(ADDON_NAME) / "preferences" / "command_line_arguments"
 
 
 class RECOM_OT_custom_variables_preset(AddPresetBase, Operator):
@@ -474,14 +396,13 @@ class RECOM_OT_custom_variables_preset(AddPresetBase, Operator):
     preset_menu = "RECOM_PT_custom_variables_presets"
     preset_defines = [f"settings = bpy.context.preferences.addons['{base_package}'].preferences"]
     preset_values = ["settings.custom_variables"]
-    preset_subdir = Path(ADDON_NAME) / "custom_variables"
+    preset_subdir = Path(ADDON_NAME) / "preferences" / "custom_variables"
 
 
 classes = (
     RECOM_OT_overrides_preset,
     RECOM_OT_resolution_preset,
     RECOM_OT_samples_preset,
-    RECOM_OT_light_paths_preset,
     RECOM_OT_eevee_settings_preset,
     RECOM_OT_output_preset,
     RECOM_OT_custom_variables_preset,

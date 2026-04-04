@@ -63,7 +63,7 @@ class RECOM_PT_scene_file_panel(Panel):
         prefs = get_addon_preferences(context)
         render_engine = get_render_engine(context)
         return (
-            prefs.initial_setup_complete if render_engine == RE_CYCLES else True
+            prefs.cycles_setup_complete if render_engine == RE_CYCLES else True
         ) and prefs.visible_panels.external_scene
 
     def draw_header(self, context):
@@ -107,7 +107,7 @@ class RECOM_PT_scene_file_panel(Panel):
 
         if not settings.is_scene_info_loaded:
             sub.enabled = False
-            sub.operator("recom.loading_button", text="Processing", icon="PREVIEW_LOADING")
+            sub.operator("recom.loading_button", text="Processing", icon="SORTTIME")
         else:
             sub.operator("recom.extract_external_scene_data", text=button_text, icon=icon)
 
@@ -127,7 +127,7 @@ class RECOM_PT_scene_info(Panel):
     def draw_header_preset(self, context):
         layout = self.layout
         layout.emboss = "PULLDOWN_MENU"
-        layout.menu("RECOM_MT_external_blend_options", text="", icon="COLLAPSEMENU")
+        layout.menu("RECOM_MT_external_blend_options", text="", icon=ICON_MENU)
         layout.separator(factor=0.25)
 
     def draw(self, context):
@@ -177,7 +177,7 @@ class RECOM_PT_scene_info(Panel):
         """Compact display mode"""
         col = self._draw_scene_info_header(layout, info)
         col.separator(type="AUTO")
-        labels_col = col.column(align=False)
+        labels_col = col.column(align=True)
 
         separator = " | "
 
@@ -198,7 +198,7 @@ class RECOM_PT_scene_info(Panel):
             compute_device = info.get("device", "")
 
             labels_col.label(
-                text=f"{render_engine_display} | {compute_device} | {samples}{threshold_text}{denoising_text}",
+                text=f"{render_engine_display} | {compute_device} | Samples: {samples}{threshold_text}{denoising_text}",
                 icon="SCENE",
             )
 

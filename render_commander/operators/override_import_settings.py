@@ -26,7 +26,7 @@ class RECOM_OT_ImportAllSettings(Operator):
     def execute(self, context):
         try:
             prefs = get_addon_preferences(context)
-            overrides = prefs.override_settings
+            overrides = prefs.override_import_settings
             render_engine = get_render_engine(context)
 
             if overrides.import_frame_range:
@@ -43,8 +43,6 @@ class RECOM_OT_ImportAllSettings(Operator):
                     self._import_compute_device(context)
                 if overrides.import_sampling:
                     self._import_sampling(context)
-                if overrides.import_light_paths:
-                    self._import_light_paths(context)
                 if overrides.import_performance:
                     self._import_performance(context)
             elif render_engine in {RE_EEVEE_NEXT, RE_EEVEE}:
@@ -257,67 +255,6 @@ class RECOM_OT_ImportAllSettings(Operator):
             self.report({"ERROR"}, f"Failed to import sampling: {str(e)}")
             return {"CANCELLED"}
 
-    def _import_light_paths(self, context):
-        try:
-            scene = context.scene
-            if not scene:
-                self.report({"ERROR"}, "No active scene found.")
-                return {"CANCELLED"}
-
-            settings = context.window_manager.recom_render_settings
-            override_settings = settings.override_settings
-            cycles = override_settings.cycles
-
-            is_external = settings.use_external_blend
-
-            if is_external:
-                try:
-                    info = json.loads(settings.external_scene_info)
-                    if not isinstance(info, dict):
-                        raise ValueError("Invalid scene info format")
-                    cycles.max_bounces = info.get("max_bounces", 12)
-                    cycles.diffuse_bounces = info.get("diffuse_bounces", 4)
-                    cycles.glossy_bounces = info.get("glossy_bounces", 4)
-                    cycles.transmission_bounces = info.get("transmission_bounces", 12)
-                    cycles.volume_bounces = info.get("volume_bounces", 0)
-                    cycles.transparent_bounces = info.get("transparent_bounces", 8)
-                    cycles.sample_clamp_direct = info.get("sample_clamp_direct", 0)
-                    cycles.sample_clamp_indirect = info.get("sample_clamp_indirect", 10)
-                    cycles.blur_glossy = info.get("blur_glossy", 1.0)
-                    cycles.caustics_reflective = info.get("caustics_reflective", True)
-                    cycles.caustics_refractive = info.get("caustics_refractive", True)
-                except json.JSONDecodeError as e:
-                    log.error(f"Failed to parse external scene info: {e}")
-                    self.report({"ERROR"}, "Invalid JSON in external scene info.")
-                    return {"CANCELLED"}
-                except Exception as e:
-                    log.error(f"Unexpected error loading scene info: {e}", exc_info=True)
-                    self.report(
-                        {"ERROR"},
-                        f"Error importing light paths: {str(e)}",
-                    )
-                    return {"CANCELLED"}
-            else:
-                cycles.max_bounces = scene.cycles.max_bounces
-                cycles.diffuse_bounces = scene.cycles.diffuse_bounces
-                cycles.glossy_bounces = scene.cycles.glossy_bounces
-                cycles.transmission_bounces = scene.cycles.transmission_bounces
-                cycles.volume_bounces = scene.cycles.volume_bounces
-                cycles.transparent_bounces = scene.cycles.transparent_max_bounces
-                cycles.sample_clamp_direct = scene.cycles.sample_clamp_direct
-                cycles.sample_clamp_indirect = scene.cycles.sample_clamp_indirect
-                cycles.blur_glossy = scene.cycles.blur_glossy
-                cycles.caustics_reflective = scene.cycles.caustics_reflective
-                cycles.caustics_refractive = scene.cycles.caustics_refractive
-
-            cycles.light_path_override = True
-
-            return {"FINISHED"}
-        except Exception as e:
-            log.error(f"Critical error in RECOM_OT_ImportLightPaths: {e}", exc_info=True)
-            self.report({"ERROR"}, f"Failed to import light paths: {str(e)}")
-            return {"CANCELLED"}
-
     def _import_eevee_settings(self, context):
         try:
             settings = context.window_manager.recom_render_settings
@@ -334,25 +271,6 @@ class RECOM_OT_ImportAllSettings(Operator):
 
                     eevee.samples = info.get("eevee_samples", 64)
 
-                    eevee.use_shadows = info.get("eevee_use_shadows", True)
-                    eevee.shadow_ray_count = info.get("eevee_shadow_ray_count", 1)
-                    eevee.shadow_step_count = info.get("eevee_shadow_step_count", 6)
-
-                    eevee.use_raytracing = info.get("eevee_use_raytracing", True)
-                    eevee.ray_tracing_method = info.get("eevee_ray_tracing_method", "SCREEN")
-                    eevee.ray_tracing_resolution = info.get("eevee_ray_tracing_resolution", "2")
-
-                    eevee.ray_tracing_denoise = info.get("eevee_ray_tracing_denoise", True)
-                    eevee.ray_tracing_denoise_temporal = info.get("eevee_ray_tracing_denoise_temporal", True)
-
-                    eevee.fast_gi = info.get("eevee_fast_gi", True)
-                    eevee.trace_max_roughness = info.get("eevee_trace_max_roughness", 0.50)
-                    eevee.fast_gi_resolution = info.get("fast_gi_resolution", "2")
-                    eevee.fast_gi_step_count = info.get("fast_gi_step_count", 8)
-                    eevee.fast_gi_distance = info.get("fast_gi_distance", 0)
-
-                    eevee.volumetric_tile_size = info.get("eevee_volumetric_tile_size", "8")
-                    eevee.volume_samples = info.get("eevee_volume_samples", 64)
                 except json.JSONDecodeError as e:
                     log.error(f"Failed to parse external scene info: {e}")
                     self.report({"ERROR"}, "Invalid JSON in external scene info.")
@@ -371,25 +289,6 @@ class RECOM_OT_ImportAllSettings(Operator):
                     return {"CANCELLED"}
 
                 eevee.samples = scene.eevee.taa_render_samples
-
-                eevee.use_shadows = scene.eevee.use_shadows
-                eevee.shadow_ray_count = scene.eevee.shadow_ray_count
-                eevee.shadow_step_count = scene.eevee.shadow_step_count
-
-                eevee.use_raytracing = scene.eevee.use_raytracing
-                eevee.ray_tracing_method = scene.eevee.ray_tracing_method
-                eevee.ray_tracing_resolution = scene.eevee.ray_tracing_options.resolution_scale
-                eevee.ray_tracing_denoise = scene.eevee.ray_tracing_options.use_denoise
-                eevee.ray_tracing_denoise_temporal = scene.eevee.ray_tracing_options.denoise_temporal
-
-                eevee.fast_gi = scene.eevee.use_fast_gi
-                eevee.trace_max_roughness = scene.eevee.ray_tracing_options.trace_max_roughness
-                eevee.fast_gi_resolution = scene.eevee.fast_gi_resolution
-                eevee.fast_gi_step_count = scene.eevee.fast_gi_step_count
-                eevee.fast_gi_distance = scene.eevee.fast_gi_distance
-
-                eevee.volumetric_tile_size = scene.eevee.volumetric_tile_size
-                eevee.volume_samples = scene.eevee.volumetric_samples
 
             override_settings.eevee_override = True
 

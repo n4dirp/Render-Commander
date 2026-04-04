@@ -13,45 +13,41 @@ from ..utils.helpers import redraw_ui, get_render_engine
 
 _IS_WINDOWS = sys.platform == "win32"
 
-import importlib.util
-
-_WIN11TOAST_AVAILABLE = _IS_WINDOWS and importlib.util.find_spec("win11toast") is not None
-
 
 # Presets
 
 
 class RECOM_PT_render_preferences_presets(PresetPanel, Panel):
     bl_label = "Render Preferences Presets"
-    preset_subdir = Path(ADDON_NAME) / "render_preferences"
+    preset_subdir = Path(ADDON_NAME) / "preferences" / "render_preferences"
     preset_operator = "script.execute_preset"
     preset_add_operator = "recom.render_preferences_preset_add"
 
 
 class RECOM_PT_blender_executable_presets(PresetPanel, Panel):
     bl_label = "Blender Executable Presets"
-    preset_subdir = Path(ADDON_NAME) / "custom_executable"
+    preset_subdir = Path(ADDON_NAME) / "preferences" / "custom_executable"
     preset_operator = "script.execute_preset"
     preset_add_operator = "recom.blender_executable_preset_add"
 
 
 class RECOM_PT_command_line_arguments_presets(PresetPanel, Panel):
     bl_label = "Command Line Arguments Presets"
-    preset_subdir = Path(ADDON_NAME) / "command_line_arguments"
+    preset_subdir = Path(ADDON_NAME) / "preferences" / "command_line_arguments"
     preset_operator = "script.execute_preset"
     preset_add_operator = "recom.command_line_arguments_preset_add"
 
 
 class RECOM_PT_ocio_presets(PresetPanel, Panel):
     bl_label = "OCIO Configuration Presets"
-    preset_subdir = Path(ADDON_NAME) / "ocio"
+    preset_subdir = Path(ADDON_NAME) / "preferences" / "ocio"
     preset_operator = "script.execute_preset"
     preset_add_operator = "recom.ocio_preset_add"
 
 
 class RECOM_PT_additional_script_presets(PresetPanel, Panel):
     bl_label = "Python Scripts Presets"
-    preset_subdir = Path(ADDON_NAME) / "additional_scripts"
+    preset_subdir = Path(ADDON_NAME) / "preferences" / "additional_scripts"
     preset_operator = "script.execute_preset"
     preset_add_operator = "recom.additional_script_preset_add"
 
@@ -73,7 +69,7 @@ class RECOM_PT_render_preferences(Panel):
         prefs = get_addon_preferences(context)
         render_engine = get_render_engine(context)
         return prefs.visible_panels.preferences and (
-            prefs.initial_setup_complete if render_engine == RE_CYCLES else True
+            prefs.cycles_setup_complete if render_engine == RE_CYCLES else True
         )
 
     def draw_header_preset(self, context):
@@ -90,7 +86,7 @@ class RECOM_PT_render_preferences(Panel):
 
 
 class RECOM_PT_blender_executable(Panel):
-    bl_label = "Blender Executable"
+    bl_label = "Executable"
     bl_parent_id = "RECOM_PT_render_preferences"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
@@ -109,25 +105,21 @@ class RECOM_PT_blender_executable(Panel):
 
         if prefs.blender_executable_source == "CUSTOM":
             col = layout.column()
-            custom_executable_row = col.row()
+
+            custom_executable_row = col.row(align=True)
             custom_executable_row.prop(prefs, "custom_executable_path", text="", placeholder="Blender Path")
 
-            is_active = bool(prefs.custom_executable_path)
+            op_row = custom_executable_row.row(align=True)
+            op_row.active = bool(prefs.custom_executable_path)
+            op_row.menu("RECOM_MT_custom_blender", text="", icon=ICON_MENU)
 
-            if not is_active:
+            if not prefs.custom_executable_path:
                 return
 
-            info = prefs.custom_executable_version
-            if info and "Version:" in info:
-                # Split info into lines
-                lines = info.splitlines()
-                version_line = next((line for line in lines if "Version:" in line), None)
-                other_lines = [line for line in lines if "Version:" not in line]
-
-                if version_line:
-                    version_row = col.row(align=False)
-                    version_row.label(text=version_line.replace("Version:", "Blender"))
-                    version_row.menu("RECOM_MT_custom_blender", text="", icon=ICON_OPTION)
+            version = prefs.custom_executable_version
+            if version:
+                version_row = col.row()
+                version_row.label(text=f"Blender version: {version}")
 
 
 class RECOM_PT_command_line(Panel):
@@ -201,9 +193,10 @@ class RECOM_PT_log_to_file(Panel):
 
         # col = layout.column()
         if prefs.log_to_file_location == "CUSTOM_PATH":
-            layout.prop(prefs, "log_custom_path", text="Path")
+            col.prop(prefs, "log_custom_path", text="Save Path")
 
-        folder_row = layout.row(heading="Sub-Folder")
+        # col = layout.column()
+        folder_row = col.row(heading="Sub-Folder")
         folder_row.prop(prefs, "save_to_log_folder", text="")
         sub_folder_row = folder_row.row()
         sub_folder_row.active = prefs.save_to_log_folder
@@ -308,8 +301,6 @@ class RECOM_PT_additional_scripts(Panel):
 
         # Side controls
         col = row_main.column()
-        col.menu("RECOM_MT_scripts", text="", icon="IMPORT")
-        col.separator(factor=0.5)
 
         add_col = col.column(align=True)
         add_col.operator("recom.script_list_add_item", icon="ADD", text="")
@@ -319,6 +310,9 @@ class RECOM_PT_additional_scripts(Panel):
         sub.operator("recom.script_list_remove_item", icon="REMOVE", text="")
 
         col.separator(factor=0.5)
+        col.menu("RECOM_MT_scripts", text="", icon="IMPORT")
+        col.separator(factor=0.5)
+
         item_menu_row = col.row(align=True)
         item_menu_row.active = is_post_selected
         item_menu_row.alignment = "RIGHT"
@@ -373,7 +367,8 @@ class RECOM_PT_device_settings(Panel):
 
     def draw_header_preset(self, context):
         layout = self.layout
-        layout.menu("RECOM_MT_cycles_render_devices", text="", icon="COLLAPSEMENU")
+        layout.emboss = "PULLDOWN_MENU"
+        layout.menu("RECOM_MT_cycles_render_devices", text="", icon=ICON_MENU)
         layout.separator(factor=0.25)
 
     def draw(self, context):
@@ -381,9 +376,9 @@ class RECOM_PT_device_settings(Panel):
 
         prefs = get_addon_preferences(context)
 
-        col = layout.column()
+        root_col = layout.column()
 
-        row = col.row(align=True)
+        row = root_col.row(align=True)
         row.use_property_split = True
         row.use_property_decorate = False
 
@@ -393,10 +388,7 @@ class RECOM_PT_device_settings(Panel):
         backend_row.active = not is_multi_backend
         backend_row.prop(prefs, "compute_device_type", text="Backend")
 
-        dev_row = layout.row()
-        box = dev_row.box()
-
-        col = box.column()
+        col = root_col.box().column()
         devices = prefs.get_devices_for_display()
 
         if prefs.compute_device_type == "NONE" and not (prefs.multiple_backends and prefs.device_parallel):
@@ -445,6 +437,9 @@ class RECOM_PT_device_parallel(Panel):
         row = parallel_col.row()
         row.active = prefs.launch_mode != MODE_LIST
         row.prop(prefs, "frame_allocation", text="Assignment", expand=True)
+
+        if prefs.frame_allocation == "SEQUENTIAL":
+            parallel_col.label(text="Disables overwrite and enables placeholders.")
 
         parallel_col.separator(factor=0.25)
         col = parallel_col.column()
@@ -523,7 +518,7 @@ class RECOM_PT_render_options(Panel):
         settings = context.window_manager.recom_render_settings
 
         # Pre-Render Actions
-        col = layout.column(heading="Before Render")
+        col = layout.column(heading="Before Render", align=True)
         if not (settings.use_external_blend and settings.external_blend_file_path):
             col.prop(prefs, "auto_save_before_render", text="Auto-Save Blend")
         col.prop(prefs, "exit_active_session", text="Exit Active Session")
@@ -535,7 +530,7 @@ class RECOM_PT_render_options(Panel):
             col.prop(prefs, "write_still", text="Write Still")
 
         # Terminal Behavior
-        col = layout.column(heading="Terminal")
+        col = layout.column(heading="Terminal", align=True)
         col.prop(prefs, "keep_terminal_open", text="Keep Window Open")
 
         render_engine = get_render_engine(context)
@@ -569,6 +564,10 @@ class RECOM_PT_output_filename(Panel):
         sep_row.prop(prefs, "filename_separator", text="Separator")
         sub.prop(prefs, "frame_length_digits", text="Frame Padding")
 
+        filename = "render" if not prefs.default_render_filename else prefs.default_render_filename
+        separator = "." if prefs.filename_separator == "DOT" else "_"
+        layout.label(text=f"Output: {filename}{separator}{'#' * prefs.frame_length_digits}.ext")
+
 
 class RECOM_PT_export_options(Panel):
     bl_label = "Script Export"
@@ -587,10 +586,10 @@ class RECOM_PT_export_options(Panel):
         col = layout.column()
         col.prop(prefs, "export_output_target", text="Target")
         if prefs.export_output_target == "CUSTOM_PATH":
-            col = layout.column()
-            col.prop(prefs, "custom_export_path", text="Path")
+            # col = layout.column()
+            col.prop(prefs, "custom_export_path", text="Save Path")
 
-        col = layout.column()
+        # col = layout.column()
         folder_row = col.row(heading="Sub-Folder")
         folder_row.prop(prefs, "export_scripts_subfolder", text="")
         sub_folder_row = folder_row.row()
@@ -633,14 +632,9 @@ class RECOM_PT_notification(Panel):
         row = col.row()
         row.prop(prefs, "notification_detail_level", text="Detail", expand=True)
 
-        if prefs.notification_detail_level != "SIMPLE" and _IS_WINDOWS and _WIN11TOAST_AVAILABLE:
-            sub = layout.column(heading="Content")
-            sub.prop(prefs, "notification_show_preview", text="Render Preview")
-            sub.prop(prefs, "notification_show_buttons", text="Action Buttons")
-
 
 class RECOM_PT_system_power(Panel):
-    bl_label = "Power Management"
+    bl_label = "Shutdown"
     bl_parent_id = "RECOM_PT_render_options"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
@@ -649,7 +643,7 @@ class RECOM_PT_system_power(Panel):
 
     def draw_header(self, context):
         prefs = get_addon_preferences(context)
-        self.layout.prop(prefs, "set_system_power", text="")
+        self.layout.prop(prefs, "shutdown_after_render", text="")
 
     def draw(self, context):
         layout = self.layout
@@ -657,25 +651,11 @@ class RECOM_PT_system_power(Panel):
         layout.use_property_decorate = False
         prefs = get_addon_preferences(context)
 
-        layout.active = prefs.set_system_power
+        layout.active = prefs.shutdown_after_render
 
-        col = layout.column(heading="During Render")
-        col.prop(prefs, "prevent_sleep", text="Prevent Sleep")
-        if _IS_WINDOWS:
-            col.prop(prefs, "prevent_monitor_off", text="Keep Display On")
-
-        col = layout.column(heading="Completion")
-        row = col.row()
-        row.prop(prefs, "shutdown_after_render", text="")
-
-        row2 = row.row()
-        row2.active = prefs.shutdown_after_render
-        row2.prop(prefs, "shutdown_type", text="")
-
-        col2 = col.column(heading="")
-        col2.active = prefs.shutdown_after_render
-        if prefs.shutdown_after_render:
-            col2.prop(prefs, "shutdown_delay", text="Delay")
+        col = layout.column()
+        col.prop(prefs, "shutdown_type", text="After Render")
+        col.prop(prefs, "shutdown_delay", text="Delay")
 
 
 classes = (

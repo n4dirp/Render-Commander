@@ -25,9 +25,8 @@ OVERRIDE_MAP = {
     "Render": {
         "cycles_device": ("Cycles - Compute Device", "cycles.device_override", "BLANK1"),
         "cycles_sampling": ("Cycles - Sampling", "cycles.sampling_override", "BLANK1"),
-        "cycles_light_paths": ("Cycles - Light Paths", "cycles.light_path_override", "BLANK1"),
         "cycles_performance": ("Cycles - Performance", "cycles.performance_override", "BLANK1"),
-        "eevee_all": ("EEVEE", "eevee_override", "BLANK1"),
+        "eevee_all": ("EEVEE - Sampling", "eevee_override", "BLANK1"),
         "motion_blur": ("Motion Blur", "motion_blur_override", "BLANK1"),
     },
     "Output": {
@@ -39,7 +38,9 @@ OVERRIDE_MAP = {
     "Data": {
         "camera_settings": ("Camera", "cameras_override", "BLANK1"),
         "compositor": ("Compositing", "compositor_override", "BLANK1"),
-        "custom_api": ("Advanced Properties", "use_custom_api_overrides", "BLANK1"),
+    },
+    "Other": {
+        "custom_api": ("Advanced", "use_custom_api_overrides", "BLANK1"),
     },
 }
 
@@ -63,8 +64,6 @@ PATH_VARIABLES_DATA = {
         ("", "", None),
         ("{blend_dir}", "Blend Directory", "FILE_BLEND"),
         ("{blend_name}", "Blend Name", "BLANK1"),
-        ("", "", None),
-        ("{bl_ver}", "Blender Version (Render)", "BLANK1"),
     ],
     "output": [
         ("{frame_start}", "Frame Start", "PREVIEW_RANGE"),
@@ -259,26 +258,26 @@ class RECOM_OT_reset_overrides(Operator):
 class RECOM_OT_add_advanced_property_override(Operator):
     bl_idname = "recom.add_advanced_property_override"
     bl_label = "Add Property Override"
-    bl_description = "Add a property override by entering a Blender Python data path"
+    bl_description = "Add a property override for a Blender Python data path"
     bl_options = {"UNDO"}
 
-    data_path: bpy.props.StringProperty(
-        name="Data Path", description="Paste full Python property path (e.g. bpy.context.scene.render.use_simplify)"
-    )
-
-    def invoke(self, context, event):
-        # Pre-fill from clipboard if it looks like a python path
-        cb = context.window_manager.clipboard
-        if cb and ("bpy." in cb or "scene." in cb or "render." in cb):
-            self.data_path = cb
-        return context.window_manager.invoke_props_dialog(self, width=400)
-
     def execute(self, context):
-        import bpy
         import mathutils
 
         settings = context.window_manager.recom_render_settings.override_settings
-        path = self.data_path.strip()
+
+        # Read the path from the new search box
+        path = settings.api_search_query.strip()
+
+        # Fallback to clipboard if the box is empty
+        if not path:
+            cb = context.window_manager.clipboard
+            if cb and ("bpy." in cb or "scene." in cb or "render." in cb):
+                path = cb.strip()
+
+        if not path:
+            self.report({"WARNING"}, "Please enter a valid API path or copy one to clipboard.")
+            return {"CANCELLED"}
 
         # Try to resolve shorthand paths
         if path.startswith("scene."):
@@ -338,7 +337,10 @@ class RECOM_OT_add_advanced_property_override(Operator):
                     item.value_string = str(val)
 
             settings.active_custom_api_index = len(settings.custom_api_overrides) - 1
-            redraw_ui()
+
+            # Clear the search box after successfully adding
+            settings.api_search_query = ""
+
         except Exception as e:
             self.report({"ERROR"}, f"Failed to evaluate path: {str(e)}")
             return {"CANCELLED"}
@@ -471,29 +473,31 @@ class RECOM_PT_import_overrides_popup(Panel):
         prefs = get_addon_preferences(context)
         render_engine = get_render_engine(context)
 
-        col = layout.column()
-        col.label(text="Import Settings")
+        layout.label(text="Import Settings")
+
+        col = layout.column(align=True)
 
         if render_engine == RE_CYCLES:
-            col.prop(prefs.override_settings, "import_compute_device", text="Device")
-            col.prop(prefs.override_settings, "import_sampling", text="Sampling")
-            col.prop(prefs.override_settings, "import_light_paths", text="Light Paths")
-            col.prop(prefs.override_settings, "import_performance", text="Performance")
+            col.prop(prefs.override_import_settings, "import_compute_device", text="Device")
+            col.prop(prefs.override_import_settings, "import_sampling", text="Sampling")
+            col.prop(prefs.override_import_settings, "import_light_paths", text="Light Paths")
+            col.prop(prefs.override_import_settings, "import_performance", text="Performance")
         elif render_engine in {RE_EEVEE_NEXT, RE_EEVEE}:
-            col.prop(prefs.override_settings, "import_eevee_settings", text="EEVEE")
-        col.prop(prefs.override_settings, "import_motion_blur", text="Motion Blur")
+            col.prop(prefs.override_import_settings, "import_eevee_settings", text="EEVEE")
+        col.prop(prefs.override_import_settings, "import_motion_blur", text="Motion Blur")
 
         col.separator(factor=0.5)
-        col.prop(prefs.override_settings, "import_resolution", text="Resolution")
-        col.prop(prefs.override_settings, "import_frame_range", text="Frame Range")
-        col.prop(prefs.override_settings, "import_output_path", text="Output Path")
-        col.prop(prefs.override_settings, "import_output_format", text="File Format")
+        col.prop(prefs.override_import_settings, "import_resolution", text="Resolution")
+        col.prop(prefs.override_import_settings, "import_frame_range", text="Frame Range")
+        col.prop(prefs.override_import_settings, "import_output_path", text="Output Path")
+        col.prop(prefs.override_import_settings, "import_output_format", text="File Format")
 
         col.separator(factor=0.5)
-        col.prop(prefs.override_settings, "import_compositor", text="Compositing")
+        col.prop(prefs.override_import_settings, "import_compositor", text="Compositing")
 
         col.separator(factor=0.5)
-        col.operator("recom.import_all_settings", text="Import", icon=ICON_SYNC)
+
+        layout.operator("recom.import_all_settings", text="Import", icon=ICON_SYNC)
 
 
 # -------------------------------------------------------------------
@@ -503,35 +507,49 @@ class RECOM_PT_import_overrides_popup(Panel):
 
 class RECOM_PT_overrides_presets(PresetPanel, Panel):
     bl_label = "Override Presets"
-    preset_subdir = Path(ADDON_NAME) / "override_settings"
+    preset_subdir = Path(ADDON_NAME) / "overrides" / "override_settings"
     preset_operator = "script.execute_preset"
     preset_add_operator = "recom.overrides_preset_add"
 
 
+class RECOM_PT_samples_presets(PresetPanel, Panel):
+    bl_label = "Samples Presets"
+    preset_subdir = Path(ADDON_NAME) / "overrides" / "cycles_samples"
+    preset_operator = "script.execute_preset"
+    preset_add_operator = "recom.samples_preset_add"
+
+
+class RECOM_PT_eevee_settings_presets(PresetPanel, Panel):
+    bl_label = "EEVEE Settings Presets"
+    preset_subdir = Path(ADDON_NAME) / "overrides" / "eevee"
+    preset_operator = "script.execute_preset"
+    preset_add_operator = "recom.eevee_preset_add"
+
+
 class RECOM_PT_resolution_presets(PresetPanel, Panel):
     bl_label = "Resolution Presets"
-    preset_subdir = Path(ADDON_NAME) / "resolution"
+    preset_subdir = Path(ADDON_NAME) / "overrides" / "resolution"
     preset_operator = "script.execute_preset"
     preset_add_operator = "recom.resolution_preset_add"
 
 
 class RECOM_PT_output_presets(PresetPanel, Panel):
     bl_label = "Output Path Presets"
-    preset_subdir = Path(ADDON_NAME) / "output_path"
+    preset_subdir = Path(ADDON_NAME) / "overrides" / "output_path"
     preset_operator = "script.execute_preset"
     preset_add_operator = "recom.output_preset_add"
 
 
 class RECOM_PT_custom_variables_presets(PresetPanel, Panel):
     bl_label = "Custom Variables Presets"
-    preset_subdir = Path(ADDON_NAME) / "custom_variables"
+    preset_subdir = Path(ADDON_NAME) / "overrides" / "custom_variables"
     preset_operator = "script.execute_preset"
     preset_add_operator = "recom.custom_variables_preset_add"
 
 
 class RECOM_PT_override_advanced_property_presets(PresetPanel, Panel):
     bl_label = "Advanced Property Override Presets"
-    preset_subdir = Path(ADDON_NAME) / "advanced_properties"
+    preset_subdir = Path(ADDON_NAME) / "overrides" / "advanced_properties"
     preset_operator = "script.execute_preset"
     preset_add_operator = "recom.override_advanced_properties_preset_add"
 
@@ -555,7 +573,7 @@ class RECOM_PT_scene_override_settings(Panel):
         prefs = get_addon_preferences(context)
         render_engine = get_render_engine(context)
         return (
-            prefs.initial_setup_complete if render_engine == RE_CYCLES else True
+            prefs.cycles_setup_complete if render_engine == RE_CYCLES else True
         ) and prefs.visible_panels.override_settings
 
     def draw_header_preset(self, context):
@@ -591,6 +609,237 @@ class RECOM_PT_scene_override_settings(Panel):
 # -------------------------------------------------------------------
 #  INDIVIDUAL OVERRIDE PANELS
 # -------------------------------------------------------------------
+
+
+class RECOM_PT_cycles_overrides(Panel):
+    """
+    Invisible container that ensures these panels only show
+    when the render engine is Cycles.
+    """
+
+    bl_label = "Cycles"
+    bl_parent_id = "RECOM_PT_scene_override_settings"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "UI"
+    bl_category = "Render Commander"
+    bl_options = {"HIDE_HEADER"}
+    bl_order = 0
+
+    @classmethod
+    def poll(cls, context):
+        render_engine = get_render_engine(context)
+        return render_engine == RE_CYCLES
+
+    def draw(self, context):
+        pass
+
+
+class RECOM_PT_compute_device(Panel):
+    bl_label = "Compute Device"
+    bl_parent_id = "RECOM_PT_cycles_overrides"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "UI"
+    bl_category = "Render Commander"
+
+    @classmethod
+    def poll(cls, context):
+        settings = context.window_manager.recom_render_settings.override_settings
+        return settings.cycles.device_override
+
+    def draw_header_preset(self, context):
+        layout = self.layout
+        op = layout.operator("recom.manage_override", text="", icon="X", emboss=False)
+        op.action = "REMOVE"
+        op.override_id = "cycles_device"
+        layout.separator(factor=0.25)
+
+    def draw(self, context):
+        layout = self.layout
+        layout.use_property_split = True
+        layout.use_property_decorate = False
+
+        settings = context.window_manager.recom_render_settings
+
+        row = layout.row()
+        row.prop(settings.override_settings.cycles, "device", text="Type", expand=True)
+
+
+class RECOM_PT_samples_settings(Panel):
+    bl_label = "Sampling"
+    bl_parent_id = "RECOM_PT_cycles_overrides"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "UI"
+    bl_category = "Render Commander"
+
+    @classmethod
+    def poll(cls, context):
+        settings = context.window_manager.recom_render_settings.override_settings
+        return settings.cycles.sampling_override
+
+    def draw_header_preset(self, context):
+        layout = self.layout
+        row = layout.row(align=True)
+        RECOM_PT_samples_presets.draw_panel_header(row)
+        op = row.operator("recom.manage_override", text="", icon="X", emboss=False)
+        op.action = "REMOVE"
+        op.override_id = "cycles_sampling"
+        layout.separator(factor=0.25)
+
+    def draw(self, context):
+        layout = self.layout
+        layout.use_property_split = True
+        layout.use_property_decorate = False
+
+        settings = context.window_manager.recom_render_settings
+
+        # Mode
+        layout.row().prop(settings.override_settings.cycles, "sampling_mode", expand=True)
+
+        if settings.override_settings.cycles.sampling_mode == "FACTOR":
+            layout.prop(settings.override_settings.cycles, "sampling_factor")
+        else:
+            row = layout.row(heading="Noise Threshold")
+            row.prop(settings.override_settings.cycles, "use_adaptive_sampling", text="")
+
+            use_adaptive_sampling = settings.override_settings.cycles.use_adaptive_sampling
+
+            sub = row.row()
+            sub.active = use_adaptive_sampling
+            sub_row = sub.row(align=True)
+            sub_row.prop(settings.override_settings.cycles, "adaptive_threshold", text="")
+            sub_row.menu("RECOM_MT_adaptive_threshold", text="", icon=ICON_OPTION)
+
+            samples_col = layout.column(align=True)
+            row_samples = samples_col.row(align=True)
+            row_samples.prop(
+                settings.override_settings.cycles, "samples", text="Max Samples" if use_adaptive_sampling else "Samples"
+            )
+            row_samples.menu("RECOM_MT_samples", text="", icon=ICON_OPTION)
+
+            if use_adaptive_sampling:
+                row_samples = samples_col.row(align=True)
+                row_samples.prop(settings.override_settings.cycles, "adaptive_min_samples", text="Min Samples")
+                row_samples.menu("RECOM_MT_adaptive_min_samples", text="", icon=ICON_OPTION)
+
+            row_samples = samples_col.row(align=True)
+            row_samples.prop(settings.override_settings.cycles, "time_limit")
+            row_samples.menu("RECOM_MT_time_limit", text="", icon=ICON_OPTION)
+
+
+class RECOM_PT_denoise_settings(Panel):
+    bl_label = "Denoise"
+    bl_parent_id = "RECOM_PT_samples_settings"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "UI"
+    bl_category = "Render Commander"
+    bl_options = {"DEFAULT_CLOSED"}
+
+    def draw_header(self, context):
+        layout = self.layout
+        settings = context.window_manager.recom_render_settings
+        layout.prop(settings.override_settings.cycles, "use_denoising", text="")
+
+    def draw(self, context):
+        layout = self.layout
+
+        settings = context.window_manager.recom_render_settings
+        layout.active = settings.override_settings.cycles.use_denoising
+
+        row = layout.row()
+        row.prop(settings.override_settings.cycles, "denoiser", expand=True)
+
+        col = layout.column()
+        col.use_property_split = True
+        col.use_property_decorate = False
+        col.prop(settings.override_settings.cycles, "denoising_input_passes")
+
+        if settings.override_settings.cycles.denoiser == "OPENIMAGEDENOISE":
+            col.prop(settings.override_settings.cycles, "denoising_prefilter")
+            col.prop(settings.override_settings.cycles, "denoising_quality")
+            col.prop(settings.override_settings.cycles, "denoising_use_gpu")
+
+        layer_row = layout.row(heading="View Layer")
+        layer_row.use_property_split = True
+        layer_row.use_property_decorate = False
+        layer_row.prop(settings.override_settings.cycles, "denoising_store_passes", text="Denoising Data")
+
+
+class RECOM_PT_performance_settings(Panel):
+    bl_label = "Performance"
+    bl_parent_id = "RECOM_PT_cycles_overrides"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "UI"
+    bl_category = "Render Commander"
+
+    @classmethod
+    def poll(cls, context):
+        settings = context.window_manager.recom_render_settings.override_settings
+        return settings.cycles.performance_override
+
+    def draw_header_preset(self, context):
+        layout = self.layout
+        op = layout.operator("recom.manage_override", text="", icon="X", emboss=False)
+        op.action = "REMOVE"
+        op.override_id = "cycles_performance"
+        layout.separator(factor=0.25)
+
+    def draw(self, context):
+        layout = self.layout
+        layout.use_property_split = True
+        layout.use_property_decorate = False
+
+        settings = context.window_manager.recom_render_settings
+
+        col = layout.column(heading="")
+        col.prop(settings.override_settings.cycles, "use_tiling")
+        row_sub = col.row()
+        row_sub.active = settings.override_settings.cycles.use_tiling
+        row_sub.prop(settings.override_settings.cycles, "tile_size")
+        row_sub.menu("RECOM_MT_tile_size", text="", icon=ICON_OPTION)
+
+        col = layout.column(heading="Animation")
+        col.prop(settings.override_settings.cycles, "persistent_data")
+
+
+class RECOM_PT_eevee_settings(Panel):
+    bl_label = "EEVEE Sampling"
+    bl_parent_id = "RECOM_PT_scene_override_settings"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "UI"
+    bl_category = "Render Commander"
+    bl_order = 0
+
+    @classmethod
+    def poll(cls, context):
+        render_engine = get_render_engine(context)
+        settings = context.window_manager.recom_render_settings.override_settings
+        return (render_engine in {RE_EEVEE_NEXT, RE_EEVEE}) and settings.eevee_override
+
+    def draw_header(self, context):
+        pass
+
+    def draw_header_preset(self, context):
+        layout = self.layout
+        row = layout.row(align=True)
+
+        RECOM_PT_eevee_settings_presets.draw_panel_header(row)
+        op = row.operator("recom.manage_override", text="", icon="X", emboss=False)
+        op.action = "REMOVE"
+        op.override_id = "eevee_all"
+
+        layout.separator(factor=0.25)
+
+    def draw(self, context):
+        layout = self.layout
+        layout.use_property_split = True
+        layout.use_property_decorate = False
+
+        settings = context.window_manager.recom_render_settings
+
+        col = layout.column(align=True)
+        row = col.row(align=True)
+        row.prop(settings.override_settings.eevee, "samples", text="Samples")
+        row.menu("RECOM_MT_eevee_samples", text="", icon=ICON_OPTION)
 
 
 class RECOM_PT_motion_blur_settings(Panel):
@@ -886,7 +1135,7 @@ class RECOM_PT_resolved_path(Panel):
 
             filename_row = resolved_col.row(align=True)
             filename_row.prop(settings.override_settings, "resolved_filename", text="", expand=True)
-            filename_row.operator("recom.show_tooltip", text="", icon="FILE_REFRESH")
+            filename_row.operator("recom.refresh_resolved_path", text="", icon="FILE_REFRESH")
 
         open_row = main_row.row(align=True)
         open_row.enabled = active
@@ -1114,11 +1363,10 @@ class RECOM_PT_compositor_settings(Panel):
 class RECOM_UL_custom_api_overrides(UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index, flt_flag):
         if self.layout_type in {"DEFAULT", "COMPACT"}:
-            label_row = layout.row(align=True)
-            label_row.prop(item, "name", text="", emboss=False, placeholder="Data Path")
+            layout.prop(item, "name", text="", emboss=False, placeholder="Data Path")
 
             row = layout.row(align=True)
-            # row.alignment = "RIGHT"
+            # row.alignment = "LEFT"
             if item.prop_type == "BOOL":
                 row.prop(item, "value_bool", text="")
             elif item.prop_type == "INT":
@@ -1134,7 +1382,7 @@ class RECOM_UL_custom_api_overrides(UIList):
 
 
 class RECOM_PT_custom_api_settings(Panel):
-    bl_label = "Advanced Properties"
+    bl_label = "Advanced"
     bl_parent_id = "RECOM_PT_scene_override_settings"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
@@ -1164,6 +1412,10 @@ class RECOM_PT_custom_api_settings(Panel):
         layout.use_property_decorate = False
         settings = context.window_manager.recom_render_settings.override_settings
 
+        search_row = layout.row(align=True)
+        search_row.prop(settings, "api_search_query", text="", icon="VIEWZOOM", placeholder="Data Path")
+        search_row.operator("recom.add_advanced_property_override", text="", icon="ADD")
+
         root_col = layout.column()
         content_row = root_col.row()
 
@@ -1182,22 +1434,20 @@ class RECOM_PT_custom_api_settings(Panel):
         # Controls
         controls_col = content_row.column()
         add_remove_col = controls_col.column(align=True)
-        add_remove_col.operator("recom.add_advanced_property_override", text="", icon="ADD")
         add_remove_col.operator("recom.remove_advanced_property_override", text="", icon="REMOVE")
 
         if settings.active_custom_api_index >= 0 and settings.custom_api_overrides:
             item = settings.custom_api_overrides[settings.active_custom_api_index]
 
             details_col = layout.column()
+
             col = details_col.column(align=True)
             col.label(text="Data Path:")
             col.prop(item, "data_path", text="")
 
             col = details_col.column()
-            col_sub = col.column()
-            # col_sub.active = False
-            col_sub.prop(item, "name")
-            col_sub.prop(item, "prop_type", text="Type")
+            col.prop(item, "name")
+            col.prop(item, "prop_type", text="Type")
 
             if item.prop_type == "BOOL":
                 col.prop(item, "value_bool")
@@ -1229,6 +1479,14 @@ classes = (
     RECOM_PT_overrides_presets,
     RECOM_PT_scene_override_settings,
     # Render
+    RECOM_PT_cycles_overrides,
+    RECOM_PT_compute_device,
+    RECOM_PT_samples_presets,
+    RECOM_PT_samples_settings,
+    RECOM_PT_denoise_settings,
+    RECOM_PT_performance_settings,
+    RECOM_PT_eevee_settings_presets,
+    RECOM_PT_eevee_settings,
     RECOM_PT_motion_blur_settings,
     # Output
     RECOM_PT_frame_range_settings,

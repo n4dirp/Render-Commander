@@ -8,8 +8,6 @@ from . import (
     launcher_panel,
     blend_file_panel,
     override_settings_panel,
-    override_cycles_panel,
-    override_eevee_panel,
     preferences_panel,
     history_panel,
 )
@@ -21,8 +19,6 @@ ui_modules = [
     launcher_panel,
     blend_file_panel,
     override_settings_panel,
-    override_cycles_panel,
-    override_eevee_panel,
     preferences_panel,
     history_panel,
 ]

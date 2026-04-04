@@ -8,7 +8,7 @@ from bpy.types import Panel, Menu
 
 from ..utils.constants import *
 from ..preferences import get_addon_preferences
-from ..utils.helpers import get_render_engine, logical_width
+from ..utils.helpers import get_render_engine
 
 log = logging.getLogger(__name__)
 
@@ -33,7 +33,7 @@ class RECOM_PT_main_panel(Panel):
     def poll(cls, context):
         prefs = get_addon_preferences(context)
         render_engine = get_render_engine(context)
-        return prefs.initial_setup_complete if render_engine == RE_CYCLES else True
+        return prefs.cycles_setup_complete if render_engine == RE_CYCLES else True
 
     def draw(self, context):
         layout = self.layout
@@ -47,7 +47,7 @@ class RECOM_PT_main_panel(Panel):
 
         if settings.disable_render_button:
             render_row.enabled = False
-            render_row.operator("recom.loading_button", text="Launching", icon="TIME")
+            render_row.operator("recom.loading_button", text="Launching", icon="SORTTIME")
         else:
             launcher_row.active = render_op_active
             render_row.enabled = True

@@ -13,6 +13,7 @@ import bpy
 from bpy.types import Operator
 from bpy.props import StringProperty, EnumProperty, BoolProperty
 
+from ..utils.constants import *
 from ..preferences import get_addon_preferences
 from ..utils.helpers import (
     redraw_ui,
@@ -174,7 +175,7 @@ class RECOM_OT_ExtractExternalSceneData(Operator):
                 log.error(f"Failed to read file stats for cache: {e}")
 
             temp_dir = get_addon_temp_dir(prefs)
-            cache_dir = temp_dir / "cache"
+            cache_dir = temp_dir / "blend_cache"
             cache_path = None
 
             # Generate unique cache file securely using hash
@@ -237,6 +238,19 @@ class RECOM_OT_ExtractExternalSceneData(Operator):
         thread.daemon = True
         thread.start()
 
+    def add_recent_blend_file(self, prefs, new_path):
+        """Add a new blend file path to recent files, removing duplicates and prioritizing."""
+        # Remove existing entries with the same path
+        for i in reversed(range(len(prefs.recent_blend_files))):
+            if prefs.recent_blend_files[i].path == new_path:
+                prefs.recent_blend_files.remove(i)
+
+        new_entry = prefs.recent_blend_files.add()
+        new_entry.path = new_path
+
+        while len(prefs.recent_blend_files) > EXTERNAL_BLEND_FILE_HISTORY_LIMIT:
+            prefs.recent_blend_files.remove(0)
+
     def execute(self, context):
         prefs = get_addon_preferences(context)
         settings = context.window_manager.recom_render_settings
@@ -258,7 +272,7 @@ class RECOM_OT_ExtractExternalSceneData(Operator):
         # context.window_manager.recom_error_message = ""
 
         # Add to recent files if not already present
-        prefs.add_recent_blend_file(external_blend_path)
+        self.add_recent_blend_file(prefs, external_blend_path)
         context.preferences.is_dirty = True
 
         log.debug(f"Attempting to extract scene info from: {external_blend_path}")
@@ -351,7 +365,7 @@ class RECOM_OT_SelectRecentFile(Operator):
         settings.external_blend_file_path = external_blend_path
         bpy.ops.recom.extract_external_scene_data()
         settings.use_external_blend = True
-        self.report({"INFO"}, f"Read: {external_blend_path}")
+        self.report({"INFO"}, f"Read Blend: {Path(external_blend_path).name}")
         return {"FINISHED"}
 
 

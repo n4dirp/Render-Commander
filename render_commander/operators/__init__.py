@@ -9,11 +9,8 @@ from . import (
     presets,
     blend_file,
     operators,
-    scene_overrides,
-    override_output_path,
+    override_settings,
     override_import_settings,
-    blender_executable,
-    python_scripts,
     render_history,
 )
 
@@ -24,11 +21,8 @@ operator_modules = [
     background_render,
     blend_file,
     operators,
-    scene_overrides,
-    override_output_path,
+    override_settings,
     override_import_settings,
-    blender_executable,
-    python_scripts,
     render_history,
 ]
 

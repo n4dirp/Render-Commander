@@ -1,4 +1,4 @@
-# ./operators/override_output_path.py
+# ./operators/override_settings.py
 
 import time
 import os
@@ -6,16 +6,148 @@ from pathlib import Path
 
 import bpy
 from bpy.types import Operator
-from bpy.props import FloatProperty, StringProperty
+from bpy.props import IntProperty, FloatProperty, StringProperty
 
 from ..preferences import get_addon_preferences
-from ..utils.helpers import (
-    open_folder,
-    logical_width,
-    get_nearest_existing_path,
-    replace_variables,
-    redraw_ui,
-)
+
+
+class RECOM_OT_SetResolutionX(Operator):
+    bl_idname = "recom.set_resolution_x"
+    bl_label = "Set Resolution Width"
+    bl_description = "Set Resolution Width"
+
+    value: IntProperty()
+
+    def execute(self, context):
+        settings = context.window_manager.recom_render_settings
+        settings.override_settings.resolution_x = self.value
+        return {"FINISHED"}
+
+
+class RECOM_OT_SetResolutionY(Operator):
+    bl_idname = "recom.set_resolution_y"
+    bl_label = "Set Resolution Height"
+    bl_description = "Set Resolution Height"
+
+    value: IntProperty()
+
+    def execute(self, context):
+        settings = context.window_manager.recom_render_settings
+        settings.override_settings.resolution_y = self.value
+        return {"FINISHED"}
+
+
+class RECOM_OT_SwapResolution(Operator):
+    """Swap the values of resolution_x and resolution_y."""
+
+    bl_idname = "recom.swap_resolution"
+    bl_label = "Swap Width / Height"
+    bl_description = "Exchange the current width and height values"
+
+    def execute(self, context):
+        rs = context.window_manager.recom_render_settings.override_settings
+
+        # Grab the two values
+        x = rs.resolution_x
+        y = rs.resolution_y
+
+        # Swap them – each assignment triggers _update_auto_cache()
+        rs.resolution_x = y
+        rs.resolution_y = x
+
+        return {"FINISHED"}
+
+
+class RECOM_OT_set_custom_render_scale(Operator):
+    """Set Custom Render Scale"""
+
+    bl_idname = "recom.set_custom_render_scale"
+    bl_label = "Set Custom Render Scale"
+
+    value: FloatProperty()
+
+    def execute(self, context):
+        settings = context.window_manager.recom_render_settings
+        settings.override_settings.custom_render_scale = self.value
+        return {"FINISHED"}
+
+
+class RECOM_OT_SetAdaptiveThreshold(Operator):
+    bl_idname = "recom.set_adaptive_threshold"
+    bl_label = "Set Adaptive Threshold"
+    bl_description = "Set Adaptive Threshold"
+
+    value: FloatProperty()
+
+    def execute(self, context):
+        settings = context.window_manager.recom_render_settings
+        settings.override_settings.cycles.adaptive_threshold = self.value
+        return {"FINISHED"}
+
+
+class RECOM_OT_SetSamples(Operator):
+    bl_idname = "recom.set_samples"
+    bl_label = "Set Samples"
+    bl_description = "Set Samples"
+
+    value: IntProperty()
+
+    def execute(self, context):
+        settings = context.window_manager.recom_render_settings
+        settings.override_settings.cycles.samples = self.value
+        return {"FINISHED"}
+
+
+class RECOM_OT_SetAdaptiveMinSamples(Operator):
+    bl_idname = "recom.set_adaptive_min_samples"
+    bl_label = "Set Adaptive Min Samples"
+    bl_description = "Set Adaptive Min Samples"
+
+    value: IntProperty()
+
+    def execute(self, context):
+        settings = context.window_manager.recom_render_settings
+        settings.override_settings.cycles.adaptive_min_samples = self.value
+        return {"FINISHED"}
+
+
+class RECOM_OT_SetTimeLimit(Operator):
+    bl_idname = "recom.set_time_limit"
+    bl_label = "Set Time Limit"
+    bl_description = "Set Time Limit"
+
+    value: FloatProperty()
+
+    def execute(self, context):
+        settings = context.window_manager.recom_render_settings
+        settings.override_settings.cycles.time_limit = self.value
+        return {"FINISHED"}
+
+
+class RECOM_OT_SetTileSize(Operator):
+    bl_idname = "recom.set_tile_size"
+    bl_label = "Set Tile Size"
+    bl_description = "Set Tile Size"
+
+    value: IntProperty()
+
+    def execute(self, context):
+        settings = context.window_manager.recom_render_settings
+        settings.override_settings.cycles.tile_size = self.value
+        return {"FINISHED"}
+
+
+class RECOM_OT_SetEEVEESamples(Operator):
+    bl_idname = "recom.set_eevee_samples"
+    bl_label = "Set Samples"
+    bl_description = "Set Samples"
+
+    value: IntProperty()
+
+    def execute(self, context):
+        settings = context.window_manager.recom_render_settings
+        settings.override_settings.eevee.samples = self.value
+        return {"FINISHED"}
 
 
 class RECOM_OT_SelectOutputDirectory(Operator):
@@ -158,49 +290,6 @@ class RECOM_OT_InsertVariable(Operator):
         return {"FINISHED"}
 
 
-class RECOM_OT_ShowTooltip(Operator):
-    """Update and display the resolved output path"""
-
-    bl_idname = "recom.show_tooltip"
-    bl_label = "Show Full Path"
-    bl_description = "Resolved Oputput Path"
-
-    _last_click_time = 0.0
-    _double_click_delay = 0.3  # seconds
-
-    def execute(self, context):
-        settings = context.window_manager.recom_render_settings
-        now = time.time()
-
-        if now - RECOM_OT_ShowTooltip._last_click_time < self._double_click_delay:
-            # Double click: Show popup
-            folder = settings.override_settings.resolved_directory
-            filename = settings.override_settings.resolved_filename
-
-            if not filename:
-                # Build the folder path first
-                text_to_show = str(Path(folder))
-                sep = os.sep  # '\\' on Windows, '/' elsewhere
-                # Add a single trailing separator only when missing
-                if not text_to_show.endswith(sep):
-                    text_to_show += sep
-            else:
-                text_to_show = str(Path(folder) / filename)
-
-            context.window_manager.popup_menu(
-                lambda self, context: self.layout.label(text=f"{text_to_show}", icon="FILEBROWSER"),
-                title="Resolved Output Path",
-            )
-        else:
-            # Single click: Refresh only
-            settings.override_settings.on_output_path_changed(context)
-
-        # Update last click time
-        RECOM_OT_ShowTooltip._last_click_time = now
-
-        return {"FINISHED"}
-
-
 class RECOM_OT_RefreshResolvedPath(Operator):
     """Force update of resolved output path"""
 
@@ -229,6 +318,7 @@ class RECOM_OT_RefreshResolvedPath(Operator):
 class RECOM_OT_AddCustomVariable(Operator):
     bl_idname = "recom.add_custom_variable"
     bl_label = "Add Custom Variable"
+    bl_description = "Create a simple custom variable"
 
     def execute(self, context):
         prefs = get_addon_preferences(context)
@@ -259,6 +349,7 @@ class RECOM_OT_AddCustomVariable(Operator):
 class RECOM_OT_RemoveCustomVariable(Operator):
     bl_idname = "recom.remove_custom_variable"
     bl_label = "Remove Custom Variable"
+    bl_description = "Remove active item from list"
 
     def execute(self, context):
         prefs = get_addon_preferences(context)
@@ -312,12 +403,20 @@ class RECOM_OT_MoveCustomVariableDown(Operator):
 
 
 classes = (
+    RECOM_OT_SetResolutionX,
+    RECOM_OT_SetResolutionY,
+    RECOM_OT_SwapResolution,
+    RECOM_OT_set_custom_render_scale,
+    RECOM_OT_SetAdaptiveThreshold,
+    RECOM_OT_SetSamples,
+    RECOM_OT_SetAdaptiveMinSamples,
+    RECOM_OT_SetTimeLimit,
+    RECOM_OT_SetTileSize,
+    RECOM_OT_SetEEVEESamples,
     RECOM_OT_SelectOutputDirectory,
     RECOM_OT_OpenFolder,
     RECOM_OT_InsertVariable,
-    RECOM_OT_ShowTooltip,
     RECOM_OT_RefreshResolvedPath,
-    # Custom Variables
     RECOM_OT_AddCustomVariable,
     RECOM_OT_RemoveCustomVariable,
     RECOM_OT_MoveCustomVariableUp,

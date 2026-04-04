@@ -22,7 +22,7 @@ class RECOM_PT_cycles_setup(Panel):
     def poll(cls, context):
         prefs = get_addon_preferences(context)
         render_engine = get_render_engine(context)
-        return render_engine == RE_CYCLES and not prefs.initial_setup_complete
+        return render_engine == RE_CYCLES and not prefs.cycles_setup_complete
 
     def draw(self, context):
         layout = self.layout

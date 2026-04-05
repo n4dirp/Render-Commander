@@ -10,6 +10,7 @@ from ..utils.helpers import get_render_engine
 
 class RECOM_PT_render_history_panel(Panel):
     bl_label = "History"
+    bl_parent_id = "RECOM_PT_main_panel"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = "Render Commander"
@@ -45,9 +46,7 @@ class RECOM_PT_render_history_panel(Panel):
 
         menu_column = row.column(align=True)
         menu_column.enabled = len(prefs.render_history) > 0
-        # menu_column.operator("recom.clean_render_history", text="", icon="TRASH")
         menu_column.menu("RECOM_MT_render_history", text="", icon="COLLAPSEMENU")
-
         menu_column.separator()
         menu_column.menu("RECOM_MT_render_history_item", text="", icon="DOWNARROW_HLT")
 
@@ -74,7 +73,6 @@ class RECOM_PT_render_details_panel(Panel):
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = "Render Commander"
-    # bl_options = {"DEFAULT_CLOSED"}
 
     @classmethod
     def poll(cls, context):

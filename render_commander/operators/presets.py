@@ -22,6 +22,8 @@ class RECOM_OT_overrides_preset(AddPresetBase, Operator):
     preset_values = [
         # Cycles Sampling Overrides
         "settings.override_settings.cycles.sampling_override",
+        "settings.override_settings.cycles.sampling_mode",
+        "settings.override_settings.cycles.sampling_factor",
         "settings.override_settings.cycles.samples",
         "settings.override_settings.cycles.adaptive_min_samples",
         "settings.override_settings.cycles.time_limit",
@@ -92,7 +94,7 @@ class RECOM_OT_overrides_preset(AddPresetBase, Operator):
         "settings.override_settings.camera_shift_x",
         "settings.override_settings.camera_shift_y",
         # Data
-        "settings.override_settings.use_custom_api_overrides",
+        "settings.override_settings.use_data_path_overrides",
     ]
     preset_subdir = Path(ADDON_NAME) / "overrides" / "override_settings"
 
@@ -110,7 +112,7 @@ class RECOM_OT_overrides_preset(AddPresetBase, Operator):
         filepath = target_dir / f"{clean_name}.py"
 
         if not filepath.exists():
-            # self.report({"WARNING"}, f"Could not find preset file {clean_name}.py to append custom API settings.")
+            # self.report({"WARNING"}, f"Could not find preset file {clean_name}.py to append data path settings.")
             redraw_ui()
             return {"FINISHED"}
 
@@ -118,10 +120,10 @@ class RECOM_OT_overrides_preset(AddPresetBase, Operator):
 
         with filepath.open("a", encoding="utf-8") as f:
             f.write("\n# Custom API Overrides Collection\n")
-            f.write("settings.override_settings.custom_api_overrides.clear()\n")
+            f.write("settings.override_settings.data_path_overrides.clear()\n")
 
-            for item in settings.custom_api_overrides:
-                f.write("item = settings.override_settings.custom_api_overrides.add()\n")
+            for item in settings.data_path_overrides:
+                f.write("item = settings.override_settings.data_path_overrides.add()\n")
                 f.write(f"item.name = {repr(item.name)}\n")
                 f.write(f"item.data_path = {repr(item.data_path)}\n")
                 f.write(f"item.prop_type = {repr(item.prop_type)}\n")
@@ -140,7 +142,7 @@ class RECOM_OT_overrides_preset(AddPresetBase, Operator):
                 elif item.prop_type == "COLOR_4":
                     f.write(f"item.value_color_4 = {repr(list(item.value_color_4))}\n")
 
-            f.write(f"settings.override_settings.active_custom_api_index = {settings.active_custom_api_index}\n")
+            f.write(f"settings.override_settings.active_data_path_index = {settings.active_data_path_index}\n")
 
         redraw_ui()
 
@@ -187,6 +189,8 @@ class RECOM_OT_samples_preset(AddPresetBase, Operator):
     preset_menu = "RECOM_PT_samples_presets"
     preset_defines = ["settings = bpy.context.window_manager.recom_render_settings"]
     preset_values = [
+        "settings.override_settings.cycles.sampling_mode",
+        "settings.override_settings.cycles.sampling_factor",
         "settings.override_settings.cycles.use_adaptive_sampling",
         "settings.override_settings.cycles.adaptive_threshold",
         "settings.override_settings.cycles.samples",
@@ -203,18 +207,6 @@ class RECOM_OT_samples_preset(AddPresetBase, Operator):
     preset_subdir = Path(ADDON_NAME) / "overrides" / "cycles_samples"
 
 
-class RECOM_OT_eevee_settings_preset(AddPresetBase, Operator):
-    bl_idname = "recom.eevee_preset_add"
-    bl_label = "Add EEVEE Settings Preset"
-    bl_description = "Add or remove a preset"
-    preset_menu = "RECOM_PT_eevee_settings_presets"
-    preset_defines = ["settings = bpy.context.window_manager.recom_render_settings"]
-    preset_values = [
-        "settings.override_settings.eevee.samples",
-    ]
-    preset_subdir = Path(ADDON_NAME) / "overrides" / "eevee"
-
-
 class RECOM_OT_override_advanced_properties_preset(AddPresetBase, Operator):
     bl_idname = "recom.override_advanced_properties_preset_add"
     bl_label = "Add Property Overrides Preset"
@@ -223,8 +215,8 @@ class RECOM_OT_override_advanced_properties_preset(AddPresetBase, Operator):
     preset_defines = ["settings = bpy.context.window_manager.recom_render_settings"]
     preset_values = [
         # Data
-        "settings.override_settings.use_custom_api_overrides",
-        "settings.override_settings.custom_api_overrides",
+        "settings.override_settings.use_data_path_overrides",
+        "settings.override_settings.data_path_overrides",
     ]
     preset_subdir = Path(ADDON_NAME) / "overrides" / "advanced_properties"
 
@@ -242,7 +234,7 @@ class RECOM_OT_override_advanced_properties_preset(AddPresetBase, Operator):
         filepath = target_dir / f"{clean_name}.py"
 
         if not filepath.exists():
-            # self.report({"WARNING"}, f"Could not find preset file {clean_name}.py to append custom API settings.")
+            # self.report({"WARNING"}, f"Could not find preset file {clean_name}.py to append data path settings.")
             redraw_ui()
             return {"FINISHED"}
 
@@ -250,10 +242,10 @@ class RECOM_OT_override_advanced_properties_preset(AddPresetBase, Operator):
 
         with filepath.open("a", encoding="utf-8") as f:
             f.write("\n# Custom API Overrides Collection\n")
-            f.write("settings.override_settings.custom_api_overrides.clear()\n")
+            f.write("settings.override_settings.data_path_overrides.clear()\n")
 
-            for item in settings.custom_api_overrides:
-                f.write("item = settings.override_settings.custom_api_overrides.add()\n")
+            for item in settings.data_path_overrides:
+                f.write("item = settings.override_settings.data_path_overrides.add()\n")
                 f.write(f"item.name = {repr(item.name)}\n")
                 f.write(f"item.data_path = {repr(item.data_path)}\n")
                 f.write(f"item.prop_type = {repr(item.prop_type)}\n")
@@ -272,7 +264,7 @@ class RECOM_OT_override_advanced_properties_preset(AddPresetBase, Operator):
                 elif item.prop_type == "COLOR_4":
                     f.write(f"item.value_color_4 = {repr(list(item.value_color_4))}\n")
 
-            f.write(f"settings.override_settings.active_custom_api_index = {settings.active_custom_api_index}\n")
+            f.write(f"settings.override_settings.active_data_path_index = {settings.active_data_path_index}\n")
 
         redraw_ui()
 
@@ -403,7 +395,6 @@ classes = (
     RECOM_OT_overrides_preset,
     RECOM_OT_resolution_preset,
     RECOM_OT_samples_preset,
-    RECOM_OT_eevee_settings_preset,
     RECOM_OT_output_preset,
     RECOM_OT_custom_variables_preset,
     RECOM_OT_override_advanced_properties_preset,

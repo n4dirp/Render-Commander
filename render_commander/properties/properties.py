@@ -62,13 +62,13 @@ class RECOM_PG_RenderSettings(PropertyGroup):
     use_external_blend: BoolProperty(
         name="Use External Blend File",
         default=False,
-        description="Render external blend file instead of current scene",
+        description="Render an external blend file",
         update=lambda self, context: redraw_ui(),
     )
     external_blend_file_path: StringProperty(
         name="External Blend File",
         default="",
-        description="Path to an external blend file for rendering",
+        description="Path to an external blend file",
         update=_check_external_blend_file_path,
     )
     external_scene_info: StringProperty(

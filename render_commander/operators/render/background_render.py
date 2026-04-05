@@ -123,8 +123,8 @@ def reset_button_state() -> None:
         if wm is not None and hasattr(wm, "recom_render_settings"):
             wm.recom_render_settings.disable_render_button = False
             redraw_ui()
-    except Exception:
-        pass
+    except Exception as e:
+        log.error(f"Failed to reset render button state: {e}")
     return None
 
 
@@ -161,7 +161,8 @@ def validate_render_settings(operator, context) -> bool:
                 operator.report({"INFO"}, msg)
                 log.error(msg)
                 return False
-        except:
+        except Exception as e:
+            log.error(f"Error validating external blend file path: {e}")
             return False
     elif not bpy.data.filepath:
         if operator.action_type == "RENDER":
@@ -177,7 +178,8 @@ def validate_render_settings(operator, context) -> bool:
         try:
             bpy.ops.wm.save_mainfile()
             log.info("Auto-saved")
-        except:
+        except Exception as e:
+            log.error(f"Failed to auto-save blend file: {e}")
             return False
 
     # FFMPEG File Format
@@ -332,8 +334,9 @@ class RECOM_OT_BackgroundRender(Operator):
                 if not settings.override_settings.format_override:
                     history_item.resolution_x = info.get("resolution_x", 0)
                     history_item.resolution_y = info.get("resolution_y", 0)
-            except:
-                pass
+            except Exception as e:
+                log.error(f"Failed to populate history item from scene data: {e}")
+
         else:
             blend_path = bpy.data.filepath
             if render_engine == RE_CYCLES:
@@ -391,7 +394,8 @@ class RECOM_OT_BackgroundRender(Operator):
                     try:
                         info = json.loads(settings.external_scene_info)
                         frames = f"{info.get('frame_start', '0')}-{info.get('frame_end', '0')}"
-                    except:
+                    except Exception as e:
+                        log.error(f"Error parsing external scene frame range: {e}")
                         frames = "N/A"
                 else:
                     frames = f"{scene.frame_start}-{scene.frame_end}"
@@ -404,7 +408,8 @@ class RECOM_OT_BackgroundRender(Operator):
                     try:
                         info = json.loads(settings.external_scene_info)
                         frames = str(info.get("frame_current", "0"))
-                    except:
+                    except Exception as e:
+                        log.error(f"Error parsing external scene current frame: {e}")
                         frames = "N/A"
                 else:
                     frames = str(scene.frame_current)
@@ -419,7 +424,8 @@ class RECOM_OT_BackgroundRender(Operator):
                 try:
                     info = json.loads(settings.external_scene_info)
                     file_format = info.get("file_format", "")
-                except:
+                except Exception as e:
+                    log.error(f"Error parsing external scene file format: {e}")
                     file_format = "N/A"
             else:
                 file_format = bpy.context.scene.render.image_settings.file_format
@@ -465,7 +471,8 @@ class RECOM_OT_BackgroundRender(Operator):
                 try:
                     info = json.loads(settings.external_scene_info)
                     cycles_device = str(info.get("device", "CPU"))
-                except:
+                except Exception as e:
+                    log.error(f"Error parsing external scene device: {e}")
                     cycles_device = "CPU"
             else:
                 cycles_device = str(scene.cycles.device)
@@ -1406,7 +1413,7 @@ class RECOM_OT_BackgroundRender(Operator):
                 "",
                 "def _cleanup_temp_script():",
                 f"    try: Path(r'{Path(script_path)}').unlink(missing_ok=True)",
-                "    except: pass",
+                "    except Exception as e: log.error(f'Failed to delete temp script: {e}')",
                 "atexit.register(_cleanup_temp_script)",
                 "",
             ]
@@ -1435,7 +1442,8 @@ class RECOM_OT_BackgroundRender(Operator):
         if settings.use_external_blend:
             try:
                 base_path = json.loads(settings.external_scene_info).get("filepath", "//")
-            except:
+            except Exception as e:
+                log.warning(f"Failed to parse external scene info: {e}")
                 base_path = "//"
         else:
             base_path = scene.render.filepath
@@ -1452,7 +1460,8 @@ class RECOM_OT_BackgroundRender(Operator):
         elif settings.use_external_blend:
             try:
                 ff = json.loads(settings.external_scene_info).get("file_format", "PNG")
-            except:
+            except Exception as e:
+                log.warning(f"Failed to parse external scene file format: {e}")
                 ff = "PNG"
         else:
             ff = scene.render.image_settings.file_format
@@ -1609,7 +1618,7 @@ class RECOM_OT_ExportRenderScript(Operator):
 
         col = layout.column()
 
-        folder_row = col.row(heading="Sub-Folder")
+        folder_row = col.row(heading="Subfolder")
         folder_row.prop(prefs, "export_scripts_subfolder", text="")
         sub_folder_row = folder_row.row()
         sub_folder_row.active = prefs.export_scripts_subfolder

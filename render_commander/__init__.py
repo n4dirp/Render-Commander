@@ -4,7 +4,7 @@ bl_info = {
     "name": "Render Commander",
     "author": "Nadir Perazzo",
     "description": "Configure, launch, and export command-line render jobs",
-    "version": (1, 1, 5),
+    "version": (1, 1, 6),
     "blender": (4, 2, 0),
     "doc_url": "https://github.com/n4dirp/Render-Commander",
     "tracker_url": "https://github.com/n4dirp/Render-Commander",
@@ -32,7 +32,7 @@ from . import panels
 
 ADDON_NAME = __package__
 
-logger = logging.getLogger(ADDON_NAME)
+log = logging.getLogger(ADDON_NAME)
 
 
 class TitleCaseFormatter(logging.Formatter):
@@ -61,9 +61,8 @@ class ModernBlenderFormatter(logging.Formatter):
 
 def setup_logging():
     """Sets up the addon's logger. Call this from register()."""
-    # Remove any existing handlers to prevent duplicates during re-registration
-    for handler in logger.handlers[:]:
-        logger.removeHandler(handler)
+    for handler in log.handlers[:]:
+        log.removeHandler(handler)
 
     handler = logging.StreamHandler()
     if bpy.app.version >= (5, 0, 0):
@@ -71,25 +70,19 @@ def setup_logging():
     else:
         handler.setFormatter(TitleCaseFormatter("%(levelname)s: %(message)s"))
 
-    logger.addHandler(handler)
-
-    # Set a default level. This will be updated from prefs later.
-    logger.setLevel(logging.INFO)
+    log.addHandler(handler)
+    log.setLevel(logging.INFO)
 
 
 def update_logger_from_prefs():
-    """Updates the logger's level based on addon preferences."""
+    """Updates the log's level based on addon preferences."""
     try:
         prefs = bpy.context.preferences.addons[__package__].preferences
         level = logging.DEBUG if prefs.debug_mode else logging.INFO
 
-        # Set the level on our specific logger, not the root logger
-        logger.setLevel(level)
-        # Use our logger to report the change
-        # logger.debug(f"Logging level set to {logging.getLevelName(level)}")
+        log.setLevel(level)
+        # log.debug(f"Logging level set to {logging.getLevelName(level)}")
     except (KeyError, AttributeError):
-        # This can happen during initial registration before prefs are available
-        # The default level set in setup_logging() will be used.
         pass
 
 
@@ -107,25 +100,26 @@ def install_default_presets():
     source_dir = addon_dir / "presets"
 
     dest_base = Path(bpy.utils.user_resource("SCRIPTS")) / "presets" / __package__
-    dest_base.mkdir(parents=True, exist_ok=True)
+
+    try:
+        dest_base.mkdir(parents=True, exist_ok=True)
+    except PermissionError:
+        log.error(f"Permission denied: Cannot create preset directory at {dest_base}")
+        return
 
     if source_dir.exists():
         for source_path in source_dir.rglob("*.py"):
-            # Calculate relative path from source_dir
-            rel_path = source_path.relative_to(source_dir)
-            dest_path = dest_base / rel_path
+            try:
+                rel_path = source_path.relative_to(source_dir)
+                dest_path = dest_base / rel_path
+                dest_path.parent.mkdir(parents=True, exist_ok=True)
 
-            # Create destination directory if needed
-            dest_path.parent.mkdir(parents=True, exist_ok=True)
-
-            # Copy if not exist or outdated
-            if not dest_path.exists():
-                shutil.copy2(source_path, dest_path)
-            else:
-                src_mtime = source_path.stat().st_mtime
-                dst_mtime = dest_path.stat().st_mtime
-                if src_mtime > dst_mtime:
+                # Copy if not exist or outdated
+                if not dest_path.exists() or (source_path.stat().st_mtime > dest_path.stat().st_mtime):
                     shutil.copy2(source_path, dest_path)
+                    log.debug(f"Installed preset: {rel_path}")
+            except (OSError, IOError) as e:
+                log.error(f"Failed to copy preset {source_path.name}: {e}")
 
 
 def clean_old_temp_files(prefs):
@@ -151,7 +145,7 @@ def clean_old_temp_files(prefs):
                     f.unlink()
                     count += 1
             except Exception as e:
-                logger.error(f"Failed to delete {f}: {e}")
+                log.error(f"Failed to delete {f}: {e}")
                 errors += 1
 
     return count, errors
@@ -164,7 +158,7 @@ def register():
         try:
             mdl.register()
         except Exception as e:
-            logger.error(f"Failed to register module {mdl.__name__}", exc_info=True)
+            log.error(f"Failed to register module {mdl.__name__}", exc_info=True)
 
     prefs = bpy.context.preferences.addons[__package__].preferences
     try:
@@ -172,7 +166,7 @@ def register():
             install_default_presets()
             prefs.preset_installed = True
     except Exception:
-        logger.error("Failed to check or set preset_installed flag", exc_info=True)
+        log.error("Failed to check or set preset_installed flag", exc_info=True)
 
     update_logger_from_prefs()
 
@@ -180,16 +174,16 @@ def register():
     if prefs.auto_clean_enabled:
         count, errors = clean_old_temp_files(prefs)
         if count > 0:
-            logger.info(f"Auto-cleaned {count} old temporary files (failed: {errors})")
+            log.info(f"Auto-cleaned {count} old temporary files (failed: {errors})")
 
 
 def unregister():
-    # logger.info("Unregistering Render Commander addon.")
+    # log.info("Unregistering Render Commander addon.")
     for mdl in reversed(addon_modules):
         try:
             mdl.unregister()
         except Exception:
-            logger.error(f"Failed to unregister module {mdl.__name__}", exc_info=True)
+            log.error(f"Failed to unregister module {mdl.__name__}", exc_info=True)
 
 
 if __name__ == "__main__":

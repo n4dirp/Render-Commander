@@ -38,7 +38,7 @@ Preview they settings, apply overrides, and start custom renders directly from t
 
 ## System Requirements
 
-The add-on is compatible with **Blender 4.2+** and newer versions and creates compatible render scripts for Windows and GNU/Linux systems.
+Compatible with Blender 4.2 or later. Generates render scripts for Windows and GNU/Linux systems.
 
 ## Installation
 

@@ -48,7 +48,7 @@ def _generate_base_script(
     _add_render_time_tracking(prefs, script_lines)
 
     # Apply custom API overrides
-    _apply_custom_api_overrides(settings, script_lines)
+    _apply_data_path_overrides(settings, script_lines)
 
     # Apply motion blur settings
     _apply_motion_blur_settings(settings, script_lines)
@@ -78,12 +78,12 @@ def _generate_base_script(
     return script_lines
 
 
-def _apply_custom_api_overrides(settings, script_lines):
+def _apply_data_path_overrides(settings, script_lines):
     """Apply custom python API overrides added by the user."""
-    if not settings.override_settings.use_custom_api_overrides:
+    if not settings.override_settings.use_data_path_overrides:
         return
 
-    overrides = settings.override_settings.custom_api_overrides
+    overrides = settings.override_settings.data_path_overrides
     if not overrides:
         return
 
@@ -415,16 +415,6 @@ def _apply_cycles_settings(context, prefs, settings, selected_ids, script_lines)
         if not device_types:  # No valid devices found
             cycles_backend = "NONE"
         else:
-            """
-            if len(device_types) > 1:
-                # Multiple device types in a single chunk - this isn't supported by Cycles.
-                # Fall back to CPU as a safe option (shouldn't happen with proper setup)
-                cycles_backend = "NONE"
-            else:
-                backend_type = next(iter(device_types))
-                cycles_backend = "NONE" if backend_type == "CPU" else backend_type
-            """
-
             backend_type = next(iter(device_types))
             cycles_backend = "NONE" if backend_type == "CPU" else backend_type
     else:

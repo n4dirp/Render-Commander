@@ -59,6 +59,7 @@ class RECOM_PT_render_preferences(Panel):
     """Main panel for render preferences"""
 
     bl_label = "Preferences"
+    bl_parent_id = "RECOM_PT_main_panel"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = "Render Commander"
@@ -91,7 +92,6 @@ class RECOM_PT_blender_executable(Panel):
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = "Render Commander"
-    # bl_options = {"DEFAULT_CLOSED"}
 
     def draw_header_preset(self, context):
         RECOM_PT_blender_executable_presets.draw_panel_header(self.layout)
@@ -109,10 +109,6 @@ class RECOM_PT_blender_executable(Panel):
             custom_executable_row = col.row(align=True)
             custom_executable_row.prop(prefs, "custom_executable_path", text="", placeholder="Blender Path")
 
-            op_row = custom_executable_row.row(align=True)
-            op_row.active = bool(prefs.custom_executable_path)
-            op_row.menu("RECOM_MT_custom_blender", text="", icon=ICON_MENU)
-
             if not prefs.custom_executable_path:
                 return
 
@@ -120,6 +116,7 @@ class RECOM_PT_blender_executable(Panel):
             if version:
                 version_row = col.row()
                 version_row.label(text=f"Blender version: {version}")
+                version_row.menu("RECOM_MT_custom_blender", text="", icon=ICON_MENU)
 
 
 class RECOM_PT_command_line(Panel):
@@ -191,12 +188,10 @@ class RECOM_PT_log_to_file(Panel):
         col = layout.column()
         col.prop(prefs, "log_to_file_location", text="Target")
 
-        # col = layout.column()
         if prefs.log_to_file_location == "CUSTOM_PATH":
             col.prop(prefs, "log_custom_path", text="Save Path")
 
-        # col = layout.column()
-        folder_row = col.row(heading="Sub-Folder")
+        folder_row = col.row(heading="Subfolder")
         folder_row.prop(prefs, "save_to_log_folder", text="")
         sub_folder_row = folder_row.row()
         sub_folder_row.active = prefs.save_to_log_folder
@@ -331,9 +326,7 @@ class RECOM_UL_script_list(UIList):
             if not is_python_file:
                 row.alert = True
 
-            row.label(text=p.name)  # , icon=icon)
-
-            # row.prop(item, "script_path", text="", emboss=False)
+            row.label(text=p.name)
 
     def filter_items(self, context, data, propname):
         items = getattr(data, propname)
@@ -405,7 +398,6 @@ class RECOM_PT_device_parallel(Panel):
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = "Render Commander"
-    # bl_options = {"DEFAULT_CLOSED"}
 
     @classmethod
     def poll(cls, context):
@@ -458,14 +450,26 @@ class RECOM_PT_device_parallel(Panel):
         row_bk.active = prefs.launch_mode != MODE_SINGLE
         row_bk.prop(prefs, "multiple_backends", text="Multi-Backend")
 
+        # Calculate instances count
+        devices_to_display = prefs.get_devices_for_display()
+        enabled_devices = [d for d in devices_to_display if d.use]
+        num_instances = len(enabled_devices)
+
+        if any(d.type == "CPU" and d.use for d in enabled_devices) and prefs.combine_cpu_with_gpus:
+            num_instances -= 1
+
+        if num_instances < 1:
+            num_instances = 1
+
+        layout.label(text=f"Render Instances: {num_instances}")
+
 
 class RECOM_PT_render_parallel(Panel):
-    bl_label = "Multi-Process"  # "Render Instances"
+    bl_label = "Multi-Process"
     bl_parent_id = "RECOM_PT_render_preferences"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = "Render Commander"
-    # bl_options = {"DEFAULT_CLOSED"}
 
     @classmethod
     def poll(cls, context):
@@ -586,11 +590,9 @@ class RECOM_PT_export_options(Panel):
         col = layout.column()
         col.prop(prefs, "export_output_target", text="Target")
         if prefs.export_output_target == "CUSTOM_PATH":
-            # col = layout.column()
             col.prop(prefs, "custom_export_path", text="Save Path")
 
-        # col = layout.column()
-        folder_row = col.row(heading="Sub-Folder")
+        folder_row = col.row(heading="Subfolder")
         folder_row.prop(prefs, "export_scripts_subfolder", text="")
         sub_folder_row = folder_row.row()
         sub_folder_row.active = prefs.export_scripts_subfolder
@@ -661,7 +663,6 @@ class RECOM_PT_system_power(Panel):
 classes = (
     RECOM_PT_render_preferences_presets,
     RECOM_PT_render_preferences,
-    # Environment
     RECOM_PT_blender_executable_presets,
     RECOM_PT_blender_executable,
     RECOM_PT_command_line,
@@ -674,15 +675,12 @@ classes = (
     RECOM_PT_debug_arguments,
     RECOM_PT_ocio_presets,
     RECOM_PT_ocio,
-    # Compute
     RECOM_PT_device_settings,
     RECOM_PT_device_parallel,
     RECOM_PT_render_parallel,
-    # Session & Output
     RECOM_PT_render_options,
     RECOM_PT_output_filename,
     RECOM_PT_export_options,
-    # System
     RECOM_PT_notification,
     RECOM_PT_system_power,
 )

@@ -51,19 +51,6 @@ def get_addon_preferences(context):
     return context.preferences.addons[__package__].preferences
 
 
-def get_prevent_sleep_description():
-    if _IS_WINDOWS:
-        return (
-            "Keep the computer awake while rendering.\n" "Uses Windows system flags to disable sleep and hibernation."
-        )
-    elif _IS_MACOS:
-        return "Keep the computer awake while rendering.\n" "Uses the 'caffeinate' utility to block sleep."
-    elif _IS_LINUX:
-        return "Keep the computer awake while rendering.\n" "Uses 'systemd-inhibit' to prevent suspend."
-    else:
-        return "Keep the computer awake while rendering"
-
-
 # Device settings
 class RECOM_PG_DeviceSettings(PropertyGroup):
     id: StringProperty(name="ID", description="Unique identifier of the device")
@@ -664,7 +651,10 @@ class RECOM_Preferences(AddonPreferences):
     )
     use_windows_terminal_tabs: BoolProperty(
         name="Use Windows Terminal Tabs",
-        description="Open all render processes as tabs within one terminal window instead of separate windows",
+        description=(
+            "Open all render processes as tabs within one terminal window.\n"
+            "Requires Windows Terminal ('wt') to be installed and available in PATH."
+        ),
         default=True,
     )
 
@@ -694,7 +684,7 @@ class RECOM_Preferences(AddonPreferences):
         description="Directory to save log files when using custom location",
     )
     logs_folder_name: StringProperty(
-        name="Logs Folder",
+        name="Logs Subfolder",
         description="Folder name for render log files",
         default=RENDER_LOGS_FOLDER_NAME,
     )
@@ -988,7 +978,7 @@ class RECOM_Preferences(AddonPreferences):
         subtype="DIR_PATH",
     )
     export_scripts_subfolder: BoolProperty(
-        name="Sub-Folder",
+        name="Scripts Subfolder",
         description="Save the script files into a subfolder",
         default=False,
     )
@@ -1050,7 +1040,6 @@ class RECOM_Preferences(AddonPreferences):
 
     def draw_default_applications(self, context, layout):
         layout.label(text="Default Applications")
-
         root_col = layout.column()
         root_col.prop(self, "linux_terminal_config", text="Terminal Emulator")
         root_col.prop(self, "linux_explorer_config", text="File Explorer")
@@ -1064,7 +1053,7 @@ class RECOM_Preferences(AddonPreferences):
         root_col = layout.column()
 
         # Main panels
-        main_panels_col = root_col.column()
+        main_panels_col = root_col.column(align=True)
         main_panels_col.prop(self.visible_panels, "external_scene")
         main_panels_col.prop(self.visible_panels, "override_settings")
         main_panels_col.prop(self.visible_panels, "preferences")
@@ -1081,14 +1070,11 @@ class RECOM_Preferences(AddonPreferences):
         temp_box.label(text="Temporary Files")
 
         # Temp folder
-        temp_row = temp_box.row(heading="Target")
+        temp_row = temp_box.row(heading="Custom Path")
         temp_row.prop(self, "use_custom_temp", text="")
-
         temp_path_row = temp_row.row()
         temp_path_row.active = self.use_custom_temp
         temp_path_row.prop(self, "custom_temp_path", text="", placeholder="")
-
-        temp_box.separator(factor=0.5)
 
         # Temp cleanup
         temp_tools_col = temp_box.column()

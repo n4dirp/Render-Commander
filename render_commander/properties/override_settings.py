@@ -85,7 +85,10 @@ class RECOM_PG_CyclesRenderOverrides(PropertyGroup):
         soft_min=0.001,
         default=0.015,
         precision=4,
-        description="Noise level step to stop sampling at, lower values reduce noise at the cost of render time.\nZero for automatic setting based on number of AA samples.",
+        description=(
+            "Noise level step to stop sampling at, lower values reduce noise at the cost of render time.\n"
+            "Zero for automatic setting based on number of AA samples."
+        ),
     )
     samples: IntProperty(
         name="Samples",
@@ -97,14 +100,17 @@ class RECOM_PG_CyclesRenderOverrides(PropertyGroup):
     )
     adaptive_min_samples: IntProperty(
         name="Adaptive Min Samples",
-        description="Minimum AA samples for adaptive sampling, to discover noisy features before stopping sampling.\nZero for automatic setting based on noise threshold.",
+        description=(
+            "Minimum AA samples for adaptive sampling, to discover noisy features before stopping sampling.\n"
+            "Zero for automatic setting based on noise threshold."
+        ),
         min=0,
         max=4096,
         default=0,
     )
     time_limit: FloatProperty(
         name="Time Limit",
-        description="Limit the render time (excluding synchronization time). " "Zero disables the limit.",
+        description="Limit the render time (excluding synchronization time)." "Zero disables the limit.",
         min=0.0,
         default=0.0,
         step=100.0,
@@ -212,8 +218,8 @@ class RECOM_PG_EEVEERenderOverrides(PropertyGroup):
     )
 
 
-class RECOM_PG_CustomAPIOverride(PropertyGroup):
-    """Stores arbitrary api overrides entered by the user"""
+class RECOM_PG_DataPathOverride(PropertyGroup):
+    """Stores arbitrary data path overrides entered by the user"""
 
     name: StringProperty(name="Name", default="Data Path Override")
     data_path: StringProperty(name="Data Path", description="The Python path to the blender property")
@@ -237,8 +243,8 @@ class RECOM_PG_CustomAPIOverride(PropertyGroup):
     value_color_4: FloatVectorProperty(name="Value", size=4, subtype="COLOR", min=0.0, max=1.0)
 
 
-def api_search_callback(self, context, edit_text):
-    """Provides autocomplete suggestions for Blender API paths."""
+def data_path_search_callback(self, context, edit_text):
+    """Provides autocomplete suggestions for Blender data paths."""
     import bpy
 
     items = []
@@ -292,19 +298,21 @@ def api_search_callback(self, context, edit_text):
 class RECOM_PG_OverrideSettings(PropertyGroup):
     """Stores override settings"""
 
-    # Custom API Overrides
-    api_search_query: StringProperty(
-        name="Data Path Property",
-        description="Type to search or paste a Blender property data path to override.\nExample: bpy.context.scene.render.use_simplify",
-        search=api_search_callback,
+    # Data Path Overrides
+    property_path_input: StringProperty(
+        name="Property Data Path",
+        description=(
+            "Search for or paste a Blender data path to override.\n" "Example: bpy.context.scene.render.use_simplify"
+        ),
+        search=data_path_search_callback,
     )
-    use_custom_api_overrides: BoolProperty(
-        name="Override Custom API",
+    use_data_path_overrides: BoolProperty(
+        name="Use Data Path Overrides",
         default=False,
-        description="Enable custom python property overrides",
+        description="Enable data path property overrides",
     )
-    custom_api_overrides: CollectionProperty(type=RECOM_PG_CustomAPIOverride)
-    active_custom_api_index: IntProperty(default=0)
+    data_path_overrides: CollectionProperty(type=RECOM_PG_DataPathOverride)
+    active_data_path_index: IntProperty(default=0)
 
     # Cycles Render
     cycles_override: BoolProperty(name="Override Cycles Render", default=True)
@@ -730,7 +738,7 @@ class RECOM_PG_OverrideSettings(PropertyGroup):
 classes = (
     RECOM_PG_CyclesRenderOverrides,
     RECOM_PG_EEVEERenderOverrides,
-    RECOM_PG_CustomAPIOverride,
+    RECOM_PG_DataPathOverride,
     RECOM_PG_OverrideSettings,
 )
 

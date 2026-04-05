@@ -69,7 +69,7 @@ class RECOM_PT_main_panel(Panel):
             list_col = layout.row()
             list_col.use_property_split = True
             list_col.use_property_decorate = False
-            list_col.prop(settings, "frame_list", text="Frame List", placeholder="")
+            list_col.prop(settings, "frame_list", text="Frame List")
 
 
 class RECOM_MT_render_commander_menu(Menu):

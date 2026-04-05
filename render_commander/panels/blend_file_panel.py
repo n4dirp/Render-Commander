@@ -53,6 +53,7 @@ def get_scene_info(settings):
 
 class RECOM_PT_scene_file_panel(Panel):
     bl_label = "Blend File"
+    bl_parent_id = "RECOM_PT_main_panel"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = "Render Commander"
@@ -171,7 +172,7 @@ class RECOM_PT_scene_info(Panel):
         header_text_line2 = col.column(align=True)
         header_text_line2.label(text=f"{modified_date_short} | v{blender_version} | {file_size} ", icon="BLANK1")
 
-        return col  # Return for further layout operations
+        return col
 
     def _draw_scene_info(self, layout, info):
         """Compact display mode"""
@@ -267,7 +268,7 @@ class RECOM_PT_scene_info(Panel):
         for k, v in info.items():
             if k not in excluded_keys:
                 item = items.add()
-                item.key = k  # format_to_title_case(k)
+                item.key = k
                 item.value = str(v)
 
         col.template_list(
@@ -284,7 +285,6 @@ class RECOM_PT_scene_info(Panel):
 
 class RECOM_UL_external_blend_info_list(UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
-        # layout.active = False
         layout.label(text=f"{item.key}: {item.value}")
 
     def filter_items(self, context, data, propname):

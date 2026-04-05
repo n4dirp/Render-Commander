@@ -3,6 +3,7 @@ import bpy
 settings = bpy.context.window_manager.recom_render_settings
 
 settings.override_settings.cycles.sampling_override = True
+settings.override_settings.cycles.sampling_mode = "CUSTOM"
 settings.override_settings.cycles.samples = 4096
 settings.override_settings.cycles.adaptive_min_samples = 16
 settings.override_settings.cycles.time_limit = 0.0
@@ -27,4 +28,4 @@ settings.override_settings.resolution_mode = "SET_WIDTH"
 settings.override_settings.resolution_x = 1920
 settings.override_settings.resolution_y = 1080
 settings.override_settings.custom_render_scale = 100
-settings.override_settings.use_custom_api_overrides = True
+settings.override_settings.use_custom_api_overrides = False

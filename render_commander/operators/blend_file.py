@@ -35,7 +35,7 @@ class RECOM_OT_ExtractExternalSceneData(Operator):
     """Read scene information from an external blend file using background process"""
 
     bl_idname = "recom.extract_external_scene_data"
-    bl_label = "Read Scene"
+    bl_label = "Read Blend File"
     bl_description = "Read scene information from an external blend file"
 
     def _async_extract_scene_info(self, context, blend_path):
@@ -341,7 +341,7 @@ class RECOM_OT_OpenExternalSceneInfo(Operator):
 class RECOM_OT_SelectRecentFile(Operator):
     bl_idname = "recom.select_recent_file"
     bl_label = "Select Recent File"
-    bl_description = "Read Scene"
+    bl_description = "Read Blend File"
 
     file_path: StringProperty(name="File Path")
 
@@ -441,13 +441,10 @@ class RECOM_OT_OpenInNewBlender(Operator):
 
         try:
             if _IS_WINDOWS:
-                # On Windows, use start command to open a new instance
                 subprocess.Popen([blender_path, file_path])
             elif _IS_MACOS:
-                # macOS: Use 'open' with the -a flag to specify the app
                 subprocess.Popen(["open", "-a", "Blender", file_path])
             else:
-                # Linux and others: Launch using the same Blender binary
                 subprocess.Popen([blender_path, file_path])
             return {"FINISHED"}
         except Exception as e:
@@ -498,7 +495,6 @@ class RECOM_OT_SelectExternalBlendFile(Operator):
     )
 
     def execute(self, context):
-        """Called after the user picks a file."""
         settings = context.window_manager.recom_render_settings
         abs_path = bpy.path.abspath(self.filepath)
         settings.external_blend_file_path = abs_path
@@ -511,7 +507,6 @@ class RECOM_OT_SelectExternalBlendFile(Operator):
         return {"FINISHED"}
 
     def invoke(self, context, event):
-        """Open the file browser when the operator is invoked"""
         wm = context.window_manager
         wm.fileselect_add(self)
         return {"RUNNING_MODAL"}

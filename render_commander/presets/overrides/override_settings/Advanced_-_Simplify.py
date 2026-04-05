@@ -13,20 +13,20 @@ settings.override_settings.use_overscan = False
 settings.override_settings.motion_blur_override = False
 settings.override_settings.compositor_override = False
 settings.override_settings.cameras_override = False
-settings.override_settings.use_custom_api_overrides = True
+settings.override_settings.use_data_path_overrides = True
 
 # Custom API Overrides Collection
-settings.override_settings.custom_api_overrides.clear()
+settings.override_settings.data_path_overrides.clear()
 
-item = settings.override_settings.custom_api_overrides.add()
+item = settings.override_settings.data_path_overrides.add()
 item.name = "Enable Simplify"
 item.data_path = "bpy.context.scene.render.use_simplify"
 item.prop_type = "BOOL"
 item.value_bool = True
-item = settings.override_settings.custom_api_overrides.add()
+item = settings.override_settings.data_path_overrides.add()
 item.name = "Max Render Subdiv"
 item.data_path = "bpy.context.scene.render.simplify_subdivision_render"
 item.prop_type = "INT"
 item.value_int = 2
 
-settings.override_settings.active_custom_api_index = 0
+settings.override_settings.active_data_path_index = 0

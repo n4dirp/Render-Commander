@@ -9,6 +9,9 @@ from bpy.types import Operator
 from bpy.props import IntProperty, FloatProperty, StringProperty
 
 from ..preferences import get_addon_preferences
+from ..utils.helpers import (
+    redraw_ui,
+)
 
 
 class RECOM_OT_SetResolutionX(Operator):
@@ -47,11 +50,9 @@ class RECOM_OT_SwapResolution(Operator):
     def execute(self, context):
         rs = context.window_manager.recom_render_settings.override_settings
 
-        # Grab the two values
         x = rs.resolution_x
         y = rs.resolution_y
 
-        # Swap them – each assignment triggers _update_auto_cache()
         rs.resolution_x = y
         rs.resolution_y = x
 
@@ -238,7 +239,6 @@ class RECOM_OT_OpenFolder(Operator):
         row = col.box().row(align=True)
         tooltip_row = row.row(align=True)
 
-        # tooltip_row.enabled = False
         tooltip_row.operator("recom.show_tooltip", text=self.folder_to_create, emboss=False)
 
     def execute(self, context):

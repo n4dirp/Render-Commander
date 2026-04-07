@@ -1,7 +1,6 @@
 # ./operators/override_settings.py
 
-import time
-import os
+import logging
 from pathlib import Path
 
 import bpy
@@ -11,7 +10,12 @@ from bpy.props import IntProperty, FloatProperty, StringProperty
 from ..preferences import get_addon_preferences
 from ..utils.helpers import (
     redraw_ui,
+    replace_variables,
+    get_nearest_existing_path,
+    open_folder,
 )
+
+log = logging.getLogger(__name__)
 
 
 class RECOM_OT_SetResolutionX(Operator):
@@ -212,7 +216,7 @@ class RECOM_OT_OpenFolder(Operator):
 
         full_path = settings.override_settings.resolved_directory
 
-        if not full_path or full_path in ["Unknown", "Preview disabled"] or full_path.startswith("Error"):
+        if not full_path or full_path.startswith("Error"):
             self.report({"WARNING"}, "Path is invalid.")
             return {"CANCELLED"}
 
@@ -227,19 +231,16 @@ class RECOM_OT_OpenFolder(Operator):
 
     def draw(self, context):
         layout = self.layout
+
         settings = context.window_manager.recom_render_settings
         folder_path = self.folder_to_create if hasattr(self, "folder_to_create") else "N/A"
 
         col = layout.column(align=True)
+        col.label(text="Create output folder?", icon="QUESTION")
+        col.separator()
 
-        row = col.row()
-        row.alignment = "CENTER"
-        row.label(text="Create folder?")
-        col.separator(factor=0.5)
-        row = col.box().row(align=True)
-        tooltip_row = row.row(align=True)
-
-        tooltip_row.operator("recom.show_tooltip", text=self.folder_to_create, emboss=False)
+        box = col.box()
+        box.label(text=folder_path, icon="FILE_FOLDER")
 
     def execute(self, context):
         open_folder(self.folder_to_create)
@@ -308,7 +309,7 @@ class RECOM_OT_RefreshResolvedPath(Operator):
         )
 
         if settings.override_settings.resolved_directory:
-            self.report({"INFO"}, f"Resolved Path Updated '{resolved_path}'")
+            log.info(f"Resolved Path Updated: {resolved_path}")
         return {"FINISHED"}
 
 

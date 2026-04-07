@@ -151,12 +151,12 @@ class RECOM_PT_command_line_arguments(Panel):
         layout.use_property_decorate = False
 
         prefs = get_addon_preferences(context)
+        layout.active = prefs.add_command_line_args
 
         row = layout.row()
         prop_row = row.row(align=True)
 
         arg_row = prop_row.row(align=True)
-        arg_row.active = prefs.add_command_line_args
         arg_row.prop(prefs, "custom_command_line_args", text="")
 
         # Documentation link

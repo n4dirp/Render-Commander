@@ -45,45 +45,43 @@ OVERRIDE_MAP = {
 # Data for Path Variables Menu
 PATH_VARIABLES_DATA = {
     "data": [
-        ("{scene_name}", "Scene Name", "SCENE_DATA"),
-        ("{view_name}", "View Layer Name", "RENDERLAYERS"),
+        ("{blend_dir}", "Blend Directory", "BLANK1"),
+        ("{blend_name}", "Blend Name", "BLANK1"),
         ("", "", None),
-        ("{engine}", "Render Engine", "SCENE"),
+        ("{scene_name}", "Scene Name", "BLANK1"),
+        ("{view_name}", "View Layer Name", "BLANK1"),
         ("", "", None),
+        ("{engine}", "Render Engine", "BLANK1"),
         ("{thresh}", "Cycles Noise Threshold", "BLANK1"),
         ("{samples}", "Cycles Samples", "BLANK1"),
-        ("", "", None),
         ("{view_transform}", "View Transform", "BLANK1"),
         ("{look}", "Color Look", "BLANK1"),
         ("", "", None),
-        ("{camera_name}", "Camera Name", "CAMERA_DATA"),
+        ("{camera_name}", "Camera Name", "BLANK1"),
         ("{camera_lens}", "Camera Focal Length", "BLANK1"),
         ("{camera_sensor}", "Camera Sensor Width", "BLANK1"),
-        ("", "", None),
-        ("{blend_dir}", "Blend Directory", "FILE_BLEND"),
-        ("{blend_name}", "Blend Name", "BLANK1"),
     ],
     "output": [
-        ("{frame_start}", "Frame Start", "PREVIEW_RANGE"),
+        ("{frame_start}", "Frame Start", "BLANK1"),
         ("{frame_end}", "Frame End", "BLANK1"),
         ("{frame_step}", "Frame Step", "BLANK1"),
         ("{fps}", "Frame Rate", "BLANK1"),
         ("", "", None),
-        ("{resolution}", "Resolution (WxH)", "IMAGE_DATA"),
+        ("{resolution}", "Resolution (WxH)", "BLANK1"),
         ("{resolution_width}", "Resolution Width", "BLANK1"),
         ("{resolution_height}", "Resolution Height", "BLANK1"),
         ("{resolution_scale}", "Resolution Percentage", "BLANK1"),
         ("{aspect}", "Aspect Ratio", "BLANK1"),
         ("", "", None),
-        ("{file_format}", "File Format", "FILE_IMAGE"),
+        ("{file_format}", "File Format", "BLANK1"),
     ],
     "system": [
         ("{user}", "User Name", "BLANK1"),
         ("{host}", "Hostname", "BLANK1"),
         ("{os}", "Operating System", "BLANK1"),
         ("", "", None),
-        ("{date}", "Date (Y-M-D)", "BLANK1"),
         ("{time}", "Time (H-M-S)", "BLANK1"),
+        ("{date}", "Date (Y-M-D)", "BLANK1"),
         ("{year}", "Year", "BLANK1"),
         ("{month}", "Month", "BLANK1"),
         ("{day}", "Day", "BLANK1"),
@@ -513,7 +511,7 @@ class RECOM_PT_output_presets(PresetPanel, Panel):
 
 class RECOM_PT_custom_variables_presets(PresetPanel, Panel):
     bl_label = "Custom Variables Presets"
-    preset_subdir = Path(ADDON_NAME) / "overrides" / "custom_variables"
+    preset_subdir = Path(ADDON_NAME) / "preferences" / "custom_variables"
     preset_operator = "script.execute_preset"
     preset_add_operator = "recom.custom_variables_preset_add"
 
@@ -1086,30 +1084,27 @@ class RECOM_PT_resolved_path(Panel):
     bl_region_type = "UI"
     bl_category = "Render Commander"
     bl_options = {"DEFAULT_CLOSED"}
-    bl_order = 1
 
     def draw(self, context):
         layout = self.layout
         settings = context.window_manager.recom_render_settings
-
         directory = settings.override_settings.resolved_directory
         filename = settings.override_settings.resolved_filename
-
         text_active = bool(directory or filename)
-        resolved_col = layout.column(align=True)
-        main_row = resolved_col.row(align=True)
 
+        col = layout.column()
         if text_active:
-            directory_row = main_row.row(align=True)
-            directory_row.prop(settings.override_settings, "resolved_directory", text="", expand=True)
+            resolved_col = col.column(align=True)
+            resolved_col.active = False
+            resolved_col.prop(
+                settings.override_settings, "resolved_directory", text="", icon="FILE_FOLDER", expand=True
+            )
+            resolved_col.prop(settings.override_settings, "resolved_filename", text="", icon="FILE", expand=True)
 
-            filename_row = resolved_col.row(align=True)
-            filename_row.prop(settings.override_settings, "resolved_filename", text="", expand=True)
-            filename_row.operator("recom.refresh_resolved_path", text="", icon="FILE_REFRESH")
-
-        open_row = main_row.row(align=True)
-        open_row.enabled = text_active
-        open_row.operator("recom.open_folder", text="", icon="FILE_FOLDER")
+        open_row = col.row(align=True)
+        open_row.operator("recom.refresh_resolved_path", text="Refresh", icon="FILE_REFRESH")
+        if text_active:
+            open_row.operator("recom.open_folder", text="Open", icon="FILE_FOLDER")
 
 
 class RECOM_PT_insert_variables(Panel):
@@ -1119,7 +1114,6 @@ class RECOM_PT_insert_variables(Panel):
     bl_region_type = "UI"
     bl_category = "Render Commander"
     bl_options = {"DEFAULT_CLOSED"}
-    bl_order = 1
 
     def draw(self, context):
         layout = self.layout
@@ -1142,8 +1136,6 @@ class RECOM_PT_custom_variables(Panel):
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = "Render Commander"
-    bl_options = {"DEFAULT_CLOSED"}
-    bl_order = 2
 
     def draw_header_preset(self, context):
         RECOM_PT_custom_variables_presets.draw_panel_header(self.layout)

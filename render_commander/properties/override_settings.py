@@ -691,7 +691,7 @@ class RECOM_PG_OverrideSettings(PropertyGroup):
     use_motion_blur: BoolProperty(
         name="Enable Motion Blur",
         default=True,
-        description="Enable motion blur",
+        description="Use multi-sampled 3D scene motion blur",
     )
     motion_blur_position: EnumProperty(
         name="Motion Blur Position",

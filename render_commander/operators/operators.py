@@ -487,6 +487,7 @@ class RECOM_OT_ScriptItemButton(Operator):
 class RECOM_OT_OpenScript(Operator):
     bl_idname = "recom.open_script"
     bl_label = "Open Script"
+    bl_description = "Opens the currently active external script into Blender's Text Editor."
     bl_options = {"REGISTER", "UNDO"}
 
     @classmethod

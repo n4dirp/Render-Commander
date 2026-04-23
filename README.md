@@ -1,53 +1,67 @@
 # Render Commander
+Parallel Rendering & Script Generation
 
 [![GitHub Release](https://img.shields.io/github/v/release/n4dirp/Render-Commander?style=flat-square)](https://github.com/n4dirp/Render-Commander/releases)
-[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-lightgrey?style=flat-square)](https://github.com/n4dirp/Render-Commander)
-[![Blender Version](https://img.shields.io/badge/Blender-4.2%20--%205.1-orange?style=flat-square&logo=blender)](https://www.blender.org/)
+[![Blender Version](https://img.shields.io/badge/Blender-4.3+%20-orange?style=flat-square&logo=blender)](https://www.blender.org/)
 
-Render Commander is a Blender add-on designed for automated, parallel rendering. It allows you to configure, launch, and export command-line render jobs, manage multi-GPU workloads, and generate standalone scripts. The add-on also supports external .blend files and enables batch execution through presets and customizable overrides.
+## Overview
+Render Commander exports standalone render scripts with fully embedded settings. It enables parallel rendering across multiple devices and supports advanced configuration for Cycles and EEVEE.
 
-<img src="images/render_launcher.png" alt="Render-Commander Panel" width="300">
+---
 
 ## Features
 
-### Multi-Process and Device-Parallel Rendering
+### Launch Modes
+- Still images
+- Frame sequences
+- Custom frame lists (e.g., 1, 5–10, 25)
 
-**Cycles**: Automates device configuration and launches separate render instances for each enabled GPU devices. Render Commander support multiple frame-allocation strategies and can render across different backends simultaneously.
+### External File Rendering
+- Inspect scene data from external `.blend` files
+- No need to open them in Blender
 
-**EEVEE**: Improve animation rendering times by running multiple parallel render jobs.
+### Overrides & Presets
+- Non-destructive overrides per job
+- Includes:
+  - Samples
+  - Resolution
+  - Output settings
+- Advanced:
+  - Overscan
+  - Custom output variables
+  - Compositor toggles
+  - Override specific data paths
+- Save setups as reusable presets
 
+### Parallel Rendering
+- **Device Parallel**: One process per GPU
+- **Multi-Process**: Multiple Blender instances
 
-### Render Overrides & Presets
+### Customization
+- Command-line arguments
+- Custom Python scripts
+- Render time tracking (progress + ETA)
 
-Tweak resolution, samples, output paths, and more without altering your original saved settings. Create, apply and reuse render presets for different project stages (draft, final, etc.).
+---
 
-### External Blend Files
+## Workflow
 
-Save system memory by rendering scenes stored in external `.blend` files without opening them in Blender.
-Preview they settings, apply overrides, and start custom renders directly from the add-on panel.
+### 1. Setup & Generate
+Configure frames, overrides, and parallel settings.  
+Click **Generate Scripts** and choose an export directory.
 
-### Advanced Options
+### 2. Output Files
+Each render job generates:
 
-- **Custom Blender Executables** – Define custom Blender paths to use different versions or builds.
+- **Launch Scripts (`.bat` / `.sh`)**
+  - Start Blender in background mode  
+  - Example: `scene_render_worker0.bat`
 
-- **Append Python Scripts** – Attach your own Python scripts to render jobs for logging, post-processing, or pipeline integration.
+- **Python Scripts (`.py`)**
+  - Contain all render settings and frame assignments  
+  - Example: `scene_script_worker0.py`
 
-- **Desktop Notifications** – Get notified when a render job finishes.
-
-- **System Power Control** – Automatically put the system to sleep or shut it down once all jobs are complete.
-
-## System Requirements
-
-Compatible with Blender 4.2 or later. Generates render scripts for Windows and GNU/Linux systems.
-
-## Installation
-
-1. Download the latest release from the [Releases](https://github.com/n4dirp/render-commander/releases) page.
-2. Drag and drop the `.zip` into Blender to install the add-on.
-
-## Location
-- The main add-on panel is available in the *Render Commander* tab in the viewport sidebar.
-- Additional controls are available in the *Render* menu on the topbar.
+---
 
 ## Build from Source
 
@@ -56,3 +70,8 @@ git clone https://github.com/n4dirp/Render-Commander.git
 cd Render-Commander/render_commander
 blender --command extension build
 ```
+
+## Installation
+
+1. Download the latest release from the [Releases](https://github.com/n4dirp/render-commander/releases) page.
+2. Drag and drop the `.zip` into Blender to install the add-on.

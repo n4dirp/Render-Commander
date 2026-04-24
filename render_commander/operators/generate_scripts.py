@@ -1,38 +1,93 @@
-# ./operators/render/generate_scripts.py
+"""This module is responsible for the programmatic construction of python and executable render scripts."""
 
 import json
 import logging
+import shlex
+import sys
+import stat
+from datetime import datetime
 from pathlib import Path
 
-from ...utils.constants import *
-from ...utils.helpers import (
+import bpy
+
+from ..utils.constants import (
+    ADDON_VERSION_STR,
+    BLENDER_VERSION_STR,
+    MODE_SINGLE,
+    MODE_SEQ,
+    MODE_LIST,
+    RE_CYCLES,
+    RE_EEVEE_NEXT,
+    RE_EEVEE,
+)
+from ..utils.helpers import (
+    get_addon_temp_dir,
     get_render_engine,
     calculate_auto_width,
     calculate_auto_height,
+    open_folder,
 )
+
 
 log = logging.getLogger(__name__)
 
+_IS_WINDOWS = sys.platform == "win32"
+ADDON_INFO = f"Render Commander v{ADDON_VERSION_STR} - Blender v{BLENDER_VERSION_STR}"
+
+
+def _wrap_in_try(lines, section_name, abort_on_fail=False) -> list[str]:
+    """Wraps a list of generated script lines in a try/except block."""
+    if not lines:
+        return []
+
+    wrapped = ["try:"]
+    for line in lines:
+        # Add 4 spaces of indentation, but leave empty lines blank to avoid trailing spaces
+        wrapped.append(f"    {line}" if line.strip() else "")
+
+    if abort_on_fail:
+        wrapped.extend(
+            [
+                "except Exception as e:",
+                f"    raise RuntimeError(f'Render Commander FATAL Error: Failed to apply {section_name} -> {{e}}') from e",
+                "",
+            ]
+        )
+    else:
+        wrapped.extend(
+            [
+                "except Exception as e:",
+                f"    print(f'Render Commander Warning: Failed to apply {section_name} -> {{e}}')",
+                "",
+            ]
+        )
+    return wrapped
+
+
+def _load_template_script(template_name) -> list[str]:
+    """Load a template script from the operators directory."""
+    template_path = Path(__file__).parent / "templates" / template_name
+
+    try:
+        with open(template_path, "r", encoding="utf-8") as f:
+            return f.read().splitlines()
+    except FileNotFoundError:
+        log.error("Template not found: %s", template_path)
+        return []
+
 
 def _generate_base_script(
-    context,
-    prefs,
-    selected_ids,
-    is_animation,
-    frame_start,
-    frame_end,
-    frame_step,
-    start_msg: str = "",
-):
+    context, prefs, selected_ids, is_animation, frame_start, frame_end, frame_step, start_msg
+) -> list[str]:
     """Generate common script parts for both single and parallel rendering."""
+    script_lines = []
 
     settings = context.window_manager.recom_render_settings
-    script_lines = []
 
     # Start Script
     script_lines.extend(
         [
-            f"# Render Commander - Render ID: {settings.render_id}",
+            f'"""{ADDON_INFO}"""',
             "",
             "import bpy",
             "",
@@ -40,38 +95,21 @@ def _generate_base_script(
     )
 
     if start_msg:
-        msg_lines = start_msg.splitlines()
         script_lines.append(f'print("{start_msg}")')
         script_lines.append("")
 
-    # Add render time tracking
     _add_render_time_tracking(prefs, script_lines)
-
-    # Apply custom API overrides
     _apply_data_path_overrides(settings, script_lines)
-
-    # Apply motion blur settings
     _apply_motion_blur_settings(settings, script_lines)
-
-    # Apply frame settings
-    _apply_frame_settings(is_animation, frame_start, frame_end, frame_step, script_lines)
-
-    # Apply camera settings
-    _apply_camera_settings(context, settings, script_lines)
-
-    # Apply resolution and scale settings
+    _apply_frame_settings(prefs, is_animation, frame_start, frame_end, frame_step, script_lines)
+    _apply_camera_settings(settings, script_lines)
     _apply_resolution_settings(context, settings, script_lines)
-
-    # Apply output format settings
     _apply_output_format_settings(settings, script_lines)
-
-    # Apply compositing settings
     _apply_compositing_settings(settings, script_lines)
 
-    # Apply render engine specific settings
     render_engine = get_render_engine(context)
     if render_engine == RE_CYCLES:
-        _apply_cycles_settings(context, prefs, settings, selected_ids, script_lines)
+        _apply_cycles_settings(prefs, settings, selected_ids, script_lines)
     elif render_engine in {RE_EEVEE_NEXT, RE_EEVEE}:
         _apply_eevee_settings(settings, script_lines)
 
@@ -79,53 +117,64 @@ def _generate_base_script(
 
 
 def _apply_data_path_overrides(settings, script_lines):
-    """Apply custom python API overrides added by the user."""
-    if not settings.override_settings.use_data_path_overrides:
-        return
+    """Add data paths overrides."""
+    try:
+        if not settings.override_settings.use_data_path_overrides:
+            return
 
-    overrides = settings.override_settings.data_path_overrides
-    if not overrides:
-        return
+        overrides = settings.override_settings.data_path_overrides
+        if not overrides:
+            return
 
-    script_lines.append("# Custom API Overrides")
-    for item in overrides:
-        path = item.data_path
+        script_lines.append("# Custom API Overrides")
+        for item in overrides:
+            path = item.data_path
 
-        # Format the value for insertion into the script correctly
-        if item.prop_type == "BOOL":
-            val_str = str(item.value_bool)
-        elif item.prop_type == "INT":
-            val_str = str(item.value_int)
-        elif item.prop_type == "FLOAT":
-            val_str = str(item.value_float)
-        elif item.prop_type == "STRING":
-            val_str = f"'{item.value_string}'"
-        elif item.prop_type == "VECTOR_3":
-            val_str = f"({item.value_vector_3[0]}, {item.value_vector_3[1]}, {item.value_vector_3[2]})"
-        elif item.prop_type == "COLOR_4":
-            val_str = (
-                f"({item.value_color_4[0]}, {item.value_color_4[1]}, {item.value_color_4[2]}, {item.value_color_4[3]})"
+            # Format the value for insertion into the script correctly
+            if item.prop_type == "BOOL":
+                val_str = str(item.value_bool)
+            elif item.prop_type == "INT":
+                val_str = str(item.value_int)
+            elif item.prop_type == "FLOAT":
+                val_str = str(item.value_float)
+            elif item.prop_type == "STRING":
+                val_str = repr(item.value_string)  # Safer than f"'{...}'"
+            elif item.prop_type == "VECTOR_3":
+                val_str = str(tuple(item.value_vector_3))
+            elif item.prop_type == "COLOR_4":
+                val_str = str(tuple(item.value_color_4))
+            else:
+                log.warning("Unknown property type %s for override %s", item.prop_type, path)
+                val_str = "None"
+
+            # Apply using try/except to avoid script crashes on faulty custom setups
+            script_lines.extend(
+                [
+                    "try:",
+                    f"    {path} = {val_str}",
+                    "except Exception as e:",
+                    f"    print(f'Failed to apply custom override {path}: {{e}}')",
+                ]
             )
-        else:
-            val_str = "None"
-
-        # Apply using try/except to avoid script crashes on faulty custom setups
-        script_lines.extend(
-            [
-                f"try:",
-                f"    {path} = {val_str}",
-                f"except Exception as e:",
-                f"    print(f'Failed to apply custom override {path}: {{e}}')",
-            ]
-        )
-    script_lines.append("")
+        script_lines.append("")
+    except Exception as e:
+        log.error("Error applying data path overrides: %s", e, exc_info=True)
 
 
 def _add_render_time_tracking(prefs, script_lines):
-    """Add script lines for tracking render time."""
+    """Add script lines for tracking render time for animation and frame list."""
+    if not prefs.track_render_time:
+        return
+
+    generated_lines = []
+
     if prefs.launch_mode == MODE_SEQ:
-        script_lines.extend(_load_template_script("render_time.py"))
-        script_lines.append("")
+        # Load the template lines
+        generated_lines.extend(_load_template_script("render_time.py"))
+        if generated_lines:
+            script_lines.extend(_wrap_in_try(generated_lines, "Render Time Tracking"))
+            script_lines.append("")
+
     elif prefs.launch_mode == MODE_LIST:
         script_lines.extend(
             [
@@ -138,24 +187,23 @@ def _add_render_time_tracking(prefs, script_lines):
 
 
 def _apply_motion_blur_settings(settings, script_lines):
-    """Apply motion blur settings."""
+    """Apply motion blur override settings."""
     if settings.override_settings.motion_blur_override:
+        lines = [
+            f"bpy.context.scene.render.use_motion_blur = {settings.override_settings.use_motion_blur}",
+            f"bpy.context.scene.render.motion_blur_position = '{settings.override_settings.motion_blur_position}'",
+            f"bpy.context.scene.render.motion_blur_shutter = {settings.override_settings.motion_blur_shutter}",
+            "",
+        ]
         script_lines.append("# Motion Blur Settings")
-        script_lines.extend(
-            [
-                f"bpy.context.scene.render.use_motion_blur = {settings.override_settings.use_motion_blur}",
-                f"bpy.context.scene.render.motion_blur_position = '{settings.override_settings.motion_blur_position}'",
-                f"bpy.context.scene.render.motion_blur_shutter = {settings.override_settings.motion_blur_shutter}",
-                "",
-            ]
-        )
+        script_lines.extend(lines)
 
 
-def _apply_frame_settings(is_animation, frame_start, frame_end, frame_step, script_lines):
+def _apply_frame_settings(prefs, is_animation, frame_start, frame_end, frame_step, script_lines):
     """Apply frame start, end, and step settings."""
-    script_lines.append("# Frame Settings")
+    lines = []
     if is_animation:
-        script_lines.extend(
+        lines.extend(
             [
                 f"bpy.context.scene.frame_start = {frame_start}",
                 f"bpy.context.scene.frame_end = {frame_end}",
@@ -164,65 +212,87 @@ def _apply_frame_settings(is_animation, frame_start, frame_end, frame_step, scri
             ]
         )
     else:
-        script_lines.append(f"bpy.context.scene.frame_set({frame_start})")
-        script_lines.append("")
+        lines.append(f"bpy.context.scene.frame_set({frame_start})")
+        lines.append("")
+
+    if prefs.launch_mode != MODE_LIST:
+        script_lines.append("# Frame Settings")
+        script_lines.extend(lines)
 
 
-def _apply_camera_settings(context, settings, script_lines):
-    """Apply camera-specific overrides."""
-    if settings.override_settings.cameras_override:
-        # Depth of Field Settings
-        if settings.override_settings.override_dof:
-            script_lines.append("# Camera Depth of Field Settings")
-            script_lines.extend(
-                [
-                    "for obj in bpy.data.objects:",
-                    "    if obj.type == 'CAMERA':",
-                    f"        obj.data.dof.use_dof = {bool(settings.override_settings.use_dof == 'ENABLED')}",
-                    "",
-                ]
-            )
+def _apply_camera_settings(settings, script_lines):
+    """Apply camera overrides."""
+    if not settings.override_settings.cameras_override:
+        return
 
-        # Lens Shift
-        set_camera_shift = (
-            settings.override_settings.camera_shift_x != 0.0 or settings.override_settings.camera_shift_y != 0.0
+    lines = []
+
+    # Depth of Field Settings
+    if settings.override_settings.override_dof:
+        lines.extend(
+            [
+                "for obj in bpy.data.objects:",
+                "    if obj.type == 'CAMERA':",
+                f"        obj.data.dof.use_dof = {bool(settings.override_settings.use_dof == 'ENABLED')}",
+                "",
+            ]
         )
 
-        if set_camera_shift:
-            script_lines.append("# Camera Lens Shift Settings")
-            script_lines.extend(
-                [
-                    "for obj in bpy.data.objects:",
-                    "    if obj.type == 'CAMERA':",
-                    f"        obj.data.shift_x += {settings.override_settings.camera_shift_x}",
-                    f"        obj.data.shift_y += {settings.override_settings.camera_shift_y}",
-                    "",
-                ]
-            )
+    # Lens Shift
+    set_camera_shift = (
+        settings.override_settings.camera_shift_x != 0.0 or settings.override_settings.camera_shift_y != 0.0
+    )
+    if set_camera_shift:
+        lines.extend(
+            [
+                "for obj in bpy.data.objects:",
+                "    if obj.type == 'CAMERA':",
+                f"        obj.data.shift_x += {settings.override_settings.camera_shift_x}",
+                f"        obj.data.shift_y += {settings.override_settings.camera_shift_y}",
+                "",
+            ]
+        )
+
+    if lines:
+        script_lines.append("# Camera Settings")
+        script_lines.extend(_wrap_in_try(lines, "Camera Settings", True))
 
 
 def _apply_resolution_settings(context, settings, script_lines):
-    """Apply resolution, scale, camera shift, and overscan settings."""
-    if settings.override_settings.format_override:
+    """Apply overrides: resolution, scale, camera shift, and overscan settings."""
+    if not settings.override_settings.format_override:
+        return
+
+    try:
         script_lines.append("# Format Settings")
+        lines = []
 
         if settings.override_settings.resolution_override:
             resolution_mode = settings.override_settings.resolution_mode
             if resolution_mode == "SET_WIDTH":
                 base_x = settings.override_settings.resolution_x
-                base_y = calculate_auto_height(context)
+                try:
+                    base_y = calculate_auto_height(context)
+                except Exception as e:
+                    log.warning("Failed to calculate auto height: %s", e)
+                    base_y = settings.override_settings.resolution_y
             elif resolution_mode == "SET_HEIGHT":
                 base_y = settings.override_settings.resolution_y
-                base_x = calculate_auto_width(context)
+                try:
+                    base_x = calculate_auto_width(context)
+                except Exception as e:
+                    log.warning("Failed to calculate auto width: %s", e)
+                    base_x = settings.override_settings.resolution_x
             else:
                 base_x = settings.override_settings.resolution_x
                 base_y = settings.override_settings.resolution_y
 
-            scale = settings.override_settings.custom_render_scale / 100
+            # Prevent zero scaling crash
+            scale = max(1.0, float(settings.override_settings.custom_render_scale)) / 100.0
 
             scaled_x = int(round(base_x * scale / 2) * 2)
             scaled_y = int(round(base_y * scale / 2) * 2)
-            script_lines.extend(
+            lines.extend(
                 [
                     f"bpy.context.scene.render.resolution_x = {scaled_x}",
                     f"bpy.context.scene.render.resolution_y = {scaled_y}",
@@ -231,9 +301,9 @@ def _apply_resolution_settings(context, settings, script_lines):
                 ]
             )
         else:
-            # Apply scale settings
-            scale = settings.override_settings.custom_render_scale
-            script_lines.extend(
+            # Apply scale settings safely
+            scale = max(1.0, float(settings.override_settings.custom_render_scale))
+            lines.extend(
                 [
                     f"scale_factor = {scale} / 100.0",
                     "base_x = bpy.context.scene.render.resolution_x",
@@ -250,7 +320,7 @@ def _apply_resolution_settings(context, settings, script_lines):
         if settings.override_settings.use_overscan:
             # Calculate overscan value based on type
             if settings.override_settings.overscan_type == "PERCENTAGE":
-                script_lines.extend(
+                lines.extend(
                     [
                         "base_res_x = bpy.context.scene.render.resolution_x",
                         "base_res_y = bpy.context.scene.render.resolution_y",
@@ -258,19 +328,18 @@ def _apply_resolution_settings(context, settings, script_lines):
                         f"overscan_y = int(base_res_y * {settings.override_settings.overscan_percent} / 100)",
                     ]
                 )
-
             else:  # PIXELS
                 if settings.override_settings.overscan_uniform:
-                    script_lines.append(f"overscan_x = overscan_y = {settings.override_settings.overscan_width}")
+                    lines.append(f"overscan_x = overscan_y = {settings.override_settings.overscan_width}")
                 else:
-                    script_lines.extend(
+                    lines.extend(
                         [
                             f"overscan_x = {settings.override_settings.overscan_width}",
                             f"overscan_y = {settings.override_settings.overscan_height}",
                         ]
                     )
 
-            script_lines.extend(
+            lines.extend(
                 [
                     "original_resolution = (bpy.context.scene.render.resolution_x, bpy.context.scene.render.resolution_y)",
                     "",
@@ -283,25 +352,25 @@ def _apply_resolution_settings(context, settings, script_lines):
             )
 
             if set_camera_shift:
-                script_lines.extend(
+                lines.extend(
                     [
-                        "scale_x = original_resolution[0] / (original_resolution[0] + 2 * overscan_x)",
-                        "scale_y = original_resolution[1] / (original_resolution[1] + 2 * overscan_y)",
+                        "scale_x = original_resolution[0] / max(1, (original_resolution[0] + 2 * overscan_x))",
+                        "scale_y = original_resolution[1] / max(1, (original_resolution[1] + 2 * overscan_y))",
                     ]
                 )
 
             # Apply camera shift and lens scaling
-            script_lines.extend(
+            lines.extend(
                 [
                     "for obj in bpy.data.objects:",
                     "    if obj.type == 'CAMERA':",
-                    "        obj.data.lens = obj.data.lens * (original_resolution[0] / (original_resolution[0] + 2 * overscan_x))",
+                    "        obj.data.lens = obj.data.lens * (original_resolution[0] / max(1, (original_resolution[0] + 2 * overscan_x)))",
                     "",
                 ]
             )
 
             if set_camera_shift:
-                script_lines.extend(
+                lines.extend(
                     [
                         "        obj.data.shift_x *= scale_x",
                         "        obj.data.shift_y *= scale_y",
@@ -310,7 +379,7 @@ def _apply_resolution_settings(context, settings, script_lines):
                 )
 
             # Update render resolution
-            script_lines.extend(
+            lines.extend(
                 [
                     "bpy.context.scene.render.resolution_x = original_resolution[0] + 2 * overscan_x",
                     "bpy.context.scene.render.resolution_y = original_resolution[1] + 2 * overscan_y",
@@ -318,160 +387,128 @@ def _apply_resolution_settings(context, settings, script_lines):
                 ]
             )
 
+        script_lines.extend(_wrap_in_try(lines, "Resolution and Format Settings", True))
+
+    except Exception as e:
+        log.error("Error applying resolution settings: %s", e, exc_info=True)
+
 
 def _apply_output_format_settings(settings, script_lines):
-    """Apply output format settings."""
-    if settings.override_settings.file_format_override:
-        script_lines.append("# File Format Settings")
+    """Apply file format override settings."""
+    try:
+        if settings.override_settings.file_format_override:
+            script_lines.append("# File Format Settings")
+            lines = []
 
-        if settings.override_settings.file_format == "OPEN_EXR_MULTILAYER":
-            media_type_val = "MULTI_LAYER_IMAGE"
-        else:
-            media_type_val = "IMAGE"
+            if settings.override_settings.file_format == "OPEN_EXR_MULTILAYER":
+                media_type_val = "MULTI_LAYER_IMAGE"
+            else:
+                media_type_val = "IMAGE"
 
-        # Blender 5.0 - New media_type
-        script_lines.extend(
-            [
-                "if bpy.app.version > (5, 0, 0):",
-                f"    bpy.context.scene.render.image_settings.media_type = '{media_type_val}'",
-            ]
-        )
-
-        script_lines.append(
-            f"bpy.context.scene.render.image_settings.file_format = '{settings.override_settings.file_format}'"
-        )
-        if settings.override_settings.file_format in [
-            "OPEN_EXR",
-            "OPEN_EXR_MULTILAYER",
-            "PNG",
-            "TIFF",
-        ]:
-            script_lines.append(
-                f"bpy.context.scene.render.image_settings.color_depth = '{settings.override_settings.color_depth}'"
+            # Blender 5.0 - New media_type
+            lines.extend(
+                [
+                    "if bpy.app.version >= (5, 0, 0):",
+                    f"    bpy.context.scene.render.image_settings.media_type = '{media_type_val}'",
+                ]
             )
 
-        if settings.override_settings.file_format in ["OPEN_EXR", "OPEN_EXR_MULTILAYER"]:
-            script_lines.append(
-                f"bpy.context.scene.render.image_settings.exr_codec = '{settings.override_settings.codec}'"
+            lines.append(
+                f"bpy.context.scene.render.image_settings.file_format = '{settings.override_settings.file_format}'"
             )
-        elif settings.override_settings.file_format == "JPEG":
-            script_lines.append(
-                f"bpy.context.scene.render.image_settings.quality = {settings.override_settings.jpeg_quality}"
-            )
-        script_lines.append("")
+            if settings.override_settings.file_format in [
+                "OPEN_EXR",
+                "OPEN_EXR_MULTILAYER",
+                "PNG",
+                "TIFF",
+            ]:
+                lines.append(
+                    f"bpy.context.scene.render.image_settings.color_depth = '{settings.override_settings.color_depth}'"
+                )
+
+            if settings.override_settings.file_format in ["OPEN_EXR", "OPEN_EXR_MULTILAYER"]:
+                lines.append(
+                    f"bpy.context.scene.render.image_settings.exr_codec = '{settings.override_settings.codec}'"
+                )
+            elif settings.override_settings.file_format == "JPEG":
+                lines.append(
+                    f"bpy.context.scene.render.image_settings.quality = {settings.override_settings.jpeg_quality}"
+                )
+
+            script_lines.extend(_wrap_in_try(lines, "Output Format Settings", True))
+
+    except Exception as e:
+        log.error("Error applying output format settings: %s", e, exc_info=True)
 
 
 def _apply_compositing_settings(settings, script_lines):
-    """Apply compositing settings."""
+    """Apply compositing override settings."""
     if settings.override_settings.compositor_override:
-        script_lines.append("# Compositor Settings")
-
-        script_lines.extend(
+        lines = []
+        lines.extend(
             [
-                "if bpy.app.version < (5, 0, 0):",
-                f"    bpy.context.scene.use_nodes = {settings.override_settings.use_compositor}",
+                "# Compositor Settings",
+                f"bpy.context.scene.render.use_compositing = {settings.override_settings.use_compositor}",
+                f"bpy.context.scene.render.compositor_device = '{settings.override_settings.compositor_device}'",
+                "",
             ]
         )
 
-        if not settings.override_settings.use_compositor:
-            script_lines.extend(
-                [
-                    "if bpy.app.version > (5, 0, 0):",
-                    f"    bpy.context.scene.compositing_node_group = None",
-                    "",
-                ]
-            )
-        script_lines.append(
-            f"bpy.context.scene.render.compositor_device = '{settings.override_settings.compositor_device}'"
-        )
-
         if settings.override_settings.compositor_disable_output_files and settings.override_settings.use_compositor:
-            script_lines.extend(
+            lines.extend(
                 [
-                    "for node in bpy.context.scene.node_tree.nodes:",
-                    "    if node.type == 'OUTPUT_FILE':",
-                    "        node.mute = True",
+                    "# Disable File Output",
+                    'node_tree = getattr(bpy.context.scene, "compositing_node_group", getattr(bpy.context.scene, "node_tree", None))',
+                    "if node_tree:",
+                    "    for node in node_tree.nodes:",
+                    "        if node.type == 'OUTPUT_FILE':",
+                    "            node.mute = True",
                     "",
                 ]
             )
 
+        script_lines.extend(_wrap_in_try(lines, "Compositor Settings", True))
 
-def _apply_cycles_settings(context, prefs, settings, selected_ids, script_lines):
+
+def _apply_cycles_settings(prefs, settings, selected_ids, script_lines):
     """Apply Cycles-specific rendering settings."""
-    override_settings = settings.override_settings
+    try:
+        override_settings = settings.override_settings
 
-    script_lines.append("# Cycles Settings")
+        if not (
+            prefs.manage_cycles_devices
+            or override_settings.cycles.device_override
+            or override_settings.cycles.sampling_override
+            or override_settings.cycles.performance_override
+        ):
+            return
 
-    if prefs.multiple_backends and prefs.launch_mode != MODE_SINGLE and prefs.device_parallel:
-        # Get all device types for the selected IDs (not using global preference)
-        device_types = set()
-        for dev_id in selected_ids:
-            for device in prefs.devices:
-                if device.id == dev_id and device.use:  # Only use enabled devices
-                    device_types.add(device.type)
-                    break
+        script_lines.append("# Cycles Settings")
+        lines = []
+        lines.append(f"if bpy.context.scene.render.engine == '{RE_CYCLES}':")
 
-        # Determine correct backend based on actual devices used
-        if not device_types:  # No valid devices found
-            cycles_backend = "NONE"
-        else:
-            backend_type = next(iter(device_types))
-            cycles_backend = "NONE" if backend_type == "CPU" else backend_type
-    else:
-        cycles_backend = "NONE" if prefs.compute_device_type == "CPU" else prefs.compute_device_type
+        # Apply compute device override
+        if override_settings.cycles.device_override:
+            lines.append(f"    bpy.context.scene.cycles.device = '{override_settings.cycles.device}'")
+            lines.append("")
 
-    formatted_ids = json.dumps(selected_ids, indent=4).replace("\n", "\n    ")
+        _apply_cycles_device_settings(prefs, selected_ids, lines)
+        _apply_cycles_sampling_settings(override_settings, lines)
+        _apply_cycles_performance_settings(override_settings, lines)
 
-    script_lines.extend(
-        [
-            f"if bpy.context.scene.render.engine == '{RE_CYCLES}':",
-        ]
-    )
+        # Wrap all Cycles code together
+        script_lines.extend(_wrap_in_try(lines, "Cycles Overrides", True))
 
-    # Apply device override FIRST (if configured) so we check the final device type
-    if override_settings.cycles.device_override:
-        script_lines.append(f"    bpy.context.scene.cycles.device = '{override_settings.cycles.device}'")
-        script_lines.append("")
-
-    # Conditional device configuration based on final cycles.device value
-    script_lines.extend(
-        [
-            "    if bpy.context.scene.cycles.device == 'GPU':",
-            "        preferences = bpy.context.preferences.addons['cycles'].preferences",
-            f"        preferences.compute_device_type = '{cycles_backend}'",
-            f"        selected_ids = {formatted_ids}",
-            "        for device in preferences.devices:",
-            "            device.use = device.id in selected_ids",
-            "",
-            "        # Print enabled GPU devices",
-            "        enabled_devices = [d for d in preferences.devices if d.use]",
-            "        if enabled_devices:",
-            "            print('Devices: ' + enabled_devices[0].name + ' (' + enabled_devices[0].type + ') [' + enabled_devices[0].id + ']')",
-            "            for d in enabled_devices[1:]:",
-            "                print('\\t ' + d.name + ' (' + d.type + ') [' + d.id + ']')",
-            "    else:",
-            "        # CPU rendering: print CPU device info",
-            "        preferences = bpy.context.preferences.addons['cycles'].preferences",
-            "        cpu_devices = [d for d in preferences.devices if d.type == 'CPU']",
-            "        if cpu_devices:",
-            "            print('Device: ' + cpu_devices[0].name + ' (CPU) [' + cpu_devices[0].id + ']')",
-            "        else:",
-            "            print('Device: CPU (no CPU device found)')",
-            "",
-        ]
-    )
-
-    _apply_cycles_sampling_settings(override_settings, script_lines)
-    _apply_cycles_performance_settings(override_settings, script_lines)
+    except Exception as e:
+        log.error("Error applying Cycles settings: %s", e, exc_info=True)
 
 
-def _apply_cycles_sampling_settings(override_settings, script_lines):
+def _apply_cycles_sampling_settings(override_settings, lines):
     """Apply Cycles sampling settings."""
     if not override_settings.cycles.sampling_override:
         return
 
     cycles = override_settings.cycles
-    lines = []
 
     if cycles.sampling_mode == "FACTOR":
         factor = float(cycles.sampling_factor)
@@ -482,7 +519,7 @@ def _apply_cycles_sampling_settings(override_settings, script_lines):
                 "    bpy.context.scene.cycles.samples = max(1, int(bpy.context.scene.cycles.samples * quality_factor))",
                 "    bpy.context.scene.cycles.adaptive_min_samples = int(bpy.context.scene.cycles.adaptive_min_samples * quality_factor)",
                 "    # Noise scales by the inverse square root of samples",
-                "    bpy.context.scene.cycles.adaptive_threshold = bpy.context.scene.cycles.adaptive_threshold / (quality_factor ** 0.5)",
+                "    bpy.context.scene.cycles.adaptive_threshold = bpy.context.scene.cycles.adaptive_threshold / max(0.0001, (quality_factor ** 0.5))",
                 "    bpy.context.scene.cycles.time_limit = bpy.context.scene.cycles.time_limit * quality_factor",
                 "",
             ]
@@ -506,7 +543,7 @@ def _apply_cycles_sampling_settings(override_settings, script_lines):
             [
                 f"    bpy.context.scene.cycles.use_denoising = {cycles.use_denoising}",
                 f"    bpy.context.scene.cycles.denoiser = '{cycles.denoiser}'",
-                f"    bpy.context.scene.cycles.denoising_input_passes = '{cycles.denoising_input_passes}'",  # Fixed typo
+                f"    bpy.context.scene.cycles.denoising_input_passes = '{cycles.denoising_input_passes}'",
                 "",
             ]
         )
@@ -521,113 +558,311 @@ def _apply_cycles_sampling_settings(override_settings, script_lines):
                 ]
             )
 
-        if cycles.denoising_store_passes:
-            lines.extend(
-                [
-                    "    for layer in bpy.context.scene.view_layers:",
-                    "        layer.cycles.denoising_store_passes = True",
-                    "",
-                ]
-            )
 
-    script_lines.extend(lines)
-
-
-def _apply_cycles_performance_settings(override_settings, script_lines):
+def _apply_cycles_performance_settings(override_settings, lines):
     """Apply Cycles performance settings."""
     if not override_settings.cycles.performance_override:
         return
 
     cycles = override_settings.cycles
-    lines = [
-        f"    bpy.context.scene.cycles.use_auto_tile = {cycles.use_tiling}",
-        f"    bpy.context.scene.cycles.tile_size = {cycles.tile_size}",
-        f"    bpy.context.scene.render.use_persistent_data = {cycles.persistent_data}",
-        "",
-    ]
+    lines.extend(
+        [
+            f"    bpy.context.scene.cycles.use_auto_tile = {cycles.use_tiling}",
+            f"    bpy.context.scene.cycles.tile_size = {cycles.tile_size}",
+            f"    bpy.context.scene.render.use_persistent_data = {cycles.persistent_data}",
+            "",
+        ]
+    )
 
-    script_lines.extend(lines)
+
+def _apply_cycles_device_settings(prefs, selected_ids, lines):
+    """Apply Cycles device settings."""
+    if not prefs.manage_cycles_devices:
+        return
+
+    if prefs.multiple_backends and prefs.launch_mode != MODE_SINGLE and prefs.device_parallel:
+        devices = getattr(prefs, "devices", [])
+        # Get the first enabled device matching selected_ids
+        match = next((d for d in devices if d.id in selected_ids and d.use), None)
+        backend_type = match.type if match else "CPU"  # "CPU" resolves to "NONE" below
+    else:
+        backend_type = prefs.compute_device_type
+
+    cycles_backend = "NONE" if backend_type == "CPU" else backend_type
+
+    formatted_ids = json.dumps(list(selected_ids), indent=4).replace("\n", "\n            ")
+
+    lines.extend(
+        [
+            "    cycles_prefs = bpy.context.preferences.addons['cycles'].preferences",
+            "    is_gpu = bpy.context.scene.cycles.device == 'GPU'",
+            "",
+            "    if is_gpu:",
+            f"        cycles_prefs.compute_device_type = '{cycles_backend}'",
+            f"        selected_ids = {formatted_ids}",
+            "        for d in cycles_prefs.devices:",
+            "            d.use = d.id in selected_ids",
+            "        active_devices = [d for d in cycles_prefs.devices if d.use]",
+            "    else:",
+            "        active_devices = [d for d in cycles_prefs.devices if d.type == 'CPU']",
+            "",
+            "    # Print enabled devices",
+            "    if active_devices:",
+            "        prefix = 'Devices: ' if is_gpu else 'Device: '",
+            "        for i, d in enumerate(active_devices):",
+            "            indent = prefix if i == 0 else '\\t '",
+            "            print(f'{indent}{d.name} ({d.type}) [{d.id}]')",
+            "    elif not is_gpu:",
+            "        print('Device: CPU')",
+            "",
+        ]
+    )
 
 
 def _apply_eevee_settings(settings, script_lines):
-    """Apply EEVEE-specific rendering settings."""
+    """Add EEVEE override settings."""
     override_settings = settings.override_settings
     if not override_settings.eevee_override:
         return
 
     script_lines.append("# EEVEE Settings")
-
     eevee = override_settings.eevee
+
     lines = [
         f"if bpy.context.scene.render.engine in {{'{RE_EEVEE_NEXT}', '{RE_EEVEE}'}}:",
         f"    bpy.context.scene.eevee.taa_render_samples = {eevee.samples}",
-        f"    bpy.context.scene.eevee.use_shadows = {eevee.use_shadows}",
-        f"    bpy.context.scene.eevee.shadow_ray_count = {eevee.shadow_ray_count}",
-        f"    bpy.context.scene.eevee.shadow_step_count = {eevee.shadow_step_count}",
-        f"    bpy.context.scene.eevee.use_raytracing = {eevee.use_raytracing}",
-        f'    bpy.context.scene.eevee.ray_tracing_method = "{eevee.ray_tracing_method}"',
-        f'    bpy.context.scene.eevee.ray_tracing_options.resolution_scale = "{eevee.ray_tracing_resolution}"',
-        f"    bpy.context.scene.eevee.ray_tracing_options.use_denoise = {eevee.ray_tracing_denoise}",
-        f"    bpy.context.scene.eevee.ray_tracing_options.denoise_temporal = {eevee.ray_tracing_denoise_temporal}",
-        f"    bpy.context.scene.eevee.use_fast_gi = {eevee.fast_gi}",
-        f"    bpy.context.scene.eevee.ray_tracing_options.trace_max_roughness = {eevee.trace_max_roughness}",
-        f'    bpy.context.scene.eevee.fast_gi_resolution = "{eevee.fast_gi_resolution}"',
-        f"    bpy.context.scene.eevee.fast_gi_step_count = {eevee.fast_gi_step_count}",
-        f"    bpy.context.scene.eevee.fast_gi_distance = {eevee.fast_gi_distance}",
-        f'    bpy.context.scene.eevee.volumetric_tile_size = "{eevee.volumetric_tile_size}"',
-        f"    bpy.context.scene.eevee.volumetric_samples = {eevee.volume_samples}",
         "",
     ]
 
     script_lines.extend(lines)
 
 
-def _load_template_script(template_name):
-    """Load a template script from the operators directory."""
-    template_path = Path(__file__).parent / "templates" / template_name
+def _get_log_file_path(prefs, blend_file, log_filename: str, target_dir=None) -> str:
+    """Determine the log folder based on preferences and return the full log file path."""
+    if not prefs.log_to_file:
+        return ""
+
+    def _ensure_dir(path: Path) -> Path:
+        try:
+            path.mkdir(parents=True, exist_ok=True)
+        except OSError as exc:
+            raise OSError(f"Failed to create log directory '{path}'.") from exc
+        return path
+
+    logs_folder_name_str = prefs.logs_folder_name if prefs.save_to_log_folder else ""
+
+    if prefs.log_to_file_location == "EXECUTION_FILES" and target_dir:
+        log_folder = _ensure_dir(Path(target_dir) / logs_folder_name_str)
+
+    elif prefs.log_to_file_location == "BLEND_PATH":
+        base_folder = Path(blend_file).parent.resolve()
+        log_folder = _ensure_dir(base_folder / logs_folder_name_str)
+
+    elif prefs.log_to_file_location == "CUSTOM_PATH":
+        custom_path_str = prefs.log_custom_path.strip()
+        if custom_path_str:
+            custom_path = Path(bpy.path.abspath(custom_path_str))
+        else:
+            custom_path = Path(get_addon_temp_dir())
+
+        log_folder = _ensure_dir(custom_path / logs_folder_name_str)
+    else:
+        return ""
+
+    return str(log_folder / log_filename)
+
+
+def _resolve_script_base_name(blend_name: str, settings, prefs) -> str:
+    """Resolve the base filename for generated scripts based on preferences."""
+    parts = []
+    LAUNCH_MODE_MAP = {
+        MODE_SINGLE: "Still",
+        MODE_SEQ: "Animation",
+        MODE_LIST: "List",
+    }
+
+    if prefs.use_blend_name_in_script:
+        parts.append(blend_name)
+    if prefs.use_render_type_in_script:
+        render_type = LAUNCH_MODE_MAP.get(prefs.launch_mode)
+        parts.append(render_type)
+    if prefs.use_export_date_in_script:
+        parts.append(datetime.now().strftime("%Y-%m-%d_%H%M%S"))
+    parts.append(settings.render_id)
+
+    return "_".join(parts)
+
+
+def _create_process_files(self, prefs, settings, blend_file, script_lines, process_id, target_dir) -> Path | None:
+    """Creates the .py script and the OS-specific shell/batch script."""
+    blend_name = Path(blend_file).stem
+    sanitized_blend_name = bpy.path.clean_name(blend_name)
+    base_name = _resolve_script_base_name(sanitized_blend_name, settings, prefs)
+
+    exec_extension = ".bat" if _IS_WINDOWS else ".sh"
+
+    py_filename = f"{base_name}_script{process_id}.py"
+    exec_filename = f"{base_name}_worker{process_id}{exec_extension}"
+    log_filename = f"{base_name}_worker{process_id}.log"
+
     try:
-        with open(template_path, "r") as f:
-            template_content = f.read()
-        return template_content.splitlines()
-    except Exception as e:
-        log.error(f"Failed to load template {template_name}: {str(e)}")
-        return []
+        if not target_dir.exists():
+            target_dir.mkdir(parents=True, exist_ok=True)
 
+        py_path = target_dir / py_filename
+        py_path.write_text("\n".join(script_lines), encoding="utf-8")
+    except (OSError, IOError) as exc:
+        self.report({"ERROR"}, f"Failed to save python script: {exc}")
+        return None
 
-def _add_notification_script(prefs, script_lines):
-    if prefs.send_desktop_notifications:
-        notification_content = _load_template_script("desktop_notification.py")
+    # Determine Shell/Batch Script Content
+    blender_exec = str(bpy.app.binary_path)
+    shell_content = []
 
-        # Replace the placeholder with the actual value
-        notification_content = (
-            "\n".join(notification_content)
-            .replace(
-                "frame_length_digits = 4",
-                f"frame_length_digits = {prefs.frame_length_digits}",
-            )
-            .replace(
-                "frame_path = bpy.context.scene.frame_current",
-                "frame_path = bpy.context.scene.frame_start"
-                if {prefs.launch_mode == MODE_SEQ}
-                else "frame_path = bpy.context.scene.frame_current",
-            )
-            .replace(
-                'NOTIFICATION_DETAIL_LEVEL = "DETAILED"',
-                f'NOTIFICATION_DETAIL_LEVEL = "{prefs.notification_detail_level}"',
-            )
+    # OS-specific helpers
+    def set_env(var: str, val: str, is_path_expr: bool = False, export: bool = False) -> str:
+        if _IS_WINDOWS:
+            if not is_path_expr:
+                val = val.replace("%", "%%")
+            return f'set "{var}={val}"'
+        prefix = "export " if export else ""
+        safe_val = f'"{val}"' if is_path_expr else shlex.quote(val)
+        return f"{prefix}{var}={safe_val}"
+
+    def ref_env(var: str) -> str:
+        return f'"%{var}%"' if _IS_WINDOWS else f'"${var}"'
+
+    # Platform-specific header construction
+    if _IS_WINDOWS:
+        shell_content.extend(
+            [
+                "@echo off",
+                f"REM {ADDON_INFO}",
+                "",
+                'cd /d "%~dp0"',
+                "",
+            ]
         )
+        rc_script_val = f"%~dp0{py_filename}"
+        script_check = [
+            'if not exist "%RC_SCRIPT%" (',
+            '    echo ERROR: Script not found: "%RC_SCRIPT%"',
+            "    exit /b 1",
+            ")",
+        ]
+    else:
+        shell_content.extend(
+            [
+                "#!/bin/bash",
+                f"# {ADDON_INFO}",
+                "",
+                'cd "$(dirname "$0")"',
+                "",
+            ]
+        )
+        rc_script_val = f"$(pwd)/{py_filename}"
+        script_check = [
+            'if [ ! -f "$RC_SCRIPT" ]; then',
+            '    echo "ERROR: Script not found: $RC_SCRIPT"',
+            "    exit 1",
+            "fi",
+        ]
 
-        script_lines.extend(notification_content.splitlines())
-        script_lines.append("")
-
-
-def _add_prevent_sleep_commands(prefs, script_lines):
-    prevent_sleep_content = _load_template_script("prevent_sleep.py")
-
-    # Replace placeholder with actual value
-    prevent_sleep_content = "\n".join(prevent_sleep_content).replace(
-        "prevent_monitor_off", "True" if prefs.prevent_monitor_off else "False"
+    # Shared variable assignments
+    shell_content.extend(
+        [
+            set_env("RC_BLENDER", blender_exec),
+            set_env("RC_BLEND", str(blend_file)),
+            set_env("RC_SCRIPT", rc_script_val, is_path_expr=True),
+            "",
+        ]
     )
+    shell_content.extend(script_check)
 
-    script_lines.extend(prevent_sleep_content.splitlines())
-    script_lines.append("")
+    if prefs.set_ocio and prefs.ocio_path:
+        shell_content.append(set_env("OCIO", bpy.path.abspath(prefs.ocio_path), export=True))
+
+    # Additional Scripts
+    def add_script_vars(order: str):
+        idx = 1
+        for entry in prefs.additional_scripts:
+            if entry.order == order and entry.script_path:
+                abs_path = Path(bpy.path.abspath(entry.script_path)).resolve()
+                if abs_path.is_file():
+                    shell_content.append(set_env(f"RC_{order}_SCRIPT_{idx}", str(abs_path)))
+                    idx += 1
+        return idx - 1
+
+    pre_c = add_script_vars("PRE") if prefs.append_python_scripts else 0
+    post_c = add_script_vars("POST") if prefs.append_python_scripts else 0
+
+    cmd_parts = [
+        ref_env("RC_BLENDER"),
+        f"--background {ref_env('RC_BLEND')}",
+    ]
+
+    for i in range(1, pre_c + 1):
+        cmd_parts.append(f"--python {ref_env(f'RC_PRE_SCRIPT_{i}')}")
+
+    # Render Commander Script
+    cmd_parts.append(f"--python {ref_env('RC_SCRIPT')}")
+
+    for i in range(1, post_c + 1):
+        cmd_parts.append(f"--python {ref_env(f'RC_POST_SCRIPT_{i}')}")
+
+    # Handle Custom Arguments
+    if prefs.add_command_line_args and prefs.custom_command_line_args.strip():
+        cmd_parts.append(prefs.custom_command_line_args.strip())
+
+    # Blender Render Debugging
+    if prefs.cmd_debug:
+        cmd_parts.append("--debug")
+
+        if prefs.debug_value != 0:
+            cmd_parts.append(f"--debug-value {prefs.debug_value}")
+
+        if prefs.verbose_level != "2":
+            cmd_parts.append(f"--verbose {prefs.verbose_level}")
+
+        if prefs.debug_cycles and get_render_engine(bpy.context) == RE_CYCLES:
+            cmd_parts.append("--debug-cycles")
+
+    # Log Redirection
+    if prefs.log_to_file:
+        log_file_path = str(_get_log_file_path(prefs, blend_file, log_filename, target_dir))
+        shell_content.append(set_env("RC_LOG", log_file_path))
+        cmd_parts.append(f"--log-file {ref_env('RC_LOG')}")
+
+    # Format the command string across multiple lines for readability
+    line_continue = " ^" if _IS_WINDOWS else " \\"
+    cmd_str = f"{line_continue}\n    ".join(cmd_parts)
+
+    shell_content.extend(["", f'echo "Executing Render: {blend_name} ({settings.render_id} - worker{process_id})"'])
+    if prefs.log_to_file:
+        shell_content.append(f"echo Log written to: {ref_env('RC_LOG')}")
+
+    shell_content.extend(["", cmd_str, ""])
+
+    # Pause/Cleanup logic
+    if prefs.keep_terminal_open:
+        shell_content.append("pause" if _IS_WINDOWS else 'read -p "Press enter to exit..."')
+
+    shell_content.append("exit")
+
+    # Write File
+    exec_path = target_dir / exec_filename
+    try:
+        exec_path.write_text("\n".join(shell_content), encoding="utf-8")
+        if not _IS_WINDOWS:
+            current_mode = exec_path.stat().st_mode
+            exec_path.chmod(current_mode | stat.S_IEXEC)
+    except (OSError, IOError) as exc:
+        self.report({"ERROR"}, f"Failed to save execution file: {exc}")
+        return None
+
+    # Open scripts folder
+    if prefs.auto_open_exported_folder and not settings.folder_opened:
+        settings.folder_opened = True
+        open_folder(target_dir)
+
+    return exec_path

@@ -1,50 +1,47 @@
-# ./operators/render/background_render.py
+"""
+This module contains the primary operators and workload management 
+logic for Render Commander. Serves as the high-level controller that 
+coordinates user input, calculates render distribution, and triggers 
+the script generation engine to produce final exportable assets.
+"""
 
 import json
 import logging
-import os
 import re
-import subprocess
-import sys
 import time
-import stat
-import shlex
-import shutil
 import string
 import random
-
 from datetime import datetime
 from pathlib import Path
 from dataclasses import dataclass
 from typing import List, Union, Tuple
 
 import bpy
-import bpy.app.timers
 from bpy.types import Operator
-from bpy.props import StringProperty, EnumProperty, BoolProperty
+from bpy.props import StringProperty, BoolProperty
 
-from ... import __package__ as base_package
-from ...preferences import get_addon_preferences
-from ...utils.constants import *
-from ...utils.helpers import (
+from ..preferences import get_addon_preferences
+from ..utils.constants import (
+    MODE_SINGLE,
+    MODE_SEQ,
+    MODE_LIST,
+    RE_CYCLES,
+    RE_EEVEE_NEXT,
+    RE_EEVEE,
+    RE_WORKBENCH,
+    RENDER_HISTORY_LIMIT,
+)
+from ..utils.helpers import (
     get_addon_temp_dir,
     is_blend_or_backup_file,
     replace_variables,
-    open_folder,
     calculate_auto_width,
     calculate_auto_height,
     format_to_title_case,
     get_render_engine,
-    redraw_ui,
 )
-from .generate_scripts import (
-    _generate_base_script,
-    _add_notification_script,
-)
-
-_IS_WINDOWS = sys.platform == "win32"
-_IS_MACOS = sys.platform == "darwin"
-_IS_LINUX = sys.platform.startswith("linux")
+from ..cycles_devices import get_devices_for_display
+from .generate_scripts import _generate_base_script, _create_process_files, _resolve_script_base_name
 
 
 log = logging.getLogger(__name__)
@@ -74,13 +71,13 @@ def generate_job_id() -> str:
     return base36 + random_char
 
 
-def parse_frame_string(frame_str: str) -> list:
+def parse_frame_string(frame_str: str) -> List[int]:
     """Parse a frame range string into a sorted list of integers."""
     frames = set()
     tokens = re.findall(r"\d+(?:-\d+)?", frame_str)
     for token in tokens:
         if "-" in token:
-            start, end = map(int, token.split("-"))
+            start, end = sorted(map(int, token.split("-")))
             frames.update(range(start, end + 1))
         else:
             frames.add(int(token))
@@ -103,7 +100,7 @@ def format_frame_range(frames_list: list) -> str:
         else:
             ranges.append((start, end))
             start = end = num
-        end = num
+
     ranges.append((start, end))
 
     formatted_ranges = []
@@ -116,25 +113,19 @@ def format_frame_range(frames_list: list) -> str:
     return f"[{', '.join(formatted_ranges)}]"
 
 
-def reset_button_state() -> None:
-    """Reset the render button state and redraw UI."""
+def get_scene_info(settings):
+    """Single source of truth for scene info parsing"""
+    if not settings.external_scene_info or not settings.is_scene_info_loaded:
+        return None
+
     try:
-        wm = bpy.context.window_manager
-        if wm is not None and hasattr(wm, "recom_render_settings"):
-            wm.recom_render_settings.disable_render_button = False
-            redraw_ui()
-    except Exception as e:
-        log.error(f"Failed to reset render button state: {e}")
-    return None
-
-
-def get_timestamp() -> str:
-    return datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-
-
-def get_default_render_output_path() -> Path:
-    """Get the default temporary directory path for renders."""
-    return Path(tempfile.gettempdir())
+        info = json.loads(settings.external_scene_info)
+        if info.get("blend_filepath", "") == "No Data":
+            return None
+        return info
+    except json.JSONDecodeError as e:
+        log.error("Failed to decode JSON: %s", e)
+        return None
 
 
 def validate_render_settings(operator, context) -> bool:
@@ -143,34 +134,34 @@ def validate_render_settings(operator, context) -> bool:
     prefs = get_addon_preferences(context)
     scene = context.scene
 
+    ext_info = {}
+    if settings.use_external_blend:
+        ext_info = get_scene_info(settings) or {}
+
     # Blend File
     if settings.use_external_blend:
         if not is_blend_or_backup_file(settings.external_blend_file_path):
             msg = "Invalid Blender file"
-            operator.report({"INFO"}, msg)
-            log.error(msg)
+            operator.report({"WARNING"}, msg)
+            log.error("%s", msg)
             return False
+
         if not settings.external_scene_info or settings.external_scene_info == "{}":
             msg = "Scene metadata not loaded. Use 'Read Scene'."
-            operator.report({"INFO"}, msg)
-            log.error(msg)
+            operator.report({"WARNING"}, msg)
+            log.error("%s", msg)
             return False
-        try:
-            if json.loads(settings.external_scene_info).get("blend_filepath", "") != settings.external_blend_file_path:
-                msg = "Mismatch between scene data and file. Reload scene data."
-                operator.report({"INFO"}, msg)
-                log.error(msg)
-                return False
-        except Exception as e:
-            log.error(f"Error validating external blend file path: {e}")
+
+        if ext_info.get("blend_filepath", "") != settings.external_blend_file_path:
+            msg = "Mismatch between scene data and file. Reload scene data."
+            operator.report({"WARNING"}, msg)
+            log.error("%s", msg)
             return False
+
     elif not bpy.data.filepath:
-        if operator.action_type == "RENDER":
-            msg = "Save the blend file before rendering"
-        else:  # EXPORT
-            msg = "Save the blend file before exporting scripts"
-        operator.report({"INFO"}, msg)
-        log.error(msg)
+        msg = "Save the blend file before exporting scripts"
+        operator.report({"WARNING"}, msg)
+        log.error("%s", msg)
         return False
 
     # Save Blend
@@ -179,101 +170,119 @@ def validate_render_settings(operator, context) -> bool:
             bpy.ops.wm.save_mainfile()
             log.info("Auto-saved")
         except Exception as e:
-            log.error(f"Failed to auto-save blend file: {e}")
+            log.error("Failed to auto-save blend file: %s", e)
             return False
 
     # FFMPEG File Format
     if not settings.override_settings.file_format_override:
-        is_mov = settings.use_external_blend and json.loads(settings.external_scene_info).get("is_movie_format", False)
+        is_mov = settings.use_external_blend and ext_info.get("is_movie_format", False)
         if prefs.launch_mode != MODE_SEQ and (scene.render.is_movie_format or is_mov):
             msg = "Current mode does not support FFMPEG animation output"
-            operator.report({"INFO"}, msg)
-            log.error(msg)
+            operator.report({"WARNING"}, msg)
+            log.error("%s", msg)
             return False
 
     # Empty Frame List
     if prefs.launch_mode == MODE_LIST and not settings.frame_list:
         msg = "Frame list required"
-        operator.report({"INFO"}, msg)
-        log.error(msg)
+        operator.report({"WARNING"}, msg)
+        log.error("%s", msg)
         return False
 
     if not settings.use_external_blend and scene.camera is None:
         msg = "No active camera"
-        operator.report({"INFO"}, msg)
-        log.error(msg)
+        operator.report({"WARNING"}, msg)
+        log.error("%s", msg)
         return False
 
-    # Executable
-    if prefs.blender_executable_source == "CUSTOM":
-        raw_path = prefs.custom_executable_path.strip()
+    # Animation: Prevent identical start/end frames
+    if prefs.launch_mode == MODE_SEQ:
+        if settings.override_settings.frame_range_override:
+            start, end = settings.override_settings.frame_start, settings.override_settings.frame_end
+        elif settings.use_external_blend:
+            start = ext_info.get("frame_start", 1)
+            end = ext_info.get("frame_end", 250)
+        else:
+            start = scene.frame_start
+            end = scene.frame_end
 
-        if not raw_path:
-            msg = "No Blender executable path is set"
-            operator.report({"INFO"}, msg)
-            log.error(msg)
-            return False
-
-        blender_exec = Path(bpy.path.abspath(raw_path))
-
-        if not blender_exec.exists():
-            msg = f"Blender executable path does not exist:\n{blender_exec}"
-            operator.report({"INFO"}, msg)
-            log.error(msg)
-            return False
-
-        if not blender_exec.is_file():
-            msg = f"Path is not a file:\n{blender_exec}"
-            operator.report({"INFO"}, msg)
-            log.error(msg)
+        if start == end:
+            msg = "Frame start must be less than end for animation"
+            operator.report({"WARNING"}, msg)
+            log.error("%s", msg)
+            prefs.launch_mode = MODE_SINGLE
             return False
 
     return True
 
 
-class RECOM_OT_BackgroundRender(Operator):
-    """Main operator for background rendering execution."""
+class RECOM_OT_ExportRenderScript(Operator):
+    """Main operator for background rendering script generation."""
 
-    """
-    1. **Validation**: Checks scene integrity, camera, and file status.
-    2. **Chunking**: Splits workload based on Engine (Cycles = Devices, Eevee = Iterations) and Mode (Seq/List).
-    3. **Generation**: Creates Python logic and Shell/Batch scripts for each process chunk.
-    4. **Execution**: Launches a Master Script to run processes in parallel or exports them.
-    """
-
-    bl_idname = "recom.background_render"
-    bl_label = "Background Render"
-    bl_description = "Run a background render"
-    bl_options = {"REGISTER", "UNDO"}
-
-    action_type: EnumProperty(
-        name="Action Type",
-        items=[
-            ("RENDER", "Render", "Execute render immediately"),
-            ("EXPORT", "Export Script", "Export batch file and script to folder"),
-        ],
-        default="RENDER",
-        options={"HIDDEN", "SKIP_SAVE"},
-    )
+    bl_idname = "recom.export_render_script"
+    bl_label = "Export Render Scripts"
+    bl_description = "Export script render files"
+    bl_options = {"REGISTER", "INTERNAL"}
 
     directory: StringProperty(
         name="Export Directory",
-        description="Directory to save the export files (passed from Export Operator)",
+        description="Directory to save the export files",
         subtype="DIR_PATH",
+    )
+    filter_folder: BoolProperty(
+        default=True,
         options={"HIDDEN", "SKIP_SAVE"},
     )
 
+    @classmethod
+    def description(cls, context, properties):
+        prefs = get_addon_preferences(context)
+        target = prefs.export_output_target
+        messages = {
+            "SELECT_DIR": "Choose a directory for render scripts",
+            "BLEND_DIR": "Save render scripts next to the .blend file",
+            "CUSTOM_PATH": f"Save render scripts to custom directory:\n'{prefs.custom_export_path}'",
+        }
+
+        return messages.get(target, "")
+
+    def invoke(self, context, event):
+        prefs = get_addon_preferences(context)
+
+        if not validate_render_settings(self, context):
+            return {"CANCELLED"}
+
+        if prefs.export_output_target != "SELECT_DIR":
+            self.directory = str(self._get_export_directory(context, prefs))
+            return self.execute(context)
+
+        context.window_manager.fileselect_add(self)
+        return {"RUNNING_MODAL"}
+
+    def draw(self, context):
+        layout = self.layout
+        layout.use_property_split = True
+        layout.use_property_decorate = False
+        prefs = get_addon_preferences(context)
+
+        col = layout.column()
+
+        folder_row = col.row(heading="Subfolder")
+        folder_row.prop(prefs, "export_scripts_subfolder", text="")
+        sub_folder_row = folder_row.row()
+        sub_folder_row.active = prefs.export_scripts_subfolder
+        sub_folder_row.prop(prefs, "export_scripts_folder_name", text="")
+        col.prop(prefs, "auto_open_exported_folder", text="Open Scripts Folder")
+
     def execute(self, context):
         """Main execution method that handles single and parallel rendering."""
-
         settings = context.window_manager.recom_render_settings
         prefs = get_addon_preferences(context)
         scene = context.scene
 
-        # Validation
-        if self.action_type == "RENDER":
-            if not validate_render_settings(self, context):
-                return {"CANCELLED"}
+        ext_info = {}
+        if settings.use_external_blend:
+            ext_info = get_scene_info(settings) or {}
 
         blend_file = (
             bpy.path.abspath(settings.external_blend_file_path)
@@ -281,19 +290,15 @@ class RECOM_OT_BackgroundRender(Operator):
             else bpy.data.filepath
         )
 
-        if self.action_type == "RENDER":
-            settings.disable_render_button = True
-            bpy.app.timers.register(reset_button_state, first_interval=0.75)
-
         settings.render_id = generate_job_id()
         settings.folder_opened = False
         render_engine = get_render_engine(context)
 
-        self._add_to_history(context, prefs, settings, scene, render_engine)
+        self._add_to_history(context, prefs, settings, scene, render_engine, ext_info)
 
         # Dispatch based on Engine and Parallelism logic
         if render_engine == RE_CYCLES:
-            return self._execute_cycles_render(context, prefs, settings, render_engine, blend_file, scene)
+            self._execute_cycles_export(context, prefs, settings, blend_file, scene, ext_info)
 
         elif render_engine in {RE_EEVEE_NEXT, RE_EEVEE, RE_WORKBENCH}:
             render_iterations = prefs.render_iterations
@@ -301,73 +306,78 @@ class RECOM_OT_BackgroundRender(Operator):
 
             # Logic Router
             if is_multi_instance and prefs.launch_mode == MODE_LIST:
-                chunks = self._calculate_chunks_list_iterations(prefs, settings, render_iterations)
+                chunks = self._calculate_chunks_list_iterations(settings, render_iterations)
 
             elif is_multi_instance and prefs.launch_mode == MODE_SEQ:
-                chunks = self._calculate_chunks_iterations_parallel(prefs, settings, scene, render_iterations)
+                chunks = self._calculate_chunks_iterations_parallel(prefs, settings, scene, render_iterations, ext_info)
 
             else:
                 # Single Process (Single frame, or List/Seq with multi_instance=False)
-                chunks = self._calculate_chunks_single_process(prefs, settings, scene, [])
+                chunks = self._calculate_chunks_single_process(prefs, settings, scene, [], ext_info)
 
-            total_processes = len(chunks)
             if not chunks:
                 return {"CANCELLED"}
 
-            return self._process_render_chunks(context, prefs, settings, blend_file, chunks, total_processes)
+            # Track workers for logging
+            settings.worker_count = len(chunks)
+
+            self._process_render_chunks(context, prefs, settings, blend_file, chunks, ext_info)
         else:
             self.report({"ERROR"}, f"Unsupported render engine: {render_engine}")
             return {"CANCELLED"}
 
-    def _add_to_history(self, context, prefs, settings, scene, render_engine):
+        if settings.first_worker_info:
+            self.report({"INFO"}, f"Saved: {settings.first_worker_info} ({settings.worker_count})")
+
+        folder_name = prefs.export_scripts_folder_name if prefs.export_scripts_subfolder else ""
+        target_dir = Path(self.directory) / folder_name
+        log.info('Render scripts saved to: "%s"', str(target_dir))
+
+        return {"FINISHED"}
+
+    def _get_export_directory(self, context, prefs) -> Path:
+        """Determine export directory based on preferences."""
+        settings = context.window_manager.recom_render_settings
+
+        if prefs.export_output_target == "BLEND_DIR":
+            if settings.use_external_blend and settings.external_blend_file_path:
+                blend_dir = settings.external_blend_file_path
+            else:
+                blend_dir = bpy.data.filepath
+
+            return Path(blend_dir).parent.as_posix()
+
+        if prefs.export_output_target == "CUSTOM_PATH" and prefs.custom_export_path:
+            custom_path = Path(prefs.custom_export_path).resolve()
+            if not custom_path.exists():
+                log.warning("Custom export path does not exist: '%s'. Using temp directory instead.", custom_path)
+            else:
+                return custom_path
+
+        # Fallback to temporary directory
+        temp_dir = get_addon_temp_dir().as_posix()
+        log.debug("Using temporary directory for export: %s", temp_dir)
+
+        return temp_dir
+
+    def _add_to_history(self, context, prefs, settings, scene, render_engine, ext_info: dict) -> None:
+        """Records the current render task details into the addon's persistent history collection."""
+
         history_item = prefs.render_history.add()
 
-        # Populate resolution
-        if settings.use_external_blend and settings.external_blend_file_path:
-            blend_path = bpy.path.abspath(settings.external_blend_file_path)
-            try:
-                info = json.loads(settings.external_scene_info)
-                if render_engine == RE_CYCLES:
-                    history_item.samples = str(info.get("samples", 0))
-                elif render_engine in {RE_EEVEE_NEXT, RE_EEVEE}:
-                    history_item.samples = str(info.get("eevee_samples", 0))
-                if not settings.override_settings.format_override:
-                    history_item.resolution_x = info.get("resolution_x", 0)
-                    history_item.resolution_y = info.get("resolution_y", 0)
-            except Exception as e:
-                log.error(f"Failed to populate history item from scene data: {e}")
+        override = settings.override_settings
+        is_external = settings.use_external_blend
+        is_eevee = render_engine in {RE_EEVEE_NEXT, RE_EEVEE}
 
-        else:
-            blend_path = bpy.data.filepath
-            if render_engine == RE_CYCLES:
-                history_item.samples = str(context.scene.cycles.samples)
-            elif render_engine in {RE_EEVEE_NEXT, RE_EEVEE}:
-                history_item.samples = str(context.scene.eevee.taa_render_samples)
-            if not settings.override_settings.format_override:
-                history_item.resolution_x = context.scene.render.resolution_x
-                history_item.resolution_y = context.scene.render.resolution_y
+        if not is_external:
+            ext_info = {}
 
-        if render_engine == RE_CYCLES and settings.override_settings.cycles.sampling_override:
-            if settings.override_settings.cycles.sampling_mode == "FACTOR":
-                history_item.samples = f"{settings.override_settings.cycles.sampling_factor}x"
-            else:
-                history_item.samples = str(settings.override_settings.cycles.samples)
-        elif (render_engine in {RE_EEVEE_NEXT, RE_EEVEE}) and settings.override_settings.eevee_override:
-            history_item.samples = str(settings.override_settings.eevee.samples)
-
-        if settings.override_settings.format_override:
-            resolution_mode = settings.override_settings.resolution_mode
-            if resolution_mode == "SET_WIDTH":
-                base_x = settings.override_settings.resolution_x
-                base_y = calculate_auto_height(context)
-            elif resolution_mode == "SET_HEIGHT":
-                base_y = settings.override_settings.resolution_y
-                base_x = calculate_auto_width(context)
-            else:
-                base_x = settings.override_settings.resolution_x
-                base_y = settings.override_settings.resolution_y
-            history_item.resolution_x = base_x
-            history_item.resolution_y = base_y
+        # File Paths
+        blend_path = (
+            bpy.path.abspath(settings.external_blend_file_path)
+            if (is_external and settings.external_blend_file_path)
+            else bpy.data.filepath
+        )
 
         if blend_path:
             path_obj = Path(blend_path)
@@ -379,71 +389,93 @@ class RECOM_OT_BackgroundRender(Operator):
             history_item.blend_dir = "Unknown"
             history_item.blend_file_name = "untitled"
 
-        history_item.render_engine = render_engine
-        history_item.render_id = settings.render_id
-        history_item.launch_mode = format_to_title_case(prefs.launch_mode)
+        # Resolution
+        if override.format_override:
+            res_mode = override.resolution_mode
+            history_item.resolution_x = (
+                override.resolution_x if res_mode in {"SET_WIDTH", "CUSTOM"} else calculate_auto_width(context)
+            )
+            history_item.resolution_y = (
+                override.resolution_y if res_mode in {"SET_HEIGHT", "CUSTOM"} else calculate_auto_height(context)
+            )
+        else:
+            history_item.resolution_x = ext_info.get("resolution_x", 0) if is_external else scene.render.resolution_x
+            history_item.resolution_y = ext_info.get("resolution_y", 0) if is_external else scene.render.resolution_y
 
-        # Format frames string
+        # Samples
+        if render_engine == RE_CYCLES:
+            if override.cycles.sampling_override:
+                history_item.samples = (
+                    f"{override.cycles.sampling_factor}x"
+                    if override.cycles.sampling_mode == "FACTOR"
+                    else str(override.cycles.samples)
+                )
+            else:
+                history_item.samples = str(ext_info.get("samples", 0) if is_external else scene.cycles.samples)
+
+        elif is_eevee:
+            if override.eevee_override:
+                history_item.samples = str(override.eevee.samples)
+            else:
+                history_item.samples = str(
+                    ext_info.get("eevee_samples", 0) if is_external else scene.eevee.taa_render_samples
+                )
+
+        # Frames
         if prefs.launch_mode == MODE_LIST and settings.frame_list:
             frames = format_frame_range(parse_frame_string(settings.frame_list))
         elif prefs.launch_mode == MODE_SEQ:
-            if settings.override_settings.frame_range_override:
-                frames = f"{settings.override_settings.frame_start}-{settings.override_settings.frame_end}"
+            if override.frame_range_override:
+                frames = f"{override.frame_start}-{override.frame_end}"
             else:
-                if settings.use_external_blend:
-                    try:
-                        info = json.loads(settings.external_scene_info)
-                        frames = f"{info.get('frame_start', '0')}-{info.get('frame_end', '0')}"
-                    except Exception as e:
-                        log.error(f"Error parsing external scene frame range: {e}")
-                        frames = "N/A"
-                else:
-                    frames = f"{scene.frame_start}-{scene.frame_end}"
-
+                frames = (
+                    f"{ext_info.get('frame_start', 0)}-{ext_info.get('frame_end', 0)}"
+                    if is_external
+                    else f"{scene.frame_start}-{scene.frame_end}"
+                )
         else:  # Single frame
-            if settings.override_settings.frame_range_override:
-                frames = str(settings.override_settings.frame_current)
+            if override.frame_range_override:
+                frames = str(override.frame_current)
             else:
-                if settings.use_external_blend:
-                    try:
-                        info = json.loads(settings.external_scene_info)
-                        frames = str(info.get("frame_current", "0"))
-                    except Exception as e:
-                        log.error(f"Error parsing external scene current frame: {e}")
-                        frames = "N/A"
-                else:
-                    frames = str(scene.frame_current)
+                frames = str(ext_info.get("frame_current", 0)) if is_external else str(scene.frame_current)
 
         history_item.frames = frames
 
-        # Set File Format
-        if settings.override_settings.file_format_override:
-            file_format = settings.override_settings.file_format
+        # File Format
+        if override.file_format_override:
+            history_item.file_format = override.file_format
         else:
-            if settings.use_external_blend:
-                try:
-                    info = json.loads(settings.external_scene_info)
-                    file_format = info.get("file_format", "")
-                except Exception as e:
-                    log.error(f"Error parsing external scene file format: {e}")
-                    file_format = "N/A"
-            else:
-                file_format = bpy.context.scene.render.image_settings.file_format
-        history_item.file_format = file_format
+            history_item.file_format = (
+                ext_info.get("file_format", "") if is_external else scene.render.image_settings.file_format
+            )
 
-        # Set date
-        now = datetime.now()
-        history_item.date = now.strftime("%Y-%m-%d %H:%M:%S")
+        # Metadata and Export Path
+        history_item.render_engine = render_engine
+        history_item.render_id = settings.render_id
+        history_item.launch_mode = format_to_title_case(prefs.launch_mode)
+        history_item.date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
+        export_path = Path(bpy.path.abspath(self.directory))
+        if prefs.export_scripts_subfolder:
+            export_path = export_path / prefs.export_scripts_folder_name
+        history_item.export_path = str(export_path)
+
+        # Manage History List Limits
         item_index = len(prefs.render_history) - 1
         prefs.render_history.move(item_index, 0)
 
         if len(prefs.render_history) > RENDER_HISTORY_LIMIT:
             prefs.render_history.remove(RENDER_HISTORY_LIMIT)
 
-    def _execute_cycles_render(self, context, prefs, settings, render_engine, blend_file, scene):
-        """Execute rendering for Cycles engine, handling device selection and splitting."""
-        devices_to_display = prefs.get_devices_for_display()
+    def _execute_cycles_export(self, context, prefs, settings, blend_file, scene, ext_info: dict) -> dict:
+        """Generate export scripts for Cycles engine, handling device selection and splitting."""
+
+        if not prefs.manage_cycles_devices:
+            chunks = self._calculate_chunks_single_process(prefs, settings, scene, [], ext_info)
+            settings.worker_count = len(chunks)
+            return self._process_render_chunks(context, prefs, settings, blend_file, chunks, ext_info)
+
+        devices_to_display = get_devices_for_display(prefs)
         selected_devices = [d for d in devices_to_display if d.use]
         current_backend = prefs.compute_device_type
 
@@ -458,7 +490,7 @@ class RECOM_OT_BackgroundRender(Operator):
         # Handle fallback to CPU if no backend/devices
         if current_backend == "NONE":
             self._handle_cpu_fallback(prefs)
-            devices_to_display = prefs.get_devices_for_display()
+            devices_to_display = get_devices_for_display(prefs)
             selected_devices = [d for d in devices_to_display if d.use]
         elif not selected_devices:
             self._handle_no_devices_selected(prefs)
@@ -467,15 +499,9 @@ class RECOM_OT_BackgroundRender(Operator):
         if settings.override_settings.cycles.device_override:
             cycles_device = settings.override_settings.cycles.device
         else:
-            if settings.use_external_blend:
-                try:
-                    info = json.loads(settings.external_scene_info)
-                    cycles_device = str(info.get("device", "CPU"))
-                except Exception as e:
-                    log.error(f"Error parsing external scene device: {e}")
-                    cycles_device = "CPU"
-            else:
-                cycles_device = str(scene.cycles.device)
+            cycles_device = (
+                str(ext_info.get("device", "CPU")) if settings.use_external_blend else str(scene.cycles.device)
+            )
 
         # Determine Workload Strategy
         chunks = []
@@ -483,37 +509,40 @@ class RECOM_OT_BackgroundRender(Operator):
         # Condition: GPU Parallel (Sequence or List)
         if cycles_device == "GPU" and len(selected_devices) > 1 and prefs.device_parallel:
             if prefs.launch_mode == MODE_SEQ:
-                chunks = self._calculate_chunks_sequence_parallel(context, prefs, settings, scene, selected_devices)
+                chunks = self._calculate_chunks_sequence_parallel(prefs, settings, scene, selected_devices, ext_info)
             elif prefs.launch_mode == MODE_LIST:
                 chunks = self._calculate_chunks_list_parallel(prefs, settings, selected_devices)
             else:  # MODE_SINGLE, falling back to single process logic
                 selected_ids = [d.id for d in selected_devices]
-                chunks = self._calculate_chunks_single_process(prefs, settings, scene, selected_ids)
+                chunks = self._calculate_chunks_single_process(prefs, settings, scene, selected_ids, ext_info)
         else:
             # CPU or Single GPU or Single Process Mode
             selected_ids = [d.id for d in selected_devices]
-            chunks = self._calculate_chunks_single_process(prefs, settings, scene, selected_ids)
+            chunks = self._calculate_chunks_single_process(prefs, settings, scene, selected_ids, ext_info)
 
         if not chunks:
             return {"CANCELLED"}
 
         # Execute Unified
-        total_parallel_processes = len(chunks) if prefs.device_parallel else 1
-        return self._process_render_chunks(context, prefs, settings, blend_file, chunks, total_parallel_processes)
+        # Track workers for logging
+        settings.worker_count = len(chunks)
+        return self._process_render_chunks(context, prefs, settings, blend_file, chunks, ext_info)
 
     # Workload Calculators
 
-    def _calculate_chunks_iterations_parallel(self, prefs, settings, scene, process_count: int) -> List[RenderJobChunk]:
+    def _calculate_chunks_iterations_parallel(
+        self, prefs, settings, scene, process_count: int, ext_info: dict
+    ) -> List[RenderJobChunk]:
         """
         Split a frame sequence across multiple Blender instances (Iterations)
         without assigning specific hardware device IDs.
         """
 
         try:
-            frame_start, frame_end, frame_step = self._get_frame_settings(prefs, settings, scene, True)
+            frame_start, frame_end, frame_step = self._get_frame_settings(prefs, settings, scene, True, ext_info)
         except ValueError as e:
-            self.report({"INFO"}, str(e))
-            log.error(str(e))
+            self.report({"WARNING"}, str(e))
+            log.error("%s", str(e))
             return []
 
         total_frames = (frame_end - frame_start) // frame_step + 1
@@ -523,8 +552,8 @@ class RECOM_OT_BackgroundRender(Operator):
 
         if actual_process_count <= 0:
             error_msg = "No valid frames to render"
-            self.report({"INFO"}, error_msg)
-            log.error(error_msg)
+            self.report({"WARNING"}, error_msg)
+            log.error("%s", error_msg)
             return []
 
         chunks = []
@@ -561,7 +590,7 @@ class RECOM_OT_BackgroundRender(Operator):
 
         return chunks
 
-    def _calculate_chunks_list_iterations(self, prefs, settings, process_count: int) -> List[RenderJobChunk]:
+    def _calculate_chunks_list_iterations(self, settings, process_count: int) -> List[RenderJobChunk]:
         """Split a frame list across multiple processes (Iterations)."""
         frames = parse_frame_string(settings.frame_list)
         if not frames:
@@ -594,13 +623,15 @@ class RECOM_OT_BackgroundRender(Operator):
             current_idx = end_idx
 
             if subset:
-                desc = f"Process[#{i}] | Frames: {format_frame_range(subset)}"
+                desc = f"Process[#{i}] | Frame: {format_frame_range(subset)}"
                 # is_animation_call is False for List mode
                 chunks.append(RenderJobChunk(i, device_ids, subset, False, desc))
 
         return chunks
 
-    def _calculate_chunks_single_process(self, prefs, settings, scene, selected_ids) -> List[RenderJobChunk]:
+    def _calculate_chunks_single_process(
+        self, prefs, settings, scene, selected_ids, ext_info: dict
+    ) -> List[RenderJobChunk]:
         """Create a single job chunk for standard execution."""
 
         if prefs.launch_mode == MODE_LIST:
@@ -611,10 +642,12 @@ class RECOM_OT_BackgroundRender(Operator):
             is_not_still = prefs.launch_mode != MODE_SINGLE
 
             try:
-                frame_start, frame_end, frame_step = self._get_frame_settings(prefs, settings, scene, is_not_still)
+                frame_start, frame_end, frame_step = self._get_frame_settings(
+                    prefs, settings, scene, is_not_still, ext_info
+                )
             except ValueError as e:
-                self.report({"INFO"}, str(e))
-                log.error(str(e))
+                self.report({"WARNING"}, str(e))
+                log.error("%s", str(e))
                 return []
 
             frames = (frame_start, frame_end, frame_step)
@@ -627,17 +660,17 @@ class RECOM_OT_BackgroundRender(Operator):
                 device_ids=selected_ids,
                 frames=frames,
                 is_animation_call=is_animation,
-                description=f"Mode: {format_to_title_case(prefs.launch_mode)} | Frames: {desc_frames}",
+                description=f"Mode: {format_to_title_case(prefs.launch_mode)} | Frame: {desc_frames}",
             )
         ]
 
     def _calculate_chunks_sequence_parallel(
-        self, context, prefs, settings, scene, selected_devices
+        self, prefs, settings, scene, selected_devices, ext_info: dict
     ) -> List[RenderJobChunk]:
         """Split a frame sequence across available devices."""
 
         try:
-            frame_start, frame_end, frame_step = self._get_frame_settings(prefs, settings, scene, True)
+            frame_start, frame_end, frame_step = self._get_frame_settings(prefs, settings, scene, True, ext_info)
         except ValueError as e:
             self.report({"INFO"}, str(e))
             log.error(str(e))
@@ -712,7 +745,7 @@ class RECOM_OT_BackgroundRender(Operator):
             current_idx = end_idx
 
             if subset:
-                desc = f"Process[#{i}] | Frames: {format_frame_range(subset)}"
+                desc = f"Process[#{i}] | Frame: {format_frame_range(subset)}"
                 chunks.append(RenderJobChunk(i, device_ids, subset, False, desc))
 
         return chunks
@@ -720,7 +753,7 @@ class RECOM_OT_BackgroundRender(Operator):
     def _get_combined_device_ids(self, prefs, primary_device):
         """Helper to combine CPU with GPU if preference is set."""
         if prefs.combine_cpu_with_gpus:
-            devices_to_display = prefs.get_devices_for_display()
+            devices_to_display = get_devices_for_display(prefs)
             cpu_device = next((d for d in devices_to_display if d.use and d.type == "CPU"), None)
             if cpu_device:
                 return [primary_device.id, cpu_device.id]
@@ -742,73 +775,50 @@ class RECOM_OT_BackgroundRender(Operator):
     # Unified Execution
 
     def _process_render_chunks(
-        self, context, prefs, settings, blend_file, chunks: List[RenderJobChunk], total_processes: int
+        self, context, prefs, settings, blend_file, chunks: List[RenderJobChunk], ext_info: dict
     ):
-        """Unified method to generate scripts for all chunks and execute them."""
+        """Generate scripts for all chunks."""
 
-        if self.action_type == "EXPORT":
-            folder_name = prefs.export_scripts_folder_name if prefs.export_scripts_subfolder else ""
-            target_dir = Path(self.directory) / folder_name
-        else:
-            target_dir = get_addon_temp_dir(prefs)
+        folder_name = prefs.export_scripts_folder_name if prefs.export_scripts_subfolder else ""
+        target_dir = Path(self.directory) / folder_name
 
         if not target_dir.exists():
             target_dir.mkdir(parents=True, exist_ok=True)
 
+        settings.first_worker_info = ""
+
         generated_script_paths = []
         for chunk in chunks:
             # Generate the Python Content
-            script_lines = self._generate_chunk_python_script(
-                context,
-                prefs,
-                settings,
-                scene=context.scene,
-                chunk=chunk,
-                blend_file=blend_file,
-                target_dir=target_dir,
-                total_processes=total_processes,
-            )
+            script_lines = self._generate_chunk_python_script(context, prefs, settings, context.scene, chunk, ext_info)
 
             # Identifiers
             process_id = chunk.process_index
 
             # Generate Files (.py and .bat/.sh)
-            shell_script_path = self._create_process_files(
-                prefs, settings, blend_file, script_lines, process_id, target_dir
+            shell_script_path = _create_process_files(
+                self, prefs, settings, blend_file, script_lines, process_id, target_dir
             )
 
             if shell_script_path:
                 generated_script_paths.append(shell_script_path)
 
+            if settings.first_worker_info == "":
+                blend_name = Path(blend_file).stem if blend_file else "untitled"
+                sanitized_blend_name = bpy.path.clean_name(blend_name)
+                settings.first_worker_info = _resolve_script_base_name(sanitized_blend_name, settings, prefs)
+
         if not generated_script_paths:
             return {"CANCELLED"}
 
-        master_script_path = None
-        if self.action_type == "RENDER":
-            master_script_path = self._create_master_script(
-                prefs, settings, blend_file, target_dir, generated_script_paths
-            )
-        elif self.action_type == "EXPORT" and prefs.export_master_script and len(chunks) > 1:
-            master_script_path = self._create_master_script(
-                prefs, settings, blend_file, target_dir, generated_script_paths
-            )
-
-        if self.action_type == "RENDER":
-            script_to_run = master_script_path or generated_script_paths[0]
-            try:
-                self._execute_script_file(prefs, settings, script_to_run)
-            except Exception as exc:
-                self.report({"ERROR"}, f"Failed to start render: {exc}")
-                return {"CANCELLED"}
-
         if prefs.exit_active_session:
-            bpy.app.timers.register(lambda: bpy.ops.wm.quit_blender(), first_interval=OPEN_FOLDER_DELAY + 0.1)
+            bpy.ops.wm.quit_blender()
 
         return {"FINISHED"}
 
     def _generate_chunk_python_script(
-        self, context, prefs, settings, scene, chunk: RenderJobChunk, blend_file, target_dir, total_processes
-    ):
+        self, context, prefs, settings, scene, chunk: RenderJobChunk, ext_info: dict
+    ) -> List[str]:
         """Generates the full Python script content for a specific chunk."""
 
         # Determine Frame Bounds for Base Script (start, end, step)
@@ -823,7 +833,14 @@ class RECOM_OT_BackgroundRender(Operator):
         log.debug(print_msg)
 
         script_lines = _generate_base_script(
-            context, prefs, chunk.device_ids, chunk.is_animation_call, f_start, f_end, f_step, print_msg
+            context,
+            prefs,
+            chunk.device_ids,
+            chunk.is_animation_call,
+            f_start,
+            f_end,
+            f_step,
+            print_msg,
         )
 
         # Parallelism specific flags (Placeholder/Overwrite)
@@ -853,20 +870,22 @@ class RECOM_OT_BackgroundRender(Operator):
         # Output Path & Render Call Logic
 
         # Helper to set path and add render call
-        def add_render_cmd(frame, is_anim, write_still):
-            out_path = self._resolve_output_path(prefs, settings, scene, frame, blend_file)
+        def add_render_cmd(frame, is_anim, write_still, ext_info):
+            script_lines.append("# Filepath Settings")
 
-            script_lines.extend(
-                [
-                    "# Output Settings",
-                    f"bpy.context.scene.render.filepath = r'{out_path}'",
-                    "",
-                ]
-            )
+            out_path = self._resolve_output_path(prefs, settings, scene, ext_info)
+            base_name_no_templates = re.sub(r"\{[^}]*\}", "", out_path)
 
-            # Add notification
-            if chunk.process_index == 0:
-                _add_notification_script(prefs, script_lines)
+            if "#" in base_name_no_templates and prefs.launch_mode == MODE_SINGLE:
+                script_lines.append(f'bpy.context.scene.render.filepath = r"{out_path}"')
+                script_lines.append(
+                    f"bpy.context.scene.render.filepath = bpy.context.scene.render.frame_path(frame={frame})"
+                )
+            else:
+                # Add frame to render filename
+                script_lines.append(f'bpy.context.scene.render.filepath = r"{out_path}"')
+
+            script_lines.append("")
 
             script_lines.extend(
                 [
@@ -880,419 +899,120 @@ class RECOM_OT_BackgroundRender(Operator):
 
         if chunk.is_animation_call:
             # Mode: Sequence
-            add_render_cmd(f_start, True, False)
+            add_render_cmd(f_start, True, False, ext_info)
         elif isinstance(chunk.frames, tuple):
             # Mode: Single Frame (tuple used in single process fallback)
             write_s = prefs.write_still or settings.override_settings.output_path_override
-            add_render_cmd(f_start, False, write_s)
+            add_render_cmd(f_start, False, write_s, ext_info)
         else:
             # Mode: List (list of frames)
-            for frame in chunk.frames:
-                script_lines.append("# Set Frame List")
-                script_lines.append(f"bpy.context.scene.frame_set({frame})")
+            out_path = self._resolve_output_path(prefs, settings, scene, ext_info)
 
-                add_render_cmd(frame, False, prefs.write_still)
+            is_contiguous = len(chunk.frames) > 1 and (chunk.frames[-1] - chunk.frames[0] == len(chunk.frames) - 1)
 
-            # Add timing for list mode
+            if is_contiguous:
+                frames_str = f"frames_to_render = range({chunk.frames[0]}, {chunk.frames[-1] + 1})"
+            else:
+                str_frames = [str(f) for f in chunk.frames]
+                line_chunks = [", ".join(str_frames[i : i + 15]) for i in range(0, len(str_frames), 15)]
+
+                wrapped_frames = ",\n    ".join(line_chunks)
+                frames_str = f"frames_to_render = [\n    {wrapped_frames}\n]"
+
             script_lines.extend(
                 [
+                    "# Set Frame List",
+                    f'base_filepath = r"{out_path}"',
                     "",
-                    "end_time = time.time()",
-                    "total_seconds = end_time - start_time",
-                    'print(f"Total Render Time: {total_seconds:.2f} seconds")',
+                    frames_str,
+                    "",
+                    "for frame in frames_to_render:",
+                    "    bpy.context.scene.render.filepath = base_filepath",
+                    "    bpy.context.scene.frame_set(frame)",
+                    "    bpy.context.scene.render.filepath = bpy.context.scene.render.frame_path(frame=frame)",
+                    f"    bpy.ops.render.render(animation=False, write_still={prefs.write_still})",
                     "",
                 ]
             )
 
-        # Post-Processing / Coordination (Notification, Shutdown, Wait)
-        # Only process 0 manages shared resources/shutdown usually
+            # Add timing
+            if prefs.track_render_time:
+                script_lines.extend(
+                    [
+                        "end_time = time.time()",
+                        "total_seconds = end_time - start_time",
+                        'print(f"Total Render Time: {total_seconds:.2f} seconds")',
+                        "",
+                    ]
+                )
+
         if chunk.process_index == 0:
             # Update history entry with actual output path from the first chunk
             if prefs.render_history:
                 hist = prefs.render_history[0]
                 hist.output_folder = settings.render_output_folder_path
-                hist.output_filename = settings.render_output_filename
 
-            # _add_notification_script(context, prefs, script_lines)
-
-        # Parallel Sync Logic
-        requires_sync = prefs.send_desktop_notifications
-
-        if total_processes > 1 and requires_sync:
-            self._add_create_temp_files_script(context, prefs, script_lines, settings.render_id, chunk.process_index)
-            if chunk.process_index == 0:
-                self._add_wait_for_all_processes(context, prefs, script_lines, settings.render_id, total_processes)
-                if prefs.shutdown_after_render:
-                    self._add_sys_shutdown_execute(context, prefs, script_lines)
-        elif chunk.process_index == 0 and prefs.shutdown_after_render:
-            # Single process shutdown
-            self._add_sys_shutdown_execute(context, prefs, script_lines)
-
-        # Cleanup Temp Script (if RENDER mode)
-        if self.action_type == "RENDER":
-            process_id = f"{settings.render_id}_script{chunk.process_index}"
-            script_name = f"{bpy.path.clean_name(Path(blend_file).stem)}_{process_id}.py"
-            self._add_remove_temp_script(script_lines, target_dir / script_name)
-
+                if hist.output_folder:
+                    abs_path = Path(hist.output_folder).resolve()
+                    hist.is_output_path_valid = abs_path.is_dir()
+                else:
+                    hist.is_output_path_valid = False
         return script_lines
 
-    def _resolve_output_path(self, prefs, settings, scene, frame, blend_file):
-        """Helper to resolve output path and side-effect update settings/history variables."""
-        if settings.override_settings.output_path_override:
-            output_path = self._resolve_custom_output_path(prefs, settings, scene, frame)
-        else:
-            output_path = self._get_default_output_path(prefs, settings, scene, frame, blend_file)
-
-        # Side effects required for history and open folder logic
-        settings.render_output_folder_path = str(Path(output_path).parent)
-        settings.render_output_filename = Path(output_path).name
-        return str(output_path)
-
-    # UNIFIED FILE GENERATION METHODS
-
-    def _create_process_files(self, prefs, settings, blend_file, script_lines, process_id, target_dir):
-        """Creates the .py script and the OS-specific shell/batch script."""
-
-        blend_name = Path(blend_file).stem
-        sanitized_blend_name = bpy.path.clean_name(blend_name)
-        timestamp = get_timestamp()
-        render_id = settings.render_id
-
-        py_filename = f"{sanitized_blend_name}_{render_id}_script{process_id}.py"
-        py_path = target_dir / py_filename
+    def _resolve_output_path(self, prefs, settings, scene, ext_info: dict) -> str:
+        """Resolves the output path and updates settings/history variables."""
+        is_override = settings.override_settings.output_path_override
 
         try:
-            py_path.write_text("\n".join(script_lines), encoding="utf-8")
-        except Exception as exc:
-            self.report({"ERROR"}, f"Failed to save python script: {exc}")
-            return None
-
-        # Determine Shell/Batch Script Content
-        if prefs.blender_executable_source == "SYSTEM":
-            blender_exec = "blender"
-        elif prefs.blender_executable_source == "CUSTOM":
-            blender_exec = bpy.path.abspath(prefs.custom_executable_path)
-        else:
-            blender_exec = bpy.app.binary_path
-
-        shell_content = []
-        exec_extension = ".bat" if _IS_WINDOWS else ".sh"
-
-        def quote_win_arg(arg):
-            return subprocess.list2cmdline([arg])
-
-        # Platform-specific header construction
-        if _IS_WINDOWS:
-            shell_content = [
-                "@echo off",
-                'cd /d "%~dp0"',
-                "",
-                f'set "RC_BLENDER={str(blender_exec)}"',
-                f'set "RC_BLEND={str(blend_file)}"',
-                f'set "RC_SCRIPT=%~dp0{py_filename}"',
-            ]
-            if prefs.set_ocio and prefs.ocio_path:
-                shell_content.append(f'set "OCIO={prefs.ocio_path}"')
-        else:
-            shell_content = [
-                "#!/bin/bash",
-                'cd "$(dirname "$0")"',
-                "",
-                f"RC_BLENDER={shlex.quote(str(blender_exec))}",
-                f"RC_BLEND={shlex.quote(str(blend_file))}",
-                f'RC_SCRIPT="$(pwd)/{py_filename}"',
-            ]
-            if prefs.set_ocio and prefs.ocio_path:
-                shell_content.append(f"export OCIO={shlex.quote(prefs.ocio_path)}")
-
-        # Additional Scripts
-        def add_script_vars(order: str):
-            idx = 1
-            for entry in prefs.additional_scripts:
-                if entry.order == order and entry.script_path:
-                    abs_path = Path(bpy.path.abspath(entry.script_path)).resolve()
-                    if abs_path.is_file():
-                        var = f"RC_{order}_SCRIPT_{idx}"
-                        if _IS_WINDOWS:
-                            shell_content.append(f'set "{var}={str(abs_path)}"')
-                        else:
-                            shell_content.append(f"{var}={shlex.quote(str(abs_path))}")
-                        idx += 1
-            return idx - 1
-
-        pre_c = add_script_vars("PRE") if prefs.append_python_scripts else 0
-        post_c = add_script_vars("POST") if prefs.append_python_scripts else 0
-
-        def env_ref(var: str) -> str:
-            if _IS_WINDOWS:
-                return f'"%{var}%"'
-            return f"${var}"
-
-        cmd_parts = [
-            env_ref("RC_BLENDER"),
-            "--background",
-            env_ref("RC_BLEND"),
-        ]
-
-        for i in range(1, pre_c + 1):
-            cmd_parts.extend(["--python", env_ref(f"RC_PRE_SCRIPT_{i}")])
-
-        # Render Commander Script
-        cmd_parts.extend(["--python", env_ref("RC_SCRIPT")])
-
-        for i in range(1, post_c + 1):
-            cmd_parts.extend(["--python", env_ref(f"RC_POST_SCRIPT_{i}")])
-
-        # Handle Custom Arguments
-        if prefs.add_command_line_args and prefs.custom_command_line_args.strip():
-            cmd_parts.extend([prefs.custom_command_line_args])
-
-        # Debug Mode
-        if prefs.debug_mode:
-            cmd_parts.append("-d")
-
-            if prefs.debug_value != 0:
-                cmd_parts.extend(["--debug-value", str(prefs.debug_value)])
-
-            if prefs.verbose_level != "2":  # Default is medium
-                cmd_parts.extend(["--verbose", prefs.verbose_level])
-
-            if prefs.debug_cycles and get_render_engine(bpy.context) == RE_CYCLES:
-                cmd_parts.append("--debug-cycles")
-
-        # Log Redirection
-        if prefs.log_to_file:
-            log_file_path = self._get_log_file_path(prefs, settings, blend_file, process_id, target_dir)
-            if _IS_WINDOWS:
-                RC_LOG = str(log_file_path)
-                shell_content.append(f'set "RC_LOG={RC_LOG}"')
+            # Determine base directory and filename based on the mode
+            if is_override:
+                dir_path = settings.override_settings.output_directory or '/tmp/'
+                file_name = settings.override_settings.output_filename
             else:
-                RC_LOG = shlex.quote(str(log_file_path))
-                shell_content.append(f"RC_LOG={RC_LOG}")
-
-            cmd_parts.append(f"--log-file {env_ref('RC_LOG')}")
-
-        cmd_str = " ".join(cmd_parts)
-
-        shell_content.extend(["", f'echo "Executing Render: {blend_name} ({render_id} - worker{process_id})"'])
-        if prefs.log_to_file:
-            shell_content.append(f"echo Log written to: {env_ref(RC_LOG)}")
-        shell_content.append("")
-        shell_content.append(cmd_str)
-
-        # Pause/Cleanup logic
-        if prefs.keep_terminal_open:
-            shell_content.append("pause" if _IS_WINDOWS else 'read -p "Press enter to exit..."')
-
-        if self.action_type == "RENDER":
-            # Delete script
-            shell_content.append("")
-            shell_content.append('(goto) 2>nul & del "%~f0" && exit' if _IS_WINDOWS else 'rm -- "$0"')
-        else:
-            shell_content.append("exit")
-
-        # Write File
-        exec_path = target_dir / f"{sanitized_blend_name}_{render_id}_worker{process_id}{exec_extension}"
-        try:
-            exec_path.write_text("\n".join(shell_content), encoding="utf-8")
-            if not _IS_WINDOWS:
-                current_mode = exec_path.stat().st_mode
-                exec_path.chmod(current_mode | stat.S_IEXEC)
-        except Exception as exc:
-            self.report({"ERROR"}, f"Failed to save execution file: {exc}")
-            return None
-
-        # Auto open export
-        if self.action_type == "EXPORT" and prefs.auto_open_exported_folder and not settings.folder_opened:
-            settings.folder_opened = True
-
-            def delayed_open():
-                open_folder(target_dir)
-
-            bpy.app.timers.register(delayed_open, first_interval=OPEN_FOLDER_DELAY)
-
-        return exec_path
-
-    def _create_master_script(self, prefs, settings, blend_file, target_dir, script_paths):
-        """Creates a master script that launches multiple process scripts."""
-        if not script_paths:
-            return None
-
-        render_id = settings.render_id
-        sanitized_blend_name = bpy.path.clean_name(Path(blend_file).stem)
-
-        if _IS_WINDOWS:
-            master_name = f"{sanitized_blend_name}_{render_id}_master.bat"
-            use_wt = prefs.use_windows_terminal_tabs and shutil.which("wt") is not None
-
-            content = [
-                "@echo off",
-                'cd /d "%~dp0"',
-                f"echo Launching {len(script_paths)} processes for ID: {render_id}",
-                "echo.",
-                "setlocal enabledelayedexpansion",
-                "",
-            ]
-
-            if use_wt:
-                content.append("echo Opening render terminals in Windows Terminal tabs...")
-                delay_seconds = int(prefs.parallel_delay)
-                abs_paths = [str(Path(p).resolve()) for p in script_paths]
-
-                if delay_seconds <= 0:
-                    term_cmd = f"wt -w {render_id}"
-                    for i, abs_path in enumerate(abs_paths):
-                        if i == 0:
-                            term_cmd += f' cmd /k "{abs_path}"'
-                        else:
-                            term_cmd += f' ; wt -w {render_id} new-tab cmd /k "{abs_path}"'
-                    content.append(term_cmd)
+                base_path = ext_info.get("filepath", "//") if settings.use_external_blend else scene.render.filepath
+                last_slash = max(base_path.rfind("/"), base_path.rfind("\\"))
+                if last_slash == -1:
+                    dir_path, file_name = "", base_path
                 else:
-                    content.append(f'wt -w {render_id} --title "{render_id} worker0" cmd /k "{abs_paths[0]}"')
-                    for i, p in enumerate(abs_paths[1:], start=1):
-                        content.extend(
-                            [
-                                f"echo Waiting {delay_seconds}s before next tab...",
-                                f"timeout /t {delay_seconds} /nobreak >nul",
-                                f'wt -w {render_id} new-tab --title "{render_id} worker{i}" cmd /k "{p}"',
-                            ]
-                        )
-            else:
-                for i, path in enumerate(script_paths):
-                    if i > 0 and prefs.parallel_delay > 0:
-                        content.extend(
-                            [
-                                f"echo Waiting {int(prefs.parallel_delay)}s...",
-                                f"timeout /t {int(prefs.parallel_delay)} /nobreak >nul",
-                            ]
-                        )
-                    content.append(f'start "" "{path.name}"')
+                    dir_path, file_name = base_path[: last_slash + 1], base_path[last_slash + 1 :]
 
-            content.extend(["", "echo All processes launched."])
-            if self.action_type == "RENDER":
-                content.append('(goto) 2>nul & del "%~f0"')
-            content.append("exit")
-        else:
-            master_name = f"{sanitized_blend_name}_{render_id}_master.sh"
-            content = [
-                "#!/bin/bash",
-                'cd "$(dirname "$0")"',
-                f'echo "Launching {len(script_paths)} processes for ID: {render_id}"',
-                "",
-            ]
+            # Normalize directory
+            if dir_path and not dir_path.endswith(("/", "\\")):
+                dir_path += "/"
 
-            if _IS_MACOS:
-                term_cmd = "open -a Terminal"
-            else:
-                term_cmd = self._get_linux_terminal_command(prefs)
+            if not file_name:
+                file_name = prefs.default_render_filename or "render"
 
-            for i, path in enumerate(script_paths):
-                if i > 0 and prefs.parallel_delay > 0:
-                    content.extend(
-                        [f'echo "Waiting {int(prefs.parallel_delay)}s..."', f"sleep {int(prefs.parallel_delay)}"]
-                    )
+            # Apply frame formatting
+            sep = "." if prefs.filename_separator == "DOT" else "_"
+            file_name_no_templates = re.sub(r"\{[^}]*\}", "", file_name)
 
-                if _IS_MACOS:
-                    content.append(f'open -a Terminal "{path}"')
-                else:
-                    content.append(f'{term_cmd} "./{path.name}" &' if term_cmd else f"./{path.name} &")
+            if "#" not in file_name_no_templates:
+                file_name = f"{file_name}{sep}{'#' * prefs.frame_length_digits}"
 
-            content.extend(["", 'echo "All processes launched."'])
-            if self.action_type == "RENDER":
-                content.append('rm -- "$0"')
-            content.append("exit")
+            output_path = f"{dir_path}{file_name}"
 
-        # Write File
-        master_path = target_dir / master_name
-        try:
-            master_path.write_text("\n".join(content), encoding="utf-8")
-            if not _IS_WINDOWS:
-                current_mode = master_path.stat().st_mode
-                master_path.chmod(current_mode | stat.S_IEXEC)
-            return master_path
-        except Exception as e:
-            log.error(f"Failed to write master script: {e}")
-            return None
+            # Replace variables
+            if is_override:
+                output_path = replace_variables(output_path)
 
-    def _execute_script_file(self, prefs, settings, script_path):
-        """Execute the generated shell/batch script."""
+        except Exception as exc:
+            log.error("Failed to resolve output path: %s", exc)
+            if is_override:
+                return ""
+            raise
 
-        script_path = Path(script_path).resolve()
+        # Required side-effect for history
+        output_path = str(output_path)
+        settings.render_output_folder_path = output_path
 
-        # Auto open output folder
-        if prefs.auto_open_output_folder and settings.render_output_folder_path and not settings.folder_opened:
-            settings.folder_opened = True
+        return output_path
 
-            def delayed_open():
-                open_folder(settings.render_output_folder_path)
-                return None
-
-            bpy.app.timers.register(delayed_open, first_interval=OPEN_FOLDER_DELAY)
-
-        # Execute Script
-        try:
-            log.info(f'Executing script: "{script_path}"')
-
-            if _IS_WINDOWS:
-                try:
-                    os.startfile(script_path)
-                except OSError:
-                    subprocess.Popen(["start", "", script_path], shell=True)
-
-            elif _IS_MACOS:
-                subprocess.Popen([script_path])
-
-            elif _IS_LINUX:
-                try:
-                    subprocess.Popen([script_path], shell=True)
-                except PermissionError:
-                    subprocess.Popen(["xdg-open", script_path])
-
-        except Exception as e:
-            msg = f"Failed to launch script: {e}"
-            log.error(msg)
-            self.report({"ERROR"}, msg)
-
-    def _get_linux_terminal_command(self, prefs):
-        # Helper to check if the binary exists (safely ignoring flags like '--' or '-e')
-        def is_installed(cmd_str: str) -> bool:
-            if not cmd_str:
-                return False
-            try:
-                # Safely split "alacritty -e" -> "alacritty"
-                binary = shlex.split(cmd_str)[0]
-                return shutil.which(binary) is not None
-            except ValueError:
-                return False
-
-        custom_cmd = getattr(prefs, "linux_terminal_config", "").strip()
-        if custom_cmd:
-            if is_installed(custom_cmd):
-                return custom_cmd
-            else:
-                log.warning(f"Custom terminal configuration '{custom_cmd}' not found. Falling back to auto-detect.")
-
-        fallback_terminals = [
-            "gnome-terminal --",
-            "xfce4-terminal -x",
-            "konsole -e",
-            "terminator -x",
-            "xterm -e",
-        ]
-
-        for term in fallback_terminals:
-            if is_installed(term):
-                return term
-
-        if shutil.which("x-terminal-emulator"):
-            return "x-terminal-emulator -e"
-
-        log.warning("No standard terminal emulator found on system. Defaulting to 'xterm -e'.")
-        return "xterm -e"
-
-    # SHARED HELPERS (Frame parsing, etc)
-
-    def _get_frame_settings(self, prefs, settings, scene, is_animation):
+    def _get_frame_settings(self, prefs, settings, scene, is_animation, ext_info: dict) -> Tuple[int, int, int]:
+        """
+        Retrieves valid frame range parameters (start, end, step) based on the
+        current launch mode and availability of external scene metadata.
+        """
         try:
 
             def check(prefs, start, end, step):
@@ -1312,419 +1032,26 @@ class RECOM_OT_BackgroundRender(Operator):
                     )
                 return (settings.override_settings.frame_current,) * 2 + (1,)
 
-            elif settings.use_external_blend:
-                info = json.loads(settings.external_scene_info)
+            if settings.use_external_blend:
                 if is_animation:
                     return check(
-                        prefs, info.get("frame_start", 1), info.get("frame_end", 250), info.get("frame_step", 1)
+                        prefs,
+                        ext_info.get("frame_start", 1),
+                        ext_info.get("frame_end", 250),
+                        ext_info.get("frame_step", 1),
                     )
-                val = info.get("frame_current", 1)
+                val = ext_info.get("frame_current", 1)
                 return (val, val, 1)
 
-            else:
-                if is_animation:
-                    return check(prefs, scene.frame_start, scene.frame_end, scene.frame_step)
-                return (scene.frame_current,) * 2 + (1,)
+            if is_animation:
+                return check(prefs, scene.frame_start, scene.frame_end, scene.frame_step)
+            return (scene.frame_current,) * 2 + (1,)
 
         except Exception as exc:
-            raise ValueError(f"Invalid frame range: {exc}")
+            raise ValueError(f"Invalid frame range: {exc}") from exc
 
-    def _add_create_temp_files_script(self, context, prefs, script_lines, render_id, process_num):
-        script_lines.extend(
-            [
-                "",
-                "# Create temp files",
-                "import time",
-                "import sys",
-                "import tempfile",
-                "from pathlib import Path",
-                "",
-                f"render_id = '{render_id}'",
-                f"temp_dir = Path(r'{get_addon_temp_dir(prefs)}')",
-                "temp_dir.mkdir(exist_ok=True)",
-                "",
-                f"temp_file = temp_dir / f'{render_id}_process_{process_num}.tmp'",
-                "with open(temp_file, 'w') as f: pass",
-                "",
-            ]
-        )
 
-    def _add_wait_for_all_processes(self, context, prefs, script_lines, render_id, num_processes):
-        script_lines.extend(
-            [
-                "# Wait for all processes",
-                f"num_processes = {num_processes}",
-                f"temp_dir = Path(r'{get_addon_temp_dir(prefs)}')",
-                "",
-                "temp_dir.mkdir(exist_ok=True)",
-                'print(f"\\nWaiting for other processes to complete...")',
-                "",
-                "while True:",
-                "    all_done = True",
-                "    for i in range(num_processes):",
-                "        if not (temp_dir / f'{render_id}_process_{i}.tmp').exists():",
-                "            all_done = False",
-                "            break",
-                "    if all_done: break",
-                "    time.sleep(2)",
-                "",
-                'print(f"All processes completed.\\n")',
-                "",
-                "for i in range(num_processes):",
-                "    f = temp_dir / f'{render_id}_process_{i}.tmp'",
-                "    if f.exists(): f.unlink()",
-                "",
-            ]
-        )
-
-    def _add_sys_shutdown_execute(self, context, prefs, script_lines):
-        delay, type_ = prefs.shutdown_delay, prefs.shutdown_type
-        script_lines.append("import os")
-        if delay > 0:
-            script_lines.extend(
-                [
-                    "import time",
-                    f"print('System {type_.lower()} scheduled in {delay:.0f} seconds.')",
-                    f"time.sleep({delay})",
-                ]
-            )
-
-        cmd = ""
-        if _IS_WINDOWS:
-            cmd = "shutdown /s /t 0" if type_ == "POWER_OFF" else "rundll32.exe powrprof.dll,SetSuspendState 0,1,0"
-        elif _IS_MACOS:
-            cmd = (
-                "osascript -e 'tell application \"System Events\" to shut down computer'"
-                if type_ != "SLEEP"
-                else "osascript -e 'tell application \"Finder\" to sleep'"
-            )
-        elif _IS_LINUX:
-            cmd = "systemctl poweroff" if type_ == "POWER_OFF" else "systemctl suspend"
-
-        script_lines.extend([f"print(r'{cmd}')", f"os.system(r'{cmd}')"])
-
-    def _add_remove_temp_script(self, script_lines, script_path):
-        script_lines.extend(
-            [
-                "",
-                "# Temp script cleanup",
-                "import atexit",
-                "from pathlib import Path",
-                "",
-                "def _cleanup_temp_script():",
-                f"    try: Path(r'{Path(script_path)}').unlink(missing_ok=True)",
-                "    except Exception as e: log.error(f'Failed to delete temp script: {e}')",
-                "atexit.register(_cleanup_temp_script)",
-                "",
-            ]
-        )
-
-    def _resolve_custom_output_path(self, prefs, settings, scene, frame):
-        try:
-            dir_path = (
-                Path(settings.override_settings.output_directory)
-                if settings.override_settings.output_directory
-                else get_default_render_output_path()
-            )
-            file_name = settings.override_settings.output_filename or prefs.default_render_filename or "render"
-            sep = "." if prefs.filename_separator == "DOT" else "_"
-
-            if prefs.launch_mode == MODE_SEQ:
-                file_name_f = f"{file_name}{sep}{'#' * prefs.frame_length_digits}"
-            else:
-                file_name_f = f"{file_name}{sep}{str(frame).zfill(prefs.frame_length_digits)}"
-
-            return replace_variables(str(dir_path / file_name_f))
-        except Exception as exc:
-            log.error(f"Failed to resolve custom output path: {exc}")
-
-    def _get_default_output_path(self, prefs, settings, scene, frame, blend_file):
-        if settings.use_external_blend:
-            try:
-                base_path = json.loads(settings.external_scene_info).get("filepath", "//")
-            except Exception as e:
-                log.warning(f"Failed to parse external scene info: {e}")
-                base_path = "//"
-        else:
-            base_path = scene.render.filepath
-
-        full_path = Path(bpy.path.abspath(base_path) if base_path else get_default_render_output_path()).resolve()
-        is_dir = base_path.endswith(("/", "\\")) or full_path.is_dir()
-        base_dir, base_name = (
-            (full_path, prefs.default_render_filename or "render") if is_dir else (full_path.parent, full_path.stem)
-        )
-
-        # File format ext
-        if settings.override_settings.file_format_override:
-            ff = settings.override_settings.file_format
-        elif settings.use_external_blend:
-            try:
-                ff = json.loads(settings.external_scene_info).get("file_format", "PNG")
-            except Exception as e:
-                log.warning(f"Failed to parse external scene file format: {e}")
-                ff = "PNG"
-        else:
-            ff = scene.render.image_settings.file_format
-
-        ext = {
-            "PNG": ".png",
-            "OPEN_EXR": ".exr",
-            "OPEN_EXR_MULTILAYER": ".exr",
-            "JPEG": ".jpg",
-            "BMP": ".bmp",
-            "TGA": ".tga",
-            "TIFF": ".tif",
-        }.get(ff.upper(), ".png")
-
-        sep = "." if prefs.filename_separator == "DOT" else "_"
-        if prefs.launch_mode == MODE_SEQ:
-            filename = f"{base_name}{sep}{'#' * prefs.frame_length_digits}"
-        else:
-            filename = f"{base_name}{sep}{str(frame).zfill(prefs.frame_length_digits)}{ext}"
-
-        return str(base_dir / filename)
-
-    def _get_log_folder(self, prefs, blend_file, target_dir=None):
-        """Determine the log folder based on preferences and context."""
-        if not prefs.log_to_file:
-            return None
-
-        def _ensure_dir(path: Path) -> Path:
-            try:
-                path.mkdir(parents=True, exist_ok=True)
-            except OSError as exc:
-                raise OSError(f"Failed to create log directory '{path}'.") from exc
-
-            return path
-
-        logs_folder_name_str = prefs.logs_folder_name if prefs.save_to_log_folder else ""
-
-        if prefs.log_to_file_location == "EXECUTION_FILES" and target_dir:
-            log_folder = _ensure_dir(Path(target_dir) / logs_folder_name_str)
-
-        elif prefs.log_to_file_location == "BLEND_PATH":
-            base_folder = Path(blend_file).parent.resolve()
-            log_folder = _ensure_dir(base_folder / logs_folder_name_str)
-
-        elif prefs.log_to_file_location == "CUSTOM_PATH":
-            custom_path = Path(bpy.path.abspath(prefs.log_custom_path)) or Path(get_addon_temp_dir(prefs))
-            if not custom_path:
-                custom_path = Path(get_addon_temp_dir(prefs))
-            log_folder = _ensure_dir(custom_path / logs_folder_name_str)
-
-        return log_folder
-
-    def _get_log_file_path(self, prefs, settings, blend_file, process_id, target_dir=None):
-        """Get the full path for a log file."""
-        if not prefs.log_to_file:
-            return ""
-
-        log_folder = self._get_log_folder(prefs, blend_file, target_dir)
-        if not log_folder:
-            return ""
-
-        return str(
-            log_folder / f"{bpy.path.clean_name(Path(blend_file).stem)}_{settings.render_id}_worker{process_id}.log"
-        )
-
-
-class RECOM_OT_ExportRenderScript(Operator):
-    bl_idname = "recom.export_render_script"
-    bl_label = "Export Render Scripts"
-    bl_description = "Export script render files"
-    bl_options = {"REGISTER", "INTERNAL"}
-
-    directory: StringProperty(
-        name="Export Directory",
-        description="Directory to save the export files",
-        subtype="DIR_PATH",
-    )
-    filter_folder: BoolProperty(
-        default=True,
-        options={"HIDDEN", "SKIP_SAVE"},
-    )
-    action_type: EnumProperty(
-        name="Action Type",
-        items=[
-            ("RENDER", "Render", "Execute render immediately"),
-            ("EXPORT", "Export Script", "Export batch file and script to folder"),
-        ],
-        default="EXPORT",
-        options={"HIDDEN", "SKIP_SAVE"},
-    )
-
-    def _get_export_directory(self, context, prefs) -> Path:
-        """Determine export directory based on preferences."""
-        settings = context.window_manager.recom_render_settings
-
-        if prefs.export_output_target == "BLEND_DIR":
-            if settings.use_external_blend and settings.external_blend_file_path:
-                blend_dir = settings.external_blend_file_path
-            else:
-                blend_dir = bpy.data.filepath
-            return Path(blend_dir).parent.as_posix()
-
-        elif prefs.export_output_target == "CUSTOM_PATH" and prefs.custom_export_path:
-            custom_path = Path(prefs.custom_export_path).resolve()
-            if not custom_path.exists():
-                log.warning(f"Custom export path does not exist: '{custom_path}'. Using temp directory instead.")
-            else:
-                return custom_path
-
-        # Fallback to temporary directory
-        temp_dir = get_addon_temp_dir(prefs).as_posix()
-        log.debug(f"Using temporary directory for export: {temp_dir}")
-
-        return temp_dir
-
-    def invoke(self, context, event):
-        prefs = get_addon_preferences(context)
-
-        if not validate_render_settings(self, context):
-            return {"CANCELLED"}
-
-        if prefs.export_output_target != "SELECT_DIR":
-            self.directory = str(self._get_export_directory(context, prefs))
-            return self.execute(context)
-
-        context.window_manager.fileselect_add(self)
-        return {"RUNNING_MODAL"}
-
-    def execute(self, context):
-        try:
-            prefs = get_addon_preferences(context)
-            settings = context.window_manager.recom_render_settings
-
-            bpy.ops.recom.background_render(action_type="EXPORT", directory=self.directory)
-
-            folder_name = prefs.export_scripts_folder_name if prefs.export_scripts_subfolder else ""
-            target_dir = Path(self.directory) / folder_name
-
-            self.report({"INFO"}, f"Render scripts exported ({settings.render_id})")
-            log.info(f'Render scripts exported to: "{str(target_dir)}"')
-
-        except Exception as exc:
-            self.report({"ERROR"}, f"Failed to export; check the console for details")
-            log.error(f"Failed to export the render scripts to '{self.directory}': {exc}")
-            return {"CANCELLED"}
-
-        return {"FINISHED"}
-
-    def draw(self, context):
-        layout = self.layout
-        layout.use_property_split = True
-        layout.use_property_decorate = False
-        prefs = get_addon_preferences(context)
-
-        col = layout.column()
-
-        folder_row = col.row(heading="Subfolder")
-        folder_row.prop(prefs, "export_scripts_subfolder", text="")
-        sub_folder_row = folder_row.row()
-        sub_folder_row.active = prefs.export_scripts_subfolder
-        sub_folder_row.prop(prefs, "export_scripts_folder_name", text="")
-
-        render_engine = get_render_engine(context)
-        is_parallel = prefs.launch_mode in {MODE_SEQ, MODE_LIST} and (
-            prefs.device_parallel if render_engine == RE_CYCLES else prefs.multi_instance
-        )
-        if is_parallel:
-            col.prop(prefs, "export_master_script", text="Create Master Script")
-        col.prop(prefs, "auto_open_exported_folder", text="Open Scripts Folder")
-
-
-class RECOM_OT_RenderImage(Operator):
-    bl_idname = "recom.render_image"
-    bl_label = "Render Image"
-    bl_description = "Render a single frame"
-
-    def execute(self, context):
-        prefs = get_addon_preferences(context)
-
-        old_launch_mode = prefs.launch_mode
-        prefs.launch_mode = MODE_SINGLE
-
-        try:
-            bpy.ops.recom.background_render(action_type="RENDER")
-        except Exception as e:
-            prefs.launch_mode = old_launch_mode
-            self.report({"ERROR"}, f"{e}")
-            return {"CANCELLED"}
-
-        return {"FINISHED"}
-
-
-class RECOM_OT_RenderAnimation(Operator):
-    bl_idname = "recom.render_animation"
-    bl_label = "Render Animation"
-    bl_description = "Render a full frame range"
-
-    def execute(self, context):
-        prefs = get_addon_preferences(context)
-
-        old_launch_mode = prefs.launch_mode
-        prefs.launch_mode = MODE_SEQ
-
-        try:
-            bpy.ops.recom.background_render(action_type="RENDER")
-        except Exception as e:
-            prefs.launch_mode = old_launch_mode
-            self.report({"ERROR"}, f"{e}")
-            return {"CANCELLED"}
-
-        return {"FINISHED"}
-
-
-class RECOM_OT_ExportImage(Operator):
-    bl_idname = "recom.export_image"
-    bl_label = "Export Render Image Script"
-    bl_description = "Export a render script for a single frame"
-
-    def execute(self, context):
-        prefs = get_addon_preferences(context)
-
-        old_launch_mode = prefs.launch_mode
-        prefs.launch_mode = MODE_SINGLE
-
-        try:
-            bpy.ops.recom.export_render_script("INVOKE_DEFAULT")
-            prefs.launch_mode = old_launch_mode
-        except Exception as e:
-            prefs.launch_mode = old_launch_mode
-            self.report({"ERROR"}, f"{e}")
-            return {"CANCELLED"}
-        return {"FINISHED"}
-
-
-class RECOM_OT_ExportAnimation(Operator):
-    bl_idname = "recom.export_animation"
-    bl_label = "Export Render Animation Script"
-    bl_description = "Export a render script for an animation"
-
-    def execute(self, context):
-        prefs = get_addon_preferences(context)
-
-        old_launch_mode = prefs.launch_mode
-        prefs.launch_mode = MODE_SEQ
-
-        try:
-            bpy.ops.recom.export_render_script("INVOKE_DEFAULT")
-            prefs.launch_mode = old_launch_mode
-        except Exception as e:
-            prefs.launch_mode = old_launch_mode
-            self.report({"ERROR"}, f"{e}")
-            return {"CANCELLED"}
-        return {"FINISHED"}
-
-
-classes = (
-    RECOM_OT_BackgroundRender,
-    RECOM_OT_ExportRenderScript,
-    RECOM_OT_RenderImage,
-    RECOM_OT_RenderAnimation,
-    RECOM_OT_ExportImage,
-    RECOM_OT_ExportAnimation,
-)
+classes = (RECOM_OT_ExportRenderScript,)
 
 
 def register():

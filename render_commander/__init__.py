@@ -1,89 +1,62 @@
-# ./__init__.py
-
-bl_info = {
-    "name": "Render Commander",
-    "author": "Nadir Perazzo",
-    "description": "Configure, launch, and export command-line render jobs",
-    "version": (1, 1, 6),
-    "blender": (4, 2, 0),
-    "doc_url": "https://github.com/n4dirp/Render-Commander",
-    "tracker_url": "https://github.com/n4dirp/Render-Commander",
-    "category": "Render",
-}
+# SPDX-License-Identifier: GPL-3.0-or-later
 
 import logging
-import json
-import shutil
 import time
 import os
-from pathlib import Path
 
 import bpy
 
-from .utils.constants import *
-from .utils.helpers import get_addon_temp_dir
-
-from . import properties
-from . import preferences
-from . import utils
-from . import operators
-from . import panels
-
+from . import properties, preferences, utils, operators, panels
 
 ADDON_NAME = __package__
+ADDON_DIR = os.path.dirname(__file__)
 
 log = logging.getLogger(ADDON_NAME)
-
-
-class TitleCaseFormatter(logging.Formatter):
-    def format(self, record):
-        record.levelname = record.levelname.title()
-        return super().format(record)
+log.propagate = False
 
 
 class ModernBlenderFormatter(logging.Formatter):
+    """Custom formatter to provide timestamped and addon-prefixed logs."""
+
     def __init__(self, with_level=False):
         super().__init__()
         self.start_time = time.time()
         self.with_level = with_level
 
     def format(self, record):
+        """Formats the log record with relative timestamps."""
         rel_time = record.created - self.start_time
         minutes, seconds = divmod(rel_time, 60)
         timestamp = f"{int(minutes):02d}:{seconds:06.3f}"
-        name = f"{record.name:<14}"
+        short_name = ADDON_NAME.rsplit(".", maxsplit=1)[-1]
 
         if self.with_level:
-            return f"{timestamp}  {ADDON_NAME} | {record.levelname.title()}: {record.getMessage()}"
-        else:
-            return f"{timestamp}  {ADDON_NAME} | {record.getMessage()}"
+            return f"{timestamp}  {short_name} | {record.levelname.title()}: {record.getMessage()}"
 
-
-def setup_logging():
-    """Sets up the addon's logger. Call this from register()."""
-    for handler in log.handlers[:]:
-        log.removeHandler(handler)
-
-    handler = logging.StreamHandler()
-    if bpy.app.version >= (5, 0, 0):
-        handler.setFormatter(ModernBlenderFormatter(with_level=True))
-    else:
-        handler.setFormatter(TitleCaseFormatter("%(levelname)s: %(message)s"))
-
-    log.addHandler(handler)
-    log.setLevel(logging.INFO)
+        return f"{timestamp}  {short_name} | {record.getMessage()}"
 
 
 def update_logger_from_prefs():
-    """Updates the log's level based on addon preferences."""
+    """Configures the logger based on user preferences (Opt-in logging)."""
+    for handler in log.handlers[:]:
+        log.removeHandler(handler)
+
+    enable_logging = False
     try:
         prefs = bpy.context.preferences.addons[__package__].preferences
-        level = logging.DEBUG if prefs.debug_mode else logging.INFO
-
-        log.setLevel(level)
-        # log.debug(f"Logging level set to {logging.getLevelName(level)}")
+        enable_logging = getattr(prefs, "debug_mode", False)
     except (KeyError, AttributeError):
         pass
+
+    if not enable_logging:
+        log.addHandler(logging.NullHandler())
+        return
+
+    handler = logging.StreamHandler()
+    handler.setFormatter(ModernBlenderFormatter(with_level=True))
+
+    log.addHandler(handler)
+    log.setLevel(logging.DEBUG if enable_logging else logging.INFO)
 
 
 addon_modules = [
@@ -95,95 +68,28 @@ addon_modules = [
 ]
 
 
-def install_default_presets():
-    addon_dir = Path(__file__).parent
-    source_dir = addon_dir / "presets"
-
-    dest_base = Path(bpy.utils.user_resource("SCRIPTS")) / "presets" / __package__
-
-    try:
-        dest_base.mkdir(parents=True, exist_ok=True)
-    except PermissionError:
-        log.error(f"Permission denied: Cannot create preset directory at {dest_base}")
-        return
-
-    if source_dir.exists():
-        for source_path in source_dir.rglob("*.py"):
-            try:
-                rel_path = source_path.relative_to(source_dir)
-                dest_path = dest_base / rel_path
-                dest_path.parent.mkdir(parents=True, exist_ok=True)
-
-                # Copy if not exist or outdated
-                if not dest_path.exists() or (source_path.stat().st_mtime > dest_path.stat().st_mtime):
-                    shutil.copy2(source_path, dest_path)
-                    log.debug(f"Installed preset: {rel_path}")
-            except (OSError, IOError) as e:
-                log.error(f"Failed to copy preset {source_path.name}: {e}")
-
-
-def clean_old_temp_files(prefs):
-    try:
-        temp_dir = get_addon_temp_dir(prefs)
-    except Exception as e:
-        log.error(f"Failed to get temp directory: {e}")
-        return 0, 0
-
-    if not temp_dir.exists():
-        return 0, 0
-
-    targets = {".bat", ".sh", ".py", ".log", ".tmp"}
-    count, errors = 0, 0
-    now = time.time()
-    age_threshold = prefs.auto_clean_older_than_days
-
-    for f in temp_dir.iterdir():
-        if f.is_file() and f.suffix.lower() in targets:
-            try:
-                file_age = now - f.stat().st_mtime
-                if file_age > age_threshold:
-                    f.unlink()
-                    count += 1
-            except Exception as e:
-                log.error(f"Failed to delete {f}: {e}")
-                errors += 1
-
-    return count, errors
-
-
 def register():
-    setup_logging()
+    log.addHandler(logging.NullHandler())
 
     for mdl in addon_modules:
         try:
             mdl.register()
-        except Exception as e:
-            log.error(f"Failed to register module {mdl.__name__}", exc_info=True)
-
-    prefs = bpy.context.preferences.addons[__package__].preferences
-    try:
-        if not prefs.preset_installed:
-            install_default_presets()
-            prefs.preset_installed = True
-    except Exception:
-        log.error("Failed to check or set preset_installed flag", exc_info=True)
+        except Exception as err:
+            print(f"[{ADDON_NAME}] Failed to register module {mdl.__name__}: {err}")
 
     update_logger_from_prefs()
 
-    # Auto clean old temp files on startup
-    if prefs.auto_clean_enabled:
-        count, errors = clean_old_temp_files(prefs)
-        if count > 0:
-            log.info(f"Auto-cleaned {count} old temporary files (failed: {errors})")
+    bpy.utils.register_preset_path(ADDON_DIR)
 
 
 def unregister():
-    # log.info("Unregistering Render Commander addon.")
+    bpy.utils.unregister_preset_path(ADDON_DIR)
+
     for mdl in reversed(addon_modules):
         try:
             mdl.unregister()
-        except Exception:
-            log.error(f"Failed to unregister module {mdl.__name__}", exc_info=True)
+        except Exception as err:
+            log.error("[%s] Failed to unreg module %s: %s", ADDON_NAME, mdl.__name__, err)
 
 
 if __name__ == "__main__":

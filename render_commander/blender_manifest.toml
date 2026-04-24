@@ -1,14 +1,14 @@
 schema_version = "1.0.0"
 id = "render_commander"
-version = "1.1.6"
+version = "1.2.2"
 name = "Render Commander"
-tagline = "Configure, launch, and export command-line render jobs"
+tagline = "Configure and export command-line render jobs"
 maintainer = "Nadir Perazzo"
 type = "add-on"
 website = "https://github.com/n4dirp/Render-Commander"
 tags = ["Render", "Import-Export"]
-blender_version_min = "4.2.0"
+blender_version_min = "4.3.0"
 license = ["SPDX:GPL-3.0-or-later"]
-platforms = ["windows-x64", "linux-x64"]
 [permissions]
-files = "Render output files and temporary data used during rendering"
+files = "Export script files and temp data"
+clipboard = "Add data paths from the clipboard"

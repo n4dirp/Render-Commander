@@ -1,5 +1,3 @@
-# ./operators/render_history.py
-
 from pathlib import Path
 import logging
 
@@ -8,10 +6,7 @@ from bpy.types import Operator
 from bpy.props import StringProperty, EnumProperty
 
 from ..preferences import get_addon_preferences
-from ..utils.helpers import (
-    open_folder,
-    redraw_ui,
-)
+from ..utils.helpers import redraw_ui, open_folder
 
 log = logging.getLogger(__name__)
 
@@ -20,13 +15,13 @@ class RECOM_OT_CleanRenderHistory(Operator):
     """Open a popup to delete render history entries."""
 
     bl_idname = "recom.clean_render_history"
-    bl_label = "Clean Render History List"
+    bl_label = "Clean History List"
 
     remove_type: EnumProperty(
         name="Remove",
         description="Select items to remove",
-        items=[("ALL", "All Items", ""), ("NOT_FOUND", "Items not Found", "")],
-        default="ALL",
+        items=[("ALL", "All Items", ""), ("NOT_FOUND", "Blend File Not Found", "")],
+        default="NOT_FOUND",
     )
 
     def invoke(self, context, event):
@@ -34,33 +29,35 @@ class RECOM_OT_CleanRenderHistory(Operator):
 
     def execute(self, context):
         prefs = get_addon_preferences(context)
-        if self.remove_type == "ALL":
-            prefs.render_history.clear()
-            log.info("Cleared all render history.")
-            redraw_ui()
+        removed_count = 0
 
-            return {"FINISHED"}
+        if self.remove_type == "ALL":
+            removed_count = len(prefs.render_history)
+            prefs.render_history.clear()
+            log.info("Cleared all render history")
 
         elif self.remove_type == "NOT_FOUND":
-            # Remove entries whose blend file or output folder no longer exist
             for i in reversed(range(len(prefs.render_history))):
                 item = prefs.render_history[i]
 
-                blend_path = Path(item.blend_path)
-                missing_blend = not blend_path.is_file()
+                blend_path_str = item.blend_path
+                missing_blend = bool(blend_path_str) and not Path(blend_path_str).is_file()
 
-                output_folder = item.output_folder
-                missing_output = bool(output_folder) and not Path(output_folder).is_dir()
-
-                if missing_blend or missing_output:
+                if missing_blend:
                     prefs.render_history.remove(i)
-                    log.info(f"Removed missing render history item: {item.blend_path}")
-
-                redraw_ui()
-            return {"FINISHED"}
+                    removed_count += 1
+                    log.info("Removed missing render history item: %s", item.blend_path)
 
         else:
             return {"CANCELLED"}
+
+        redraw_ui()
+
+        if removed_count > 0:
+            label = "item" if removed_count == 1 else "items"
+            self.report({"INFO"}, f"Removed {removed_count} {label}")
+
+        return {"FINISHED"}
 
 
 class RECOM_OT_RemoveRenderHistoryItem(Operator):
@@ -73,11 +70,10 @@ class RECOM_OT_RemoveRenderHistoryItem(Operator):
     def execute(self, context):
         prefs = get_addon_preferences(context)
         active_index = prefs.active_render_history_index
-        if active_index >= 0 and active_index < len(prefs.render_history):
-            # Remove the active history item
+
+        if 0 <= active_index < len(prefs.render_history):
             prefs.render_history.remove(active_index)
 
-            # Update active index to point to a valid item (if any remain)
             new_active_index = min(active_index, len(prefs.render_history) - 1)
             if new_active_index >= 0:
                 prefs.active_render_history_index = new_active_index
@@ -89,7 +85,7 @@ class RECOM_OT_OpenOutputFolder(Operator):
 
     bl_idname = "recom.open_output_folder"
     bl_label = "Open Output Folder"
-    bl_description = "Opens a folder in your system's file explorer."
+    bl_description = "Open the folder"
 
     folder_path: StringProperty(name="Folder Path", default="")
 

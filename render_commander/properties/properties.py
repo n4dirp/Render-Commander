@@ -2,7 +2,6 @@
 
 import logging
 import re
-from pathlib import Path
 
 import bpy
 from bpy.props import (
@@ -11,16 +10,11 @@ from bpy.props import (
     PointerProperty,
     CollectionProperty,
     IntProperty,
-    EnumProperty,
-    FloatProperty,
 )
 from bpy.types import PropertyGroup
 
 from .override_settings import RECOM_PG_OverrideSettings
-from ..utils.helpers import (
-    redraw_ui,
-    is_blend_or_backup_file,
-)
+from ..utils.helpers import redraw_ui, is_blend_or_backup_file
 
 log = logging.getLogger(__name__)
 
@@ -43,7 +37,7 @@ class RECOM_PG_RenderSettings(PropertyGroup):
 
         if cleaned != value:
             self.frame_list = cleaned
-            log.debug(f"Sanitized frame list: Original: '{value}', Cleaned: '{cleaned}'")
+            log.debug("Sanitized frame list: Original: '%s', Cleaned: '%s'", value, cleaned)
 
     frame_list: StringProperty(
         name="Frame List",
@@ -56,7 +50,7 @@ class RECOM_PG_RenderSettings(PropertyGroup):
         ext_blend_file = self.external_blend_file_path
         if ext_blend_file:
             if not is_blend_or_backup_file(ext_blend_file):
-                log.warning(f"External Blend File - Invalid or non-Blender file: {ext_blend_file}")
+                log.warning("External Blend File - Invalid or non-Blender file: %s", ext_blend_file)
 
     # External Scene
     use_external_blend: BoolProperty(
@@ -83,11 +77,6 @@ class RECOM_PG_RenderSettings(PropertyGroup):
     )
 
     # Override Settings
-    use_override_settings: BoolProperty(
-        name="Use Override Settings",
-        default=False,
-        description="Apply custom render settings overrides",
-    )
     override_settings: PointerProperty(type=RECOM_PG_OverrideSettings)
 
     # Misc
@@ -111,11 +100,8 @@ class RECOM_PG_RenderSettings(PropertyGroup):
         description="Whether the output folder has been opened",
         default=False,
     )
-    disable_render_button: BoolProperty(
-        name="Disable Render Button",
-        description="Internal flag to disable the render button",
-        default=False,
-    )
+    first_worker_info: StringProperty(default="")
+    worker_count: IntProperty(default=0)
 
 
 class RECOM_PG_ExternalSceneInfoItem(PropertyGroup):

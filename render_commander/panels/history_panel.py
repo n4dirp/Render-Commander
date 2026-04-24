@@ -3,14 +3,12 @@
 import bpy
 from bpy.types import Panel, UIList
 
-from ..utils.constants import *
+from ..utils.constants import ICON_OPTION, RENDER_ENGINE_MAPPING
 from ..preferences import get_addon_preferences
-from ..utils.helpers import get_render_engine
 
 
 class RECOM_PT_render_history_panel(Panel):
-    bl_label = "History"
-    bl_parent_id = "RECOM_PT_main_panel"
+    bl_label = "Export History"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = "Render Commander"
@@ -19,8 +17,7 @@ class RECOM_PT_render_history_panel(Panel):
     @classmethod
     def poll(cls, context):
         prefs = get_addon_preferences(context)
-        render_engine = get_render_engine(context)
-        return (prefs.cycles_setup_complete if render_engine == RE_CYCLES else True) and prefs.visible_panels.history
+        return prefs.visible_panels.history
 
     def draw(self, context):
         layout = self.layout
@@ -28,8 +25,6 @@ class RECOM_PT_render_history_panel(Panel):
         layout.use_property_decorate = False
 
         prefs = get_addon_preferences(context)
-        render_history = prefs.render_history
-
         row = layout.row()
 
         list_row = row.row(align=True)
@@ -46,9 +41,9 @@ class RECOM_PT_render_history_panel(Panel):
 
         menu_column = row.column(align=True)
         menu_column.enabled = len(prefs.render_history) > 0
-        menu_column.menu("RECOM_MT_render_history", text="", icon="COLLAPSEMENU")
+        menu_column.operator("recom.clean_render_history", text="", icon="TRASH")
         menu_column.separator()
-        menu_column.menu("RECOM_MT_render_history_item", text="", icon="DOWNARROW_HLT")
+        menu_column.menu("RECOM_MT_render_history_item", text="", icon=ICON_OPTION)
 
 
 def draw_kv(layout, label, value, operator=""):
@@ -61,14 +56,14 @@ def draw_kv(layout, label, value, operator=""):
         row1.label(text=label)
         if operator:
             row2.alignment = "LEFT"
-            op_folder = row2.operator(operator, text=f"{value}", icon="FILE_FOLDER")
+            op_folder = row2.operator(operator, text=f"{value}")
             op_folder.folder_path = value
         else:
             row2.label(text=str(value))
 
 
 class RECOM_PT_render_details_panel(Panel):
-    bl_label = "Render Details"
+    bl_label = "Script Details"
     bl_parent_id = "RECOM_PT_render_history_panel"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
@@ -92,31 +87,29 @@ class RECOM_PT_render_details_panel(Panel):
             col = layout.column(align=True)
 
             draw_kv(col, "Blend File", active_item.blend_file_name)
-            draw_kv(col, "Blend Directory", active_item.blend_dir, "recom.open_output_folder")
-            col.separator(type="AUTO")
+            draw_kv(col, "Blend Path", active_item.blend_dir, "recom.open_output_folder")
+
+            col.separator()
             draw_kv(col, "Render ID", active_item.render_id)
-            draw_kv(col, "Render Date", active_item.date)
-            col.separator(type="AUTO")
+            draw_kv(col, "Export Path", active_item.export_path, "recom.open_output_folder")
+            draw_kv(col, "Date", active_item.date)
+
+            col.separator()
             draw_kv(col, "Engine", RENDER_ENGINE_MAPPING.get(active_item.render_engine, active_item.render_engine))
             draw_kv(col, "Samples", active_item.samples)
-            col.separator(type="AUTO")
+
+            col.separator()
             draw_kv(col, "Resolution", f"{active_item.resolution_x} x {active_item.resolution_y} px")
             draw_kv(col, "Frame", active_item.frames.replace(" - ", "-"))
             draw_kv(col, "Format", active_item.file_format)
-            draw_kv(col, "Output", active_item.output_folder, "recom.open_output_folder")
-            draw_kv(col, "Filename", active_item.output_filename)
+            draw_kv(col, "Output Path", active_item.output_folder)
 
 
 class RECOM_UL_render_history(UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
         split = layout.split(factor=0.6)
-        col1 = split.column()
-        col2 = split.column()
-
-        row = col1.row(align=True)
-        row.label(text=item.blend_file_name)
-
-        sub_row = col2.row(align=True)
+        split.label(text=item.blend_file_name)
+        sub_row = split.row(align=True)
         sub_row.active = False
         sub_row.label(text=item.render_id)
 
@@ -134,7 +127,6 @@ class RECOM_UL_render_history(UIList):
             match = False
             if search_text in item.blend_file_name.lower():
                 match = True
-
             elif search_text in item.frames.replace(" - ", "-").lower():
                 match = True
             elif search_text in item.render_id.lower():

@@ -1,10 +1,8 @@
 # Render Commander
-Parallel Rendering & Script Generation
 
 [![GitHub Release](https://img.shields.io/github/v/release/n4dirp/Render-Commander?style=flat-square)](https://github.com/n4dirp/Render-Commander/releases)
 [![Blender Version](https://img.shields.io/badge/Blender-4.3+%20-orange?style=flat-square&logo=blender)](https://www.blender.org/)
 
-## Overview
 Render Commander exports standalone render scripts with fully embedded settings. It enables parallel rendering across multiple devices and supports advanced configuration for Cycles and EEVEE.
 
 ---

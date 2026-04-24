@@ -1,26 +1,15 @@
 # ./utils/menus.py
 
 import json
+import logging
 from pathlib import Path
 
 import bpy
 from bpy.types import Menu
 
-from .constants import *
 from ..preferences import get_addon_preferences
 
-
-class RECOM_MT_resolved_path(Menu):
-    bl_label = "Resolved Path Menu"
-
-    def draw(self, context):
-        layout = self.layout
-
-        prefs = get_addon_preferences(context)
-        layout.label(text="Show")
-        layout.separator()
-        layout.prop(prefs, "path_preview", text="Resolved Path")
-        layout.prop(prefs, "show_custom_variables_panel", text="Custom Variables")
+log = logging.getLogger(__name__)
 
 
 class RECOM_MT_recent_blend_files(Menu):
@@ -51,6 +40,21 @@ class RECOM_MT_recent_blend_files(Menu):
         layout.operator("recom.clear_recent_files", text="Clear Recent Files List...", icon="TRASH")
 
 
+def get_scene_info(settings):
+    """Single source of truth for scene info parsing"""
+    if not settings.external_scene_info or not settings.is_scene_info_loaded:
+        return None
+
+    try:
+        info = json.loads(settings.external_scene_info)
+        if info.get("blend_filepath", "") == "No Data":
+            return None
+        return info
+    except json.JSONDecodeError as e:
+        log.error("Failed to decode JSON: %s", e)
+        return None
+
+
 class RECOM_MT_external_blend_options(Menu):
     bl_label = "External Blend Options"
 
@@ -73,22 +77,27 @@ class RECOM_MT_external_blend_options(Menu):
         op_dir.file_path = file_path
 
         try:
-            output_path = json.loads(settings.external_scene_info).get("filepath", "//")
-        except:
-            output_path = "//"
-        op_open_output_folder = layout.operator("recom.open_output_folder", text="Open Output Path")
-        op_open_output_folder.folder_path = output_path
+            info = get_scene_info(settings)
+            output_path = info.get("filepath", "")
+            frame_path = info.get("frame_path", "")
+        except (json.JSONDecodeError, TypeError, AttributeError) as e:
+            pass
+        if output_path and frame_path:
+            op_open_output_folder = layout.operator("recom.open_blend_output_path", text="Open Output Path")
+            op_open_output_folder.file_path = frame_path
 
-        if prefs.debug_mode:
-            layout.separator()
-            layout.operator("recom.open_external_scene_info", text="View in Text Editor", icon="TEXT")
-
-            layout.separator()
-            layout.prop(prefs, "compact_external_info", text="Compact Scene Info")
+        layout.separator()
+        layout.operator(
+            "recom.clear_and_reload_scene_info",
+            text="Clear Cache & Reload",
+            icon="FILE_REFRESH",
+        )
+        layout.separator()
+        layout.prop(prefs, "compact_external_info", text="Compact Scene Info")
 
 
 class RECOM_MT_resolution_x(Menu):
-    bl_label = "Width Resolution Menu"
+    bl_label = "X Resolution Menu"
 
     def draw(self, context):
         layout = self.layout
@@ -99,12 +108,12 @@ class RECOM_MT_resolution_x(Menu):
         if settings.override_settings.resolution_mode == "SET_HEIGHT":
             layout.enabled = False
 
-        layout.label(text="Resolution Width")
+        layout.label(text="Resolution X")
         layout.separator()
 
         swap_row = layout.row()
         swap_row.active = settings.override_settings.resolution_override
-        swap_row.operator("recom.swap_resolution", text=f"Swap Width and Height", icon="UV_SYNC_SELECT")
+        swap_row.operator("recom.swap_resolution", text="Swap X and Y", icon="UV_SYNC_SELECT")
         layout.separator()
 
         sections = {
@@ -125,7 +134,7 @@ class RECOM_MT_resolution_x(Menu):
 
 
 class RECOM_MT_resolution_y(Menu):
-    bl_label = "Height Resolution Menu"
+    bl_label = "Y Resolution Menu"
 
     def draw(self, context):
         layout = self.layout
@@ -136,12 +145,12 @@ class RECOM_MT_resolution_y(Menu):
         if settings.override_settings.resolution_mode == "SET_WIDTH":
             layout.enabled = False
 
-        layout.label(text="Resolution Height")
+        layout.label(text="Resolution Y")
         layout.separator()
 
         swap_row = layout.row()
         swap_row.active = settings.override_settings.resolution_override
-        swap_row.operator("recom.swap_resolution", text=f"Swap Width and Height", icon="UV_SYNC_SELECT")
+        swap_row.operator("recom.swap_resolution", text="Swap X and Y", icon="UV_SYNC_SELECT")
         layout.separator()
 
         sections = {
@@ -232,27 +241,6 @@ class RECOM_MT_samples(Menu):
             op.value = val
 
 
-class RECOM_MT_eevee_samples(Menu):
-    bl_label = "Samples Menu"
-
-    def draw(self, context):
-        layout = self.layout
-
-        settings = context.window_manager.recom_render_settings
-        current = settings.override_settings.eevee.samples
-
-        layout.label(text="Render Samples")
-        layout.separator()
-
-        values = [64, 128, 256, 512, 1024]
-        values.sort(reverse=True)
-
-        for val in values:
-            icon = "DOT" if val == current else "BLANK1"
-            op = layout.operator("recom.set_eevee_samples", text=str(val), icon=icon)
-            op.value = val
-
-
 class RECOM_MT_adaptive_min_samples(Menu):
     bl_label = "Adaptive Min Samples Menu"
 
@@ -333,48 +321,9 @@ class RECOM_MT_cycles_render_devices(Menu):
 
     def draw(self, context):
         layout = self.layout
-        prefs = get_addon_preferences(context)
-
-        layout.operator("recom.import_from_cycles_settings", text="Import Device Settings", icon=ICON_SYNC)
-        layout.operator("recom.reinitialize_devices", icon="FILE_REFRESH")
-        layout.separator()
         layout.operator("recom.cycles_device_ids", text="Show Device IDs", icon="INFO")
-
-
-class RECOM_MT_scripts(Menu):
-    bl_label = "Import Scripts Menu"
-
-    def draw(self, context):
-        layout = self.layout
-
-        prefs = get_addon_preferences(context)
-        scripts_dir = (
-            Path(prefs.scripts_directory)
-            if prefs.scripts_directory
-            else Path(__file__).resolve().parent.parent / "scripts"
-        )
-
-        tittle_row = layout.row()
-        tittle_row.active = False
-        tittle_row.label(text="Import Scripts")
         layout.separator()
-
-        if scripts_dir.exists():
-            scripts = list(scripts_dir.rglob("*.py"))
-
-            if scripts:
-                scripts.sort()
-
-                for script_path in scripts:
-                    relative_path = script_path.relative_to(scripts_dir)
-                    clean_parts = [bpy.path.display_name(part) for part in relative_path.with_suffix("").parts]
-                    display_name = " / ".join(clean_parts)
-                    op = layout.operator("recom.add_script_from_menu", text=display_name, icon="FILE_SCRIPT")
-                    op.script_path = str(script_path)
-
-                layout.separator()
-
-        layout.operator("recom.change_scripts_directory", text="Change Directory...", icon="FILE_FOLDER")
+        layout.operator("recom.reinitialize_devices", icon="FILE_REFRESH")
 
 
 class RECOM_MT_script_options(Menu):
@@ -384,7 +333,6 @@ class RECOM_MT_script_options(Menu):
         layout = self.layout
         prefs = get_addon_preferences(context)
         script_index = prefs.active_script_index
-        scripts = prefs.additional_scripts
 
         if script_index < 0 or script_index >= len(prefs.additional_scripts):
             layout.active = False
@@ -393,7 +341,6 @@ class RECOM_MT_script_options(Menu):
 
         script = prefs.additional_scripts[script_index]
 
-        script_name = Path(script.script_path).name if script.script_path else "Empty Path"
         if not script.script_path:
             layout.active = False
 
@@ -410,66 +357,13 @@ class RECOM_MT_script_options(Menu):
             icon="DOT" if current_order == "POST" else "BLANK1",
         )
         op_post.order = "POST"
-        layout.separator()
-
-        last_index = len(scripts) - 1
-
-        move_up_row = layout.row(align=True)
-        move_up_row.active = script_index > 0
-        move_up_op = move_up_row.operator("recom.script_list_move_item", icon="TRIA_UP", text="Move Up")
-        move_up_op.direction = "UP"
-
-        move_down_row = layout.row(align=True)
-        move_down_row.active = script_index < last_index
-        move_down_op = move_down_row.operator("recom.script_list_move_item", icon="TRIA_DOWN", text="Move Down")
-        move_down_op.direction = "DOWN"
 
         layout.separator()
         layout.operator("recom.open_script", text="Open in Text Editor", icon="TEXT")
 
 
-class RECOM_MT_custom_variables(Menu):
-    bl_label = "Variables Menu"
-
-    def draw(self, context):
-        layout = self.layout
-        prefs = get_addon_preferences(context)
-
-        is_variable_selected = len(prefs.custom_variables) > 0 and prefs.active_custom_variable_index < len(
-            prefs.custom_variables
-        )
-
-        # Add move buttons
-        if not is_variable_selected or len(prefs.custom_variables) < 1:
-            layout.enabled = False
-
-        current_index = prefs.active_custom_variable_index
-        last_index = len(prefs.custom_variables) - 1
-
-        move_up_row = layout.column(align=True)
-        move_up_button = move_up_row.operator("recom.move_custom_variable_up", text="Move Up", icon="TRIA_UP")
-        move_up_row.enabled = current_index > 0
-
-        move_down_row = layout.column(align=True)
-        move_down_button = move_down_row.operator("recom.move_custom_variable_down", text="Move Down", icon="TRIA_DOWN")
-        move_down_row.enabled = current_index < last_index
-
-
-class RECOM_MT_custom_blender(Menu):
-    bl_label = "Blender Executable Menu"
-
-    def draw(self, context):
-        layout = self.layout
-
-        prefs = get_addon_preferences(context)
-        layout.enabled = bool(prefs.custom_executable_path)
-
-        layout.operator("recom.launch_custom_blender", text="Launch Custom Blender", icon="BLANK1")
-        layout.operator("recom.check_blender_version", text="Version Details...", icon="BLANK1")
-
-
 class RECOM_MT_render_history_item(Menu):
-    bl_label = "Render Menu"
+    bl_label = "History Item Menu"
 
     def draw(self, context):
         layout = self.layout
@@ -482,53 +376,94 @@ class RECOM_MT_render_history_item(Menu):
             return
 
         active_item = render_history[prefs.active_render_history_index]
-        blend_filename = Path(active_item.blend_path).name if active_item.blend_path else "Unknown Blend File"
         blend_exists = active_item.blend_path and Path(active_item.blend_path).exists()
 
         blend_col = layout.column(align=True)
         if not active_item.blend_path or not blend_exists:
             blend_col.enabled = False
 
-        # Open Blend File
-        # if blend_exists:
         op_open_blend_file = blend_col.operator("recom.open_blend_file", text="Open in Blender", icon="FILE_BLEND")
         op_open_blend_file.file_path = active_item.blend_path
-
         op_open_in_new_session = blend_col.operator("recom.open_in_new_blender", text="Open in New Instance")
         op_open_in_new_session.file_path = active_item.blend_path
         blend_col.separator()
-
-        op_load_external_scene = blend_col.operator(
-            "recom.select_recent_file", text="Load Blend File", icon="FILE_BLEND"
-        )
+        op_load_external_scene = blend_col.operator("recom.select_recent_file", text="Read Blend File", icon="ZOOM_ALL")
         op_load_external_scene.file_path = active_item.blend_path
         blend_col.separator()
-
         op_open_blend_folder = blend_col.operator(
             "recom.open_output_folder", text="Open Blend File Path", icon="FILE_FOLDER"
         )
-        op_open_blend_folder.folder_path = str(Path(active_item.blend_path).parent)
-
-        if active_item.output_folder and Path(active_item.output_folder).exists():
-            op_open_output_folder = layout.operator("recom.open_output_folder", text="Open Output Path")
-            op_open_output_folder.folder_path = active_item.output_folder
         layout.separator()
-        remove_op = layout.operator("recom.remove_render_history_item", text="Remove from History", icon="TRASH")
+        layout.operator("recom.remove_render_history_item", text="Remove from History", icon="TRASH")
 
 
-class RECOM_MT_render_history(Menu):
-    bl_label = "Render History Menu"
+# Data for Path Variables Menu
+PATH_VARIABLES_DATA = {
+    "data": [
+        ("{blend_dir}", "Blend Directory"),
+        ("{blend_name}", "Blend Name"),
+        ("", ""),
+        ("{fps}", "Frame Rate"),
+        ("{resolution_x}", "Resolution X"),
+        ("{resolution_y}", "Resolution Y"),
+        ("", ""),
+        ("{scene_name}", "Scene Name"),
+        ("{camera_name}", "Camera Name"),
+    ],
+}
+
+
+class RECOM_MT_insert_variable_root(Menu):
+    bl_label = "Add Variable Menu"
+    bl_description = "Add a variable to the output file path"
+
+    def draw_section(self, layout, title, variables):
+        col = layout.column(align=True)
+        col.label(text=title)
+        col.separator()
+
+        for token, label in variables:
+            if not token:
+                col.separator()
+                continue
+
+            op = col.operator("recom.insert_variable", text=label)
+            op.variable = token
 
     def draw(self, context):
         layout = self.layout
         prefs = get_addon_preferences(context)
 
-        layout.enabled = bool(prefs.render_history)
-        layout.operator("recom.clean_render_history", text="Clear Render History List...", icon="TRASH")
+        show_templates = bpy.app.version >= (5, 0)
+        has_custom = bool(prefs.custom_variables)
+
+        if not show_templates and not has_custom:
+            layout.label(text="No variables available", icon="INFO")
+            return
+
+        # Calculate columns based on visible sections only
+        num_sections = 1 if show_templates else 0
+        extra_column = 1 if has_custom else 0
+        columns = num_sections + extra_column
+
+        flow = layout.grid_flow(columns=columns, even_columns=True, even_rows=False, align=True)
+
+        # Draw Path Templates section (Blender 5.0+)
+        if show_templates:
+            self.draw_section(flow.column(), "Path Templates", PATH_VARIABLES_DATA["data"])
+
+        # Draw Custom Variables section
+        if has_custom:
+            col = flow.column(align=True)
+            col.label(text="Custom")
+            col.separator()
+
+            for var in prefs.custom_variables:
+                op = col.operator("recom.insert_variable", text=var.name)
+                op.variable = f"{{{var.token}}}"
 
 
 classes = (
-    RECOM_MT_resolved_path,
     RECOM_MT_recent_blend_files,
     RECOM_MT_external_blend_options,
     RECOM_MT_resolution_x,
@@ -536,17 +471,13 @@ classes = (
     RECOM_MT_custom_render_scale,
     RECOM_MT_adaptive_threshold,
     RECOM_MT_samples,
-    RECOM_MT_eevee_samples,
     RECOM_MT_adaptive_min_samples,
     RECOM_MT_time_limit,
     RECOM_MT_tile_size,
     RECOM_MT_cycles_render_devices,
-    RECOM_MT_scripts,
     RECOM_MT_script_options,
-    RECOM_MT_custom_blender,
-    RECOM_MT_custom_variables,
     RECOM_MT_render_history_item,
-    RECOM_MT_render_history,
+    RECOM_MT_insert_variable_root,
 )
 
 

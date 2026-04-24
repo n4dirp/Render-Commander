@@ -1,21 +1,15 @@
-# ./operators/override_settings.py
+"""
+Contains operators designed to specifically modify the active render overrides.
+"""
 
-import logging
-from pathlib import Path
+import mathutils
 
 import bpy
 from bpy.types import Operator
 from bpy.props import IntProperty, FloatProperty, StringProperty
 
 from ..preferences import get_addon_preferences
-from ..utils.helpers import (
-    redraw_ui,
-    replace_variables,
-    get_nearest_existing_path,
-    open_folder,
-)
-
-log = logging.getLogger(__name__)
+from ..utils.helpers import redraw_ui, resolve_blender_path
 
 
 class RECOM_OT_SetResolutionX(Operator):
@@ -155,99 +149,6 @@ class RECOM_OT_SetEEVEESamples(Operator):
         return {"FINISHED"}
 
 
-class RECOM_OT_SelectOutputDirectory(Operator):
-    bl_idname = "recom.select_output_directory"
-    bl_description = "Open a file explorer"
-    bl_label = "Output Directory"
-
-    directory: StringProperty(subtype="DIR_PATH")
-
-    def execute(self, context):
-        """Called after the user picks a file."""
-        settings = context.window_manager.recom_render_settings
-        abs_path = Path(bpy.path.abspath(self.directory))
-        settings.override_settings.output_directory = str(abs_path)
-
-        self.report({"INFO"}, f"Output directory set to: {abs_path}")
-        return {"FINISHED"}
-
-    def invoke(self, context, event):
-        """Open the file browser when the operator is invoked"""
-        wm = context.window_manager
-        settings = context.window_manager.recom_render_settings
-
-        try:
-            # Resolve the current output directory (may contain variables)
-            resolved_dir_str = replace_variables(settings.override_settings.output_directory)
-            path_obj = Path(resolved_dir_str)
-        except AttributeError:
-            path_obj = Path()
-
-        # Check if path exists and is a directory
-        if path_obj.exists() and path_obj.is_dir():
-            start_path = path_obj
-        else:
-            nearest_path = get_nearest_existing_path(resolved_dir_str)
-            if nearest_path:
-                start_path = nearest_path
-            else:
-                start_path = Path.home()
-
-        abs_start_path = Path(bpy.path.abspath(str(start_path))).resolve()
-        self.directory = str(abs_start_path)
-
-        wm.fileselect_add(self)
-        return {"RUNNING_MODAL"}
-
-
-class RECOM_OT_OpenFolder(Operator):
-    """Open or create output folder directory"""
-
-    bl_idname = "recom.open_folder"
-    bl_label = "Open Output Path"
-    bl_description = "Open the resolved output directory"
-
-    folder_to_create: StringProperty()
-
-    def invoke(self, context, event):
-        settings = context.window_manager.recom_render_settings
-        # Resolve the output path
-        settings.override_settings.on_output_path_changed(context)
-
-        full_path = settings.override_settings.resolved_directory
-
-        if not full_path or full_path.startswith("Error"):
-            self.report({"WARNING"}, "Path is invalid.")
-            return {"CANCELLED"}
-
-        folder_path = Path(full_path)
-        self.folder_to_create = str(folder_path)
-
-        # Check if the directory exists
-        if not folder_path.exists():
-            return context.window_manager.invoke_props_dialog(self, width=400)
-        else:
-            return self.execute(context)
-
-    def draw(self, context):
-        layout = self.layout
-
-        settings = context.window_manager.recom_render_settings
-        folder_path = self.folder_to_create if hasattr(self, "folder_to_create") else "N/A"
-
-        col = layout.column(align=True)
-        col.label(text="Create output folder?", icon="QUESTION")
-        col.separator()
-
-        box = col.box()
-        box.label(text=folder_path, icon="FILE_FOLDER")
-
-    def execute(self, context):
-        open_folder(self.folder_to_create)
-
-        return {"FINISHED"}
-
-
 class RECOM_OT_InsertVariable(Operator):
     """Insert variables into output paths"""
 
@@ -269,47 +170,25 @@ class RECOM_OT_InsertVariable(Operator):
         """Inserts selected variable into the specified path component"""
 
         settings = context.window_manager.recom_render_settings
+        prefs = get_addon_preferences(context)
+        separator = "_" if prefs.use_underscore_separator else ""
 
         if settings.override_settings.variable_insert_target == "DIRECTORY":
             current_dir = settings.override_settings.output_directory
             # Add separator only if the current path is not empty and does not end with '/'
             if current_dir and not current_dir.endswith(("/", "//", "\\")) and current_dir != "":
-                settings.override_settings.output_directory = f"{current_dir}_{self.variable}"
+                settings.override_settings.output_directory = f"{current_dir}{separator}{self.variable}"
             else:
                 settings.override_settings.output_directory = f"{current_dir}{self.variable}"
 
         else:
             current_file = settings.override_settings.output_filename
             # Add separator only if the current path is not empty and does not end with '/'
-            if current_file and not current_file.endswith(("/", "//", "\\")) and current_file != "":
-                settings.override_settings.output_filename = f"{current_file}_{self.variable}"
+            if current_file and not current_file.endswith(("/", "//", "\\", ".")) and current_file != "":
+                settings.override_settings.output_filename = f"{current_file}{separator}{self.variable}"
             else:
                 settings.override_settings.output_filename = f"{current_file}{self.variable}"
 
-        # Trigger path update after inserting
-        settings.override_settings.on_output_path_changed(context)
-        return {"FINISHED"}
-
-
-class RECOM_OT_RefreshResolvedPath(Operator):
-    """Force update of resolved output path"""
-
-    bl_idname = "recom.refresh_resolved_path"
-    bl_label = "Refresh Resolved Path"
-    bl_description = "Update the resolved output path"
-
-    def execute(self, context):
-        settings = context.window_manager.recom_render_settings
-        # Reset cached values
-        settings.override_settings.resolved_directory = ""
-        settings.override_settings.resolved_filename = ""
-        settings.override_settings.on_output_path_changed(context)
-        resolved_path = (
-            Path(settings.override_settings.resolved_directory) / settings.override_settings.resolved_filename
-        )
-
-        if settings.override_settings.resolved_directory:
-            log.info(f"Resolved Path Updated: {resolved_path}")
         return {"FINISHED"}
 
 
@@ -403,6 +282,109 @@ class RECOM_OT_MoveCustomVariableDown(Operator):
         return {"FINISHED"}
 
 
+def get_prop_config(val: any) -> tuple[str, dict]:
+    """Returns (prop_type, {attr: value}) for an override item."""
+    if isinstance(val, bool):
+        return "BOOL", {"value_bool": val}
+    if isinstance(val, int):
+        return "INT", {"value_int": val}
+    if isinstance(val, float):
+        return "FLOAT", {"value_float": val}
+    if isinstance(val, str):
+        return "STRING", {"value_string": val}
+    if isinstance(val, mathutils.Vector):
+        return "VECTOR_3", {"value_vector_3": [float(v) for v in val[:3]]}
+    if isinstance(val, mathutils.Color):
+        return "COLOR_4", {"value_color_4": [float(v) for v in val[:3]] + [1.0]}
+    if isinstance(val, (list, tuple)):
+        if len(val) == 3:
+            return "VECTOR_3", {"value_vector_3": [float(v) for v in val]}
+        if len(val) == 4:
+            return "COLOR_4", {"value_color_4": [float(v) for v in val]}
+    return "STRING", {"value_string": str(val)}
+
+
+class RECOM_OT_add_advanced_property_override(Operator):
+    bl_idname = "recom.add_advanced_property_override"
+    bl_label = "Add Property Override"
+    bl_description = (
+        "Creates a new property override. \nIf the input is empty, "
+        "it will automatically attempt to use a path from your clipboard."
+    )
+    bl_options = {"UNDO"}
+
+    def execute(self, context):
+        settings = context.window_manager.recom_render_settings.override_settings
+        path = settings.property_path_input.strip()
+
+        if not path:
+            cb = context.window_manager.clipboard
+            if cb:
+                cb_str = cb.strip()
+                valid_prefixes = (
+                    "bpy.",
+                    "scene.",
+                    "render.",
+                    "view_layer.",
+                    "view_layers[",
+                    "eevee.",
+                    "cycles.",
+                    "world.",
+                )
+                if any(cb_str.startswith(p) for p in valid_prefixes):
+                    path = cb_str
+
+        if not path:
+            self.report({"WARNING"}, "Please enter a valid data path or copy one to clipboard.")
+            return {"CANCELLED"}
+
+        try:
+            normalized_path, val = resolve_blender_path(path)
+        except Exception as e:
+            self.report({"ERROR"}, f"Failed to evaluate path: {e}")
+            return {"CANCELLED"}
+
+        item = settings.data_path_overrides.add()
+        item.name = normalized_path.rsplit(".", 1)[-1].replace("_", " ").title()
+        item.data_path = normalized_path
+
+        prop_type, values = get_prop_config(val)
+        item.prop_type = prop_type
+
+        for attr, value in values.items():
+            target = getattr(item, attr)
+            # Handle RNA array/vector assignment safely
+            if hasattr(target, "__setitem__") and not isinstance(value, str):
+                for i, v in enumerate(value):
+                    target[i] = v
+            else:
+                setattr(item, attr, value)
+
+        settings.active_data_path_index = len(settings.data_path_overrides) - 1
+        settings.property_path_input = ""
+
+        return {"FINISHED"}
+
+
+class RECOM_OT_remove_advanced_property_override(Operator):
+    bl_idname = "recom.remove_advanced_property_override"
+    bl_label = "Remove Property Override"
+    bl_description = "Remove the currently selected property override from the list."
+    bl_options = {"UNDO"}
+
+    @classmethod
+    def poll(cls, context):
+        settings = context.window_manager.recom_render_settings.override_settings
+        return len(settings.data_path_overrides) > 0
+
+    def execute(self, context):
+        settings = context.window_manager.recom_render_settings.override_settings
+        idx = settings.active_data_path_index
+        settings.data_path_overrides.remove(idx)
+        settings.active_data_path_index = max(0, idx - 1)
+        return {"FINISHED"}
+
+
 classes = (
     RECOM_OT_SetResolutionX,
     RECOM_OT_SetResolutionY,
@@ -414,14 +396,13 @@ classes = (
     RECOM_OT_SetTimeLimit,
     RECOM_OT_SetTileSize,
     RECOM_OT_SetEEVEESamples,
-    RECOM_OT_SelectOutputDirectory,
-    RECOM_OT_OpenFolder,
     RECOM_OT_InsertVariable,
-    RECOM_OT_RefreshResolvedPath,
     RECOM_OT_AddCustomVariable,
     RECOM_OT_RemoveCustomVariable,
     RECOM_OT_MoveCustomVariableUp,
     RECOM_OT_MoveCustomVariableDown,
+    RECOM_OT_add_advanced_property_override,
+    RECOM_OT_remove_advanced_property_override,
 )
 
 

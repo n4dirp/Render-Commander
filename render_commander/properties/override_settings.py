@@ -1,8 +1,6 @@
-# ./properties/override_settings.py
+"""Properties used by the 'Override Settings' system"""
 
 import logging
-import os
-from pathlib import Path
 
 import bpy
 from bpy.props import (
@@ -17,15 +15,78 @@ from bpy.props import (
 )
 from bpy.types import PropertyGroup
 
-from ..preferences import get_addon_preferences
 from ..utils.helpers import (
-    replace_variables,
     redraw_ui,
     calculate_auto_width,
     calculate_auto_height,
+    resolve_blender_path,
 )
 
 log = logging.getLogger(__name__)
+
+
+def data_path_search_callback(self, context, edit_text):
+    """Provides autocomplete suggestions for Blender data paths."""
+    text = edit_text.strip()
+    if not text:
+        return [
+            "bpy.context.scene",
+            "bpy.context.scene.render",
+            "bpy.context.scene.cycles",
+            "bpy.context.scene.eevee",
+            "bpy.context.view_layer",
+        ]
+
+    try:
+        normalized, _ = resolve_blender_path(text)
+    except Exception:
+        normalized = text  # Keep user input as fallback
+
+    items = []
+    if "." in normalized:
+        base_path, prefix = normalized.rsplit(".", 1)
+        try:
+            _, base_obj = resolve_blender_path(base_path)
+            if base_obj is not None:
+                props = (
+                    [p.identifier for p in base_obj.bl_rna.properties]
+                    if hasattr(base_obj, "bl_rna")
+                    else [p for p in dir(base_obj) if not p.startswith("_")]
+                )
+                items = [f"{base_path}.{p}" for p in props if p.startswith(prefix)]
+        except Exception:
+            pass
+
+    return items[:30] if items else [text]
+
+
+class RECOM_PG_DataPathOverride(PropertyGroup):
+    """Stores arbitrary data path overrides entered by the user"""
+
+    name: StringProperty(name="Name", default="Data Path Override")
+    data_path: StringProperty(
+        name="Data Path",
+        description="The Python path to the blender property",
+        update=lambda self, context: redraw_ui(),
+    )
+    prop_type: EnumProperty(
+        name="Type",
+        items=[
+            ("BOOL", "Boolean", ""),
+            ("INT", "Integer", ""),
+            ("FLOAT", "Float", ""),
+            ("STRING", "String", ""),
+            ("VECTOR_3", "Vector (3D)", ""),
+            ("COLOR_4", "Color (RGBA)", ""),
+        ],
+        default="FLOAT",
+    )
+    value_bool: BoolProperty(name="Value")
+    value_int: IntProperty(name="Value")
+    value_float: FloatProperty(name="Value")
+    value_string: StringProperty(name="Value")
+    value_vector_3: FloatVectorProperty(name="Value", size=3)
+    value_color_4: FloatVectorProperty(name="Value", size=4, subtype="COLOR", min=0.0, max=1.0)
 
 
 class RECOM_PG_CyclesRenderOverrides(PropertyGroup):
@@ -167,11 +228,6 @@ class RECOM_PG_CyclesRenderOverrides(PropertyGroup):
         default=True,
         description="Enable GPU acceleration for denoising",
     )
-    denoising_store_passes: BoolProperty(
-        name="Enable Denoising Data",
-        default=False,
-        description="Store the denoising feature passes and noisy image.\nThe passes adapt to the denoiser selected for rendering.",
-    )
 
     # Performance
     performance_override: BoolProperty(
@@ -218,92 +274,13 @@ class RECOM_PG_EEVEERenderOverrides(PropertyGroup):
     )
 
 
-class RECOM_PG_DataPathOverride(PropertyGroup):
-    """Stores arbitrary data path overrides entered by the user"""
-
-    name: StringProperty(name="Name", default="Data Path Override")
-    data_path: StringProperty(name="Data Path", description="The Python path to the blender property")
-    prop_type: EnumProperty(
-        name="Type",
-        items=[
-            ("BOOL", "Boolean", ""),
-            ("INT", "Integer", ""),
-            ("FLOAT", "Float", ""),
-            ("STRING", "String", ""),
-            ("VECTOR_3", "Vector (3D)", ""),
-            ("COLOR_4", "Color (RGBA)", ""),
-        ],
-        default="FLOAT",
-    )
-    value_bool: BoolProperty(name="Value")
-    value_int: IntProperty(name="Value")
-    value_float: FloatProperty(name="Value")
-    value_string: StringProperty(name="Value")
-    value_vector_3: FloatVectorProperty(name="Value", size=3)
-    value_color_4: FloatVectorProperty(name="Value", size=4, subtype="COLOR", min=0.0, max=1.0)
-
-
-def data_path_search_callback(self, context, edit_text):
-    """Provides autocomplete suggestions for Blender data paths."""
-    import bpy
-
-    items = []
-    text = edit_text.strip()
-
-    # Default suggestions if the box is empty
-    if not text:
-        return [
-            "bpy.context.scene",
-            "bpy.context.scene.render",
-            "bpy.context.scene.cycles",
-            "bpy.context.scene.eevee",
-            "bpy.context.view_layer",
-        ]
-
-    # Allow shorthand like "scene.render" -> "bpy.context.scene.render"
-    eval_text = text
-    if text.startswith("scene.") or text.startswith("render.") or text.startswith("view_layer."):
-        eval_text = "bpy.context." + text
-
-    if "." in eval_text:
-        parts = eval_text.split(".")
-        base_path = ".".join(parts[:-1])
-        prefix = parts[-1]
-
-        try:
-            # Safely evaluate the base path (e.g., "bpy.context.scene")
-            base_obj = eval(base_path, {"bpy": bpy})
-
-            # Extract valid properties
-            if hasattr(base_obj, "bl_rna"):
-                props = [p.identifier for p in base_obj.bl_rna.properties]
-            else:
-                props = [p for p in dir(base_obj) if not p.startswith("_")]
-
-            # Filter by what the user is currently typing
-            for p in props:
-                if p.startswith(prefix):
-                    items.append(f"{base_path}.{p}")
-        except Exception:
-            pass
-
-    # If no items found, return the text itself to prevent an empty dropdown
-    if not items and text:
-        items.append(text)
-
-    # Limit results
-    return items[:30]
-
-
 class RECOM_PG_OverrideSettings(PropertyGroup):
     """Stores override settings"""
 
     # Data Path Overrides
     property_path_input: StringProperty(
-        name="Property Data Path",
-        description=(
-            "Search for or paste a Blender data path to override.\n" "Example: bpy.context.scene.render.use_simplify"
-        ),
+        name="Blender Data Path",
+        description=("Search for a Blender data path to override.\n" "Example: bpy.context.scene.render.use_simplify"),
         search=data_path_search_callback,
     )
     use_data_path_overrides: BoolProperty(
@@ -332,7 +309,7 @@ class RECOM_PG_OverrideSettings(PropertyGroup):
     )
     frame_current: IntProperty(
         name="",
-        description="Specify the exact frame number to render (e.g., for still images)",
+        description="Specify the exact frame number to render",
         default=1,
         min=0,
     )
@@ -401,12 +378,12 @@ class RECOM_PG_OverrideSettings(PropertyGroup):
             ("CUSTOM", "Custom", "Manually set both width and height"),
             (
                 "SET_WIDTH",
-                "Set Width",
+                "Set X",
                 "Specify the width; height will be calculated automatically to maintain the scene's aspect ratio.",
             ),
             (
                 "SET_HEIGHT",
-                "Set Height",
+                "Set Y",
                 "Specify the height; width will be calculated automatically to maintain the scene's aspect ratio.",
             ),
         ],
@@ -422,7 +399,7 @@ class RECOM_PG_OverrideSettings(PropertyGroup):
         subtype="PIXEL",
     )
     resolution_x: IntProperty(
-        name="Width",
+        name="Resolution X",
         default=1920,
         min=1,
         description="Horizontal resolution in pixels",
@@ -430,7 +407,7 @@ class RECOM_PG_OverrideSettings(PropertyGroup):
         update=_update_auto_resolution_cache,
     )
     resolution_y: IntProperty(
-        name="Height",
+        name="Resolution Y",
         default=1080,
         min=1,
         description="Vertical resolution in pixels",
@@ -438,13 +415,13 @@ class RECOM_PG_OverrideSettings(PropertyGroup):
         update=_update_auto_resolution_cache,
     )
     cached_auto_width: IntProperty(
-        name="Cached Auto Width",
+        name="Cached Auto X",
         default=0,
         description="Cached width that keeps the aspect ratio when SET_HEIGHT is active",
         subtype="PIXEL",
     )
     cached_auto_height: IntProperty(
-        name="Cached Auto Height",
+        name="Cached Auto Y",
         default=0,
         description="Cached height that keeps the aspect ratio when SET_WIDTH is active",
         subtype="PIXEL",
@@ -596,11 +573,11 @@ class RECOM_PG_OverrideSettings(PropertyGroup):
                 ("16", "Float (Half)", "16-bit color channels"),
                 ("32", "Float (Full)", "32-bit color channels"),
             ]
-        else:
-            return [
-                ("8", "8", "8-bit color channels"),
-                ("16", "16", "16-bit color channels"),
-            ]
+
+        return [
+            ("8", "8", "8-bit color channels"),
+            ("16", "16", "16-bit color channels"),
+        ]
 
     color_depth: EnumProperty(
         name="Color Depth",
@@ -610,56 +587,23 @@ class RECOM_PG_OverrideSettings(PropertyGroup):
     )
 
     # Output Path
-    def on_output_path_changed(self, context):
-        prefs = get_addon_preferences(context)
-
-        try:
-            dir_path_str = self.output_directory or ""
-            file_name_str = self.output_filename or ""
-
-            # Resolve directory path with variables
-            resolved_dir_str = replace_variables(dir_path_str)
-            folder_path_display = ""
-
-            if resolved_dir_str:
-                folder_path_display = resolved_dir_str
-
-            if folder_path_display and not folder_path_display.endswith(os.sep):
-                folder_path_display += os.sep
-
-            self.resolved_directory = folder_path_display
-
-            # Resolve filename with variables
-            resolved_filename = replace_variables(file_name_str)
-            self.resolved_filename = resolved_filename or ""
-
-            self.resolved_path = (
-                str(Path(self.resolved_directory) / self.resolved_filename)
-                if resolved_filename
-                else folder_path_display
-            )
-        except Exception as e:
-            log.error(f"Failed to resolve output path: {str(e)}")
-
     output_path_override: BoolProperty(
         name="Override Output Path",
         default=False,
-        update=on_output_path_changed,
     )
     output_directory: StringProperty(
         name="Output Directory",
-        # subtype="DIR_PATH",
-        options={"OUTPUT_PATH"},
-        default="{blend_dir}/render/",
+        default="/tmp\\",
+        subtype="DIR_PATH",
+        options={"OUTPUT_PATH", "PATH_SUPPORTS_BLEND_RELATIVE"},
         description="Specify the directory where rendered files will be saved",
-        update=on_output_path_changed,
+        update=lambda self, context: redraw_ui(),
     )
     output_filename: StringProperty(
         name="Output Filename",
-        default="{blend_name}",
         subtype="FILE_NAME",
         description="Specify the filename pattern for rendered files",
-        update=on_output_path_changed,
+        update=lambda self, context: redraw_ui(),
     )
     variable_insert_target: EnumProperty(
         name="Insert Into",
@@ -668,19 +612,6 @@ class RECOM_PG_OverrideSettings(PropertyGroup):
             ("FILENAME", "Filename", "Insert variable into the output filename string"),
         ],
         default="FILENAME",
-    )
-    resolved_directory: StringProperty(
-        name="Resolved Directory",
-        default="",
-    )
-    resolved_filename: StringProperty(
-        name="Resolved Filename",
-        default="",
-    )
-    resolved_path: StringProperty(
-        name="Resolved Output Path",
-        description="Cached version of the resolved output path",
-        default="",
     )
 
     # Motion Blur

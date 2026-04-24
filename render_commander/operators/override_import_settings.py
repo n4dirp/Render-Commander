@@ -1,18 +1,17 @@
-# ./operators/import_settings.py
+"""
+Provides the logic required to synchronize render settings between 
+the current scene, external blend files, and the Render Commander override system.
+"""
 
 import json
 import logging
-from pathlib import Path
 
 import bpy
 from bpy.types import Operator
 
-from ..utils.constants import ADDON_NAME
+from ..utils.constants import RE_CYCLES, RE_EEVEE_NEXT, RE_EEVEE
 from ..preferences import get_addon_preferences
-from ..utils.constants import *
-from ..utils.helpers import (
-    get_render_engine,
-)
+from ..utils.helpers import get_render_engine
 
 log = logging.getLogger(__name__)
 
@@ -24,551 +23,230 @@ class RECOM_OT_ImportAllSettings(Operator):
     bl_label = "Import Scene Values"
 
     def execute(self, context):
+        scene = context.scene
+        if not scene:
+            self.report({"ERROR"}, "No active scene found.")
+            return {"CANCELLED"}
+
+        settings = context.window_manager.recom_render_settings
+        override_settings = settings.override_settings
+        ext_info = None
+
+        if settings.use_external_blend:
+            try:
+                ext_info = json.loads(settings.external_scene_info)
+                if not isinstance(ext_info, dict):
+                    raise ValueError("Invalid scene info format")
+            except Exception as e:
+                log.error("Failed to parse external scene info: %s", e, exc_info=True)
+                self.report({"ERROR"}, "Invalid or unreadable external scene info.")
+                return {"CANCELLED"}
+
         try:
             prefs = get_addon_preferences(context)
-            overrides = prefs.override_import_settings
+            prefs_overrides = prefs.override_import_settings
             render_engine = get_render_engine(context)
 
-            if overrides.import_frame_range:
-                self._import_frame_range(context)
-            if overrides.import_resolution:
-                self._import_manual_resolution(context)
-            if overrides.import_output_path:
-                self._import_output_path(context)
-            if overrides.import_output_format:
-                self._import_output_format(context)
+            if prefs_overrides.import_frame_range:
+                self._import_frame_range(scene, override_settings, ext_info)
+            if prefs_overrides.import_resolution:
+                self._import_manual_resolution(scene, override_settings, ext_info)
+            if prefs_overrides.import_output_path:
+                self._import_output_path(scene, override_settings, ext_info)
+            if prefs_overrides.import_output_format:
+                self._import_output_format(scene, override_settings, ext_info)
 
             if render_engine == RE_CYCLES:
-                if overrides.import_compute_device:
-                    self._import_compute_device(context)
-                if overrides.import_sampling:
-                    self._import_sampling(context)
-                if overrides.import_performance:
-                    self._import_performance(context)
+                if prefs_overrides.import_compute_device:
+                    self._import_compute_device(scene, override_settings, ext_info)
+                if prefs_overrides.import_sampling:
+                    self._import_sampling(scene, override_settings, ext_info)
+                if prefs_overrides.import_performance:
+                    self._import_performance(scene, override_settings, ext_info)
             elif render_engine in {RE_EEVEE_NEXT, RE_EEVEE}:
-                if overrides.import_eevee_settings:
-                    self._import_eevee_settings(context)
+                if prefs_overrides.import_eevee_settings:
+                    self._import_eevee_settings(scene, override_settings, ext_info)
 
-            if overrides.import_motion_blur:
-                self._import_motion_blur(context)
-            if overrides.import_compositor:
-                self._import_compositor(context)
+            if prefs_overrides.import_motion_blur:
+                self._import_motion_blur(scene, override_settings, ext_info)
+            if prefs_overrides.import_compositor:
+                self._import_compositor(scene, override_settings, ext_info)
 
             context.area.tag_redraw()
         except Exception as exc:
-            log.error(f"ImportAllSettings failed: {exc}", exc_info=True)
+            log.error("ImportAllSettings failed: %s", exc, exc_info=True)
+            self.report({"ERROR"}, f"Import failed: {str(exc)}")
             return {"CANCELLED"}
 
         return {"FINISHED"}
 
-    def _import_compute_device(self, context):
-        try:
-            scene = context.scene
-            if not scene:
-                self.report({"ERROR"}, "No active scene found.")
-                return {"CANCELLED"}
+    def _import_compute_device(self, scene, override_settings, ext_info):
+        cycles = override_settings.cycles
+        if ext_info is not None:
+            cycles.device = str(ext_info.get("cycles_device", "CPU"))
+        else:
+            cycles.device = str(scene.cycles.device)
 
-            settings = context.window_manager.recom_render_settings
-            override_settings = settings.override_settings
-            cycles = override_settings.cycles
+        cycles.device_override = True
 
-            is_external = settings.use_external_blend
+    def _import_frame_range(self, scene, override_settings, ext_info):
+        if ext_info is not None:
+            override_settings.frame_current = ext_info.get("frame_current", 1)
+            override_settings.frame_start = ext_info.get("frame_start", 1)
+            override_settings.frame_end = ext_info.get("frame_end", 250)
+            override_settings.frame_step = ext_info.get("frame_step", 1)
+        else:
+            override_settings.frame_current = scene.frame_current
+            override_settings.frame_start = scene.frame_start
+            override_settings.frame_end = scene.frame_end
+            override_settings.frame_step = scene.frame_step
 
-            if is_external:
-                try:
-                    info = json.loads(settings.external_scene_info)
-                    if not isinstance(info, dict):
-                        raise ValueError("Invalid scene info format")
-                    cycles.device = str(info.get("cycles_device", "CPU"))
-                except json.JSONDecodeError as e:
-                    log.error(f"Failed to parse external scene info: {e}")
-                    self.report({"ERROR"}, "Invalid JSON in external scene info.")
-                    return {"CANCELLED"}
-                except Exception as e:
-                    log.error(f"Unexpected error loading scene info: {e}", exc_info=True)
-                    self.report(
-                        {"ERROR"},
-                        f"Error syncing compute device: {str(e)}",
-                    )
-                    return {"CANCELLED"}
+        override_settings.frame_range_override = True
+
+    def _import_manual_resolution(self, scene, override_settings, ext_info):
+        if ext_info is not None:
+            override_settings.resolution_x = ext_info.get("resolution_x", 1920)
+            override_settings.resolution_y = ext_info.get("resolution_y", 1080)
+            current_percentage = ext_info.get("render_scale", 100)
+        else:
+            override_settings.resolution_x = scene.render.resolution_x
+            override_settings.resolution_y = scene.render.resolution_y
+            current_percentage = scene.render.resolution_percentage
+
+        override_settings.custom_render_scale = current_percentage
+        override_settings.format_override = True
+
+    def _import_sampling(self, scene, override_settings, ext_info):
+        cycles = override_settings.cycles
+        if ext_info is not None:
+            cycles.use_adaptive_sampling = ext_info.get("use_adaptive_sampling", True)
+            cycles.adaptive_threshold = ext_info.get("adaptive_threshold", 0.01)
+            cycles.samples = ext_info.get("samples", 4096)
+            cycles.adaptive_min_samples = ext_info.get("adaptive_min_samples", 0)
+            cycles.time_limit = ext_info.get("time_limit", 0.0)
+            cycles.use_denoising = ext_info.get("use_denoising", False)
+            cycles.denoiser = ext_info.get("denoiser", "OPENIMAGEDENOISE")
+            cycles.denoising_input_passes = ext_info.get("denoising_input_passes", "RGB_ALBEDO_NORMAL")
+            cycles.denoising_prefilter = ext_info.get("denoising_prefilter", "ACCURATE")
+            cycles.denoising_quality = ext_info.get("denoising_quality", "HIGH")
+            cycles.denoising_use_gpu = ext_info.get("denoising_use_gpu", False)
+        else:
+            cycles.use_adaptive_sampling = scene.cycles.use_adaptive_sampling
+            cycles.adaptive_threshold = scene.cycles.adaptive_threshold
+            cycles.samples = scene.cycles.samples
+            cycles.adaptive_min_samples = scene.cycles.adaptive_min_samples
+            cycles.time_limit = scene.cycles.time_limit
+            cycles.use_denoising = scene.cycles.use_denoising
+            cycles.denoiser = scene.cycles.denoiser
+            cycles.denoising_input_passes = scene.cycles.denoising_input_passes
+            cycles.denoising_prefilter = scene.cycles.denoising_prefilter
+            cycles.denoising_quality = scene.cycles.denoising_quality
+            cycles.denoising_use_gpu = scene.cycles.denoising_use_gpu
+
+        cycles.sampling_override = True
+
+    def _import_eevee_settings(self, scene, override_settings, ext_info):
+        eevee = override_settings.eevee
+        if ext_info is not None:
+            eevee.samples = ext_info.get("eevee_samples", 64)
+        else:
+            eevee.samples = scene.eevee.taa_render_samples
+
+        override_settings.eevee_override = True
+
+    def _import_motion_blur(self, scene, override_settings, ext_info):
+        if ext_info is not None:
+            override_settings.use_motion_blur = ext_info.get("use_motion_blur", False)
+            override_settings.motion_blur_position = ext_info.get("motion_blur_position", "CENTER")
+            override_settings.motion_blur_shutter = ext_info.get("motion_blur_shutter", 0.50)
+        else:
+            override_settings.use_motion_blur = scene.render.use_motion_blur
+            override_settings.motion_blur_position = scene.render.motion_blur_position
+            override_settings.motion_blur_shutter = scene.render.motion_blur_shutter
+
+        override_settings.motion_blur_override = True
+
+    def _import_output_path(self, scene, override_settings, ext_info):
+        full_path = ext_info.get("filepath", "") if ext_info is not None else scene.render.filepath
+
+        if full_path.endswith(("/", "\\")):
+            override_settings.output_directory = full_path
+            override_settings.output_filename = ""
+        else:
+            last_slash = full_path.rfind("/")
+            last_backslash = full_path.rfind("\\")
+            split_idx = max(last_slash, last_backslash)
+
+            if split_idx != -1:
+                override_settings.output_directory = full_path[: split_idx + 1]
+                override_settings.output_filename = full_path[split_idx + 1 :]
             else:
-                cycles.device = str(scene.cycles.device)
+                override_settings.output_directory = ""
+                override_settings.output_filename = full_path
 
-            override_settings.cycles.device_override = True
+        override_settings.output_path_override = True
 
-            return {"FINISHED"}
-        except Exception as e:
-            log.error(f"Critical error in RECOM_OT_ImportComputeDevice: {e}", exc_info=True)
-            self.report({"ERROR"}, f"Failed to import compute device: {str(e)}")
-            return {"CANCELLED"}
+    def _import_output_format(self, scene, override_settings, ext_info):
+        if ext_info is not None:
+            file_format = ext_info.get("file_format", "PNG")
+            color_depth_value = str(ext_info.get("color_depth", "16"))
 
-    def _import_frame_range(self, context):
-        try:
-            scene = context.scene
-            if not scene:
-                self.report({"ERROR"}, "No active scene found.")
-                return {"CANCELLED"}
+            valid_options = ["16", "32"] if file_format in ["OPEN_EXR", "OPEN_EXR_MULTILAYER"] else ["8", "16"]
 
-            settings = context.window_manager.recom_render_settings
-            override_settings = settings.override_settings
-
-            is_external = settings.use_external_blend
-
-            if is_external:
-                try:
-                    info = json.loads(settings.external_scene_info)
-                    if not isinstance(info, dict):
-                        raise ValueError("Invalid scene info format")
-                    override_settings.frame_current = info.get("frame_current", 1)
-                    override_settings.frame_start = info.get("frame_start", 1)
-                    override_settings.frame_end = info.get("frame_end", 250)
-                    override_settings.frame_step = info.get("frame_step", 1)
-                except json.JSONDecodeError as e:
-                    log.error(f"Failed to parse external scene info: {e}")
-                    self.report({"ERROR"}, "Invalid JSON in external scene info.")
-                    return {"CANCELLED"}
-                except Exception as e:
-                    log.error(f"Unexpected error loading scene info: {e}", exc_info=True)
-                    self.report(
-                        {"ERROR"},
-                        f"Error importing frame range: {str(e)}",
-                    )
-                    return {"CANCELLED"}
-            else:
-                override_settings.frame_current = scene.frame_current
-                override_settings.frame_start = scene.frame_start
-                override_settings.frame_end = scene.frame_end
-                override_settings.frame_step = scene.frame_step
-
-            override_settings.frame_range_override = True
-
-            return {"FINISHED"}
-        except Exception as e:
-            log.error(f"Critical error in RECOM_OT_ImportFrameRange: {e}", exc_info=True)
-            self.report({"ERROR"}, f"Failed to import frame range: {str(e)}")
-            return {"CANCELLED"}
-
-    def _import_manual_resolution(self, context):
-        try:
-            scene = context.scene
-            if not scene:
-                self.report({"ERROR"}, "No active scene found.")
-                return {"CANCELLED"}
-
-            settings = context.window_manager.recom_render_settings
-            override_settings = settings.override_settings
-
-            is_external = settings.use_external_blend
-
-            if is_external:
-                try:
-                    info = json.loads(settings.external_scene_info)
-                    if not isinstance(info, dict):
-                        raise ValueError("Invalid scene info format")
-                    override_settings.resolution_x = info.get("resolution_x", 1920)
-                    override_settings.resolution_y = info.get("resolution_y", 1080)
-                    current_percentage = info.get("render_scale", 100)
-                except json.JSONDecodeError as e:
-                    log.error(f"Failed to parse external scene info: {e}")
-                    self.report({"ERROR"}, "Invalid JSON in external scene info.")
-                    return {"CANCELLED"}
-                except Exception as e:
-                    log.error(f"Unexpected error loading scene info: {e}", exc_info=True)
-                    self.report(
-                        {"ERROR"},
-                        f"Error importing resolution: {str(e)}",
-                    )
-                    return {"CANCELLED"}
-            else:
-                override_settings.resolution_x = scene.render.resolution_x
-                override_settings.resolution_y = scene.render.resolution_y
-                current_percentage = scene.render.resolution_percentage
-
-            override_settings.custom_render_scale = current_percentage
-
-            override_settings.format_override = True
-
-            return {"FINISHED"}
-        except Exception as e:
-            log.error(f"Critical error in RECOM_OT_ImportManualResolution: {e}", exc_info=True)
-            self.report({"ERROR"}, f"Failed to import resolution: {str(e)}")
-            return {"CANCELLED"}
-
-    def _import_sampling(self, context):
-        try:
-            scene = context.scene
-            if not scene:
-                self.report({"ERROR"}, "No active scene found.")
-                return {"CANCELLED"}
-
-            settings = context.window_manager.recom_render_settings
-            override_settings = settings.override_settings
-            cycles = override_settings.cycles
-
-            is_external = settings.use_external_blend
-
-            if is_external:
-                try:
-                    info = json.loads(settings.external_scene_info)
-                    if not isinstance(info, dict):
-                        raise ValueError("Invalid scene info format")
-                    cycles.use_adaptive_sampling = info.get("use_adaptive_sampling", True)
-                    cycles.adaptive_threshold = info.get("adaptive_threshold", 0.01)
-                    cycles.samples = info.get("samples", 4096)
-                    cycles.adaptive_min_samples = info.get("adaptive_min_samples", 0)
-                    cycles.time_limit = info.get("time_limit", 0.0)
-                    cycles.use_denoising = info.get("use_denoising", False)
-                    cycles.denoiser = info.get("denoiser", "OPENIMAGEDENOISE")
-                    cycles.denoising_input_passes = info.get("denoising_input_passes", "RGB_ALBEDO_NORMAL")
-                    cycles.denoising_prefilter = info.get("denoising_prefilter", "ACCURATE")
-                    cycles.denoising_quality = info.get("denoising_quality", "HIGH")
-                    cycles.denoising_use_gpu = info.get("denoising_use_gpu", False)
-                except json.JSONDecodeError as e:
-                    log.error(f"Failed to parse external scene info: {e}")
-                    self.report({"ERROR"}, "Invalid JSON in external scene info.")
-                    return {"CANCELLED"}
-                except Exception as e:
-                    log.error(f"Unexpected error loading scene info: {e}", exc_info=True)
-                    self.report(
-                        {"ERROR"},
-                        f"Error importing sampling: {str(e)}",
-                    )
-                    return {"CANCELLED"}
-            else:
-                cycles.use_adaptive_sampling = scene.cycles.use_adaptive_sampling
-                cycles.adaptive_threshold = scene.cycles.adaptive_threshold
-                cycles.samples = scene.cycles.samples
-                cycles.adaptive_min_samples = scene.cycles.adaptive_min_samples
-                cycles.time_limit = scene.cycles.time_limit
-                cycles.use_denoising = scene.cycles.use_denoising
-                cycles.denoiser = scene.cycles.denoiser
-                cycles.denoising_input_passes = scene.cycles.denoising_input_passes
-                cycles.denoising_prefilter = scene.cycles.denoising_prefilter
-                cycles.denoising_quality = scene.cycles.denoising_quality
-                cycles.denoising_use_gpu = scene.cycles.denoising_use_gpu
-
-            cycles.sampling_override = True
-
-            return {"FINISHED"}
-        except Exception as e:
-            log.error(f"Critical error in RECOM_OT_ImportSampling: {e}", exc_info=True)
-            self.report({"ERROR"}, f"Failed to import sampling: {str(e)}")
-            return {"CANCELLED"}
-
-    def _import_eevee_settings(self, context):
-        try:
-            settings = context.window_manager.recom_render_settings
-            override_settings = settings.override_settings
-            eevee = override_settings.eevee
-
-            is_external = settings.use_external_blend
-
-            if is_external:
-                try:
-                    info = json.loads(settings.external_scene_info)
-                    if not isinstance(info, dict):
-                        raise ValueError("Invalid scene info format")
-
-                    eevee.samples = info.get("eevee_samples", 64)
-
-                except json.JSONDecodeError as e:
-                    log.error(f"Failed to parse external scene info: {e}")
-                    self.report({"ERROR"}, "Invalid JSON in external scene info.")
-                    return {"CANCELLED"}
-                except Exception as e:
-                    log.error(f"Unexpected error loading scene info: {e}", exc_info=True)
-                    self.report(
-                        {"ERROR"},
-                        f"Error importing EEVEE settings: {str(e)}",
-                    )
-                    return {"CANCELLED"}
-            else:
-                scene = context.scene
-                if not scene:
-                    self.report({"ERROR"}, "No active scene found.")
-                    return {"CANCELLED"}
-
-                eevee.samples = scene.eevee.taa_render_samples
-
-            override_settings.eevee_override = True
-
-            return {"FINISHED"}
-        except Exception as e:
-            log.error(f"Critical error in RECOM_OT_ImportEEVEESettings: {e}", exc_info=True)
-            self.report({"ERROR"}, f"Failed to import EEVEE settings: {str(e)}")
-            return {"CANCELLED"}
-
-    def _import_motion_blur(self, context):
-        try:
-            scene = context.scene
-            if not scene:
-                self.report({"ERROR"}, "No active scene found.")
-                return {"CANCELLED"}
-
-            settings = context.window_manager.recom_render_settings
-            override_settings = settings.override_settings
-
-            is_external = settings.use_external_blend
-
-            if is_external:
-                try:
-                    info = json.loads(settings.external_scene_info)
-                    if not isinstance(info, dict):
-                        raise ValueError("Invalid scene info format")
-                    override_settings.use_motion_blur = info.get("use_motion_blur", False)
-                    override_settings.motion_blur_position = info.get("motion_blur_position", "CENTER")
-                    override_settings.motion_blur_shutter = info.get("motion_blur_shutter", 0.50)
-                except json.JSONDecodeError as e:
-                    log.error(f"Failed to parse external scene info: {e}")
-                    self.report({"ERROR"}, "Invalid JSON in external scene info.")
-                    return {"CANCELLED"}
-                except Exception as e:
-                    log.error(f"Unexpected error loading scene info: {e}", exc_info=True)
-                    self.report(
-                        {"ERROR"},
-                        f"Error importing motion blur: {str(e)}",
-                    )
-                    return {"CANCELLED"}
-            else:
-                override_settings.use_motion_blur = scene.render.use_motion_blur
-                override_settings.motion_blur_position = scene.render.motion_blur_position
-                override_settings.motion_blur_shutter = scene.render.motion_blur_shutter
-
-            override_settings.motion_blur_override = True
-
-            return {"FINISHED"}
-        except Exception as e:
-            log.error(f"Critical error in RECOM_OT_ImportMotionBlur: {e}", exc_info=True)
-            self.report({"ERROR"}, f"Failed to import motion blur: {str(e)}")
-            return {"CANCELLED"}
-
-    def _import_output_path(self, context):
-        try:
-            scene = context.scene
-            if not scene:
-                self.report({"ERROR"}, "No active scene found.")
-                return {"CANCELLED"}
-
-            settings = context.window_manager.recom_render_settings
-            override_settings = settings.override_settings
-
-            is_external = settings.use_external_blend
-
-            if is_external:
-                try:
-                    info = json.loads(settings.external_scene_info)
-                    if not isinstance(info, dict):
-                        raise ValueError("Invalid scene info format")
-                    full_path = info.get("filepath", "")
-                except json.JSONDecodeError as e:
-                    log.error(f"Failed to parse external scene info: {e}")
-                    self.report({"ERROR"}, "Invalid JSON in external scene info.")
-                    return {"CANCELLED"}
-                except Exception as e:
-                    log.error(f"Unexpected error loading scene info: {e}", exc_info=True)
-                    self.report(
-                        {"ERROR"},
-                        f"Error importing output path: {str(e)}",
-                    )
-                    return {"CANCELLED"}
-            else:
-                full_path = scene.render.filepath
-
-            abs_path_str = bpy.path.abspath(full_path)
-            path_obj = Path(abs_path_str)
-            if abs_path_str.endswith(("/", "\\")):
-                override_settings.output_directory = str(path_obj)
-                override_settings.output_filename = ""
-            else:
-                override_settings.output_directory = str(path_obj.parent)
-                override_settings.output_filename = path_obj.name
-
-            override_settings.output_path_override = True
-
-            return {"FINISHED"}
-        except Exception as e:
-            log.error(f"Critical error in RECOM_OT_ImportOutputPath: {e}", exc_info=True)
-            self.report({"ERROR"}, f"Failed to import output path: {str(e)}")
-            return {"CANCELLED"}
-
-    def _import_output_format(self, context):
-        try:
-            scene = context.scene
-            if not scene:
-                self.report({"ERROR"}, "No active scene found.")
-                return {"CANCELLED"}
-
-            settings = context.window_manager.recom_render_settings
-            override_settings = settings.override_settings
-
-            is_external = settings.use_external_blend
-
-            try:
-                if is_external:
-                    info = json.loads(settings.external_scene_info)
-                    if not isinstance(info, dict):
-                        raise ValueError("Invalid scene info format")
-
-                    file_format = info.get("file_format", "PNG")
-                    color_depth_value = str(info.get("color_depth", "16"))
-
-                    valid_options = ["16", "32"] if file_format in ["OPEN_EXR", "OPEN_EXR_MULTILAYER"] else ["8", "16"]
-
-                    if color_depth_value not in valid_options:
-                        log.warning(
-                            f"Invalid color depth '{color_depth_value}' for format '{file_format}'. Using '16' as default."
-                        )
-                        color_depth_value = "16"
-
-                    override_settings.file_format = file_format
-                    override_settings.color_depth = color_depth_value
-                    override_settings.codec = info.get("exr_codec", "ZIP")
-                    override_settings.jpeg_quality = info.get("jpeg_quality", 85)
-                else:
-                    override_settings.file_format = scene.render.image_settings.file_format
-                    override_settings.color_depth = str(scene.render.image_settings.color_depth)
-                    override_settings.codec = scene.render.image_settings.exr_codec
-                    override_settings.jpeg_quality = scene.render.image_settings.quality
-            except json.JSONDecodeError as e:
-                log.error(f"Failed to parse external scene info: {e}")
-                self.report({"ERROR"}, "Invalid JSON in external scene info.")
-                return {"CANCELLED"}
-            except Exception as e:
-                log.error(f"Unexpected error loading scene info: {e}", exc_info=True)
-                self.report(
-                    {"ERROR"},
-                    f"Error importing output format: {str(e)}",
+            if color_depth_value not in valid_options:
+                log.warning(
+                    "Invalid color depth '%s' for format '%s'. Using '16' as default.",
+                    color_depth_value,
+                    file_format,
                 )
-                return {"CANCELLED"}
+                color_depth_value = "16"
 
-            override_settings.file_format_override = True
+            override_settings.file_format = file_format
+            override_settings.color_depth = color_depth_value
+            override_settings.codec = ext_info.get("exr_codec", "ZIP")
+            override_settings.jpeg_quality = ext_info.get("jpeg_quality", 85)
+        else:
+            override_settings.file_format = scene.render.image_settings.file_format
+            override_settings.color_depth = str(scene.render.image_settings.color_depth)
+            override_settings.codec = scene.render.image_settings.exr_codec
+            override_settings.jpeg_quality = scene.render.image_settings.quality
 
-            return {"FINISHED"}
-        except Exception as e:
-            log.error(f"Critical error in RECOM_OT_ImportOutputFormat: {e}", exc_info=True)
-            self.report({"ERROR"}, f"Failed to import output format: {str(e)}")
-            return {"CANCELLED"}
+        override_settings.file_format_override = True
 
-    def _import_performance(self, context):
-        try:
-            scene = context.scene
-            if not scene:
-                self.report({"ERROR"}, "No active scene found.")
-                return {"CANCELLED"}
+    def _import_performance(self, scene, override_settings, ext_info):
+        cycles = override_settings.cycles
+        if ext_info is not None:
+            cycles.use_tiling = ext_info.get("use_tiling", True)
+            cycles.tile_size = ext_info.get("tile_size", 2048)
+            cycles.use_spatial_splits = ext_info.get("use_spatial_splits", False)
+            cycles.use_compact_bvh = ext_info.get("use_compact_bvh", False)
+            cycles.persistent_data = ext_info.get("persistent_data", False)
+        else:
+            cycles.use_tiling = scene.cycles.use_auto_tile
+            cycles.tile_size = scene.cycles.tile_size
+            cycles.use_spatial_splits = scene.cycles.debug_use_spatial_splits
+            cycles.use_compact_bvh = scene.cycles.debug_use_compact_bvh
+            cycles.persistent_data = scene.render.use_persistent_data
 
-            settings = context.window_manager.recom_render_settings
-            cycles = settings.override_settings.cycles
+        cycles.performance_override = True
 
-            is_external = settings.use_external_blend
-
-            if is_external:
-                try:
-                    info = json.loads(settings.external_scene_info)
-                    if not isinstance(info, dict):
-                        raise ValueError("Invalid scene info format")
-
-                    cycles.use_tiling = info.get("use_tiling", True)
-                    cycles.tile_size = info.get("tile_size", 2048)
-                    cycles.use_spatial_splits = info.get("use_spatial_splits", False)
-                    cycles.use_compact_bvh = info.get("use_compact_bvh", False)
-                    cycles.persistent_data = info.get("persistent_data", False)
-
-                except json.JSONDecodeError as e:
-                    log.error(f"Failed to parse external scene info: {e}")
-                    self.report({"ERROR"}, "Invalid JSON in external scene info.")
-                    return {"CANCELLED"}
-                except Exception as e:
-                    log.error(f"Unexpected error loading scene info: {e}", exc_info=True)
-                    self.report(
-                        {"ERROR"},
-                        f"Error importing performance settings: {str(e)}",
-                    )
-                    return {"CANCELLED"}
+    def _import_compositor(self, scene, override_settings, ext_info):
+        if ext_info is not None:
+            override_settings.use_compositor = ext_info.get("use_compositor", False)
+            override_settings.compositor_device = ext_info.get("compositor_device", "CPU")
+        else:
+            if bpy.app.version >= (5, 0, 0):
+                use_compositor = bool(scene.compositing_node_group)
             else:
-                cycles.use_tiling = scene.cycles.use_auto_tile
-                cycles.tile_size = scene.cycles.tile_size
-                cycles.use_spatial_splits = scene.cycles.debug_use_spatial_splits
-                cycles.use_compact_bvh = scene.cycles.debug_use_compact_bvh
-                cycles.persistent_data = scene.render.use_persistent_data
+                use_compositor = scene.use_nodes
 
-            cycles.performance_override = True
+            override_settings.use_compositor = scene.render.use_compositing and use_compositor
+            override_settings.compositor_device = scene.render.compositor_device
 
-            return {"FINISHED"}
-        except Exception as e:
-            log.error(f"Critical error in RECOM_OT_ImportPerformance: {e}", exc_info=True)
-            self.report({"ERROR"}, f"Failed to import performance settings: {str(e)}")
-            return {"CANCELLED"}
-
-    def _import_compositor(self, context):
-        try:
-            scene = context.scene
-            if not scene:
-                self.report({"ERROR"}, "No active scene found.")
-                return {"CANCELLED"}
-
-            settings = context.window_manager.recom_render_settings
-            override_settings = settings.override_settings
-
-            is_external = settings.use_external_blend
-
-            try:
-                if is_external:
-                    info = json.loads(settings.external_scene_info)
-                    if not isinstance(info, dict):
-                        raise ValueError("Invalid scene info format")
-                    use_compositor = info.get("use_compositor", False)
-                    compositor_device = info.get("compositor_device", "CPU")
-                else:
-                    use_compositor = False
-                    if bpy.app.version >= (5, 0, 0):
-                        use_compositor = bool(scene.compositing_node_group)
-                    else:
-                        use_compositor = scene.use_nodes
-                    compositor_device = scene.render.compositor_device
-
-                override_settings.use_compositor = use_compositor
-                override_settings.compositor_device = compositor_device
-            except json.JSONDecodeError as e:
-                log.error(f"Failed to parse external scene info: {e}")
-                self.report({"ERROR"}, "Invalid JSON in external scene info.")
-                return {"CANCELLED"}
-            except Exception as e:
-                log.error(f"Unexpected error loading scene info: {e}", exc_info=True)
-                self.report(
-                    {"ERROR"},
-                    f"Error importing compositor settings: {str(e)}",
-                )
-                return {"CANCELLED"}
-
-            override_settings.compositor_override = True
-
-            return {"FINISHED"}
-        except Exception as e:
-            log.error(f"Critical error in RECOM_OT_ImportCompositor: {e}", exc_info=True)
-            self.report({"ERROR"}, f"Failed to import compositor settings: {str(e)}")
-            return {"CANCELLED"}
+        override_settings.compositor_override = True
 
 
-class RECOM_OT_ImportFromCyclesSettings(Operator):
-    """Import device settings from Blender's Cycles settings"""
-
-    bl_idname = "recom.import_from_cycles_settings"
-    bl_label = "Import Device Settings"
-    bl_description = "Get device settings from Blender's Cycles settings"
-
-    def execute(self, context):
-        prefs = get_addon_preferences(context)
-        try:
-            prefs.import_cycles_device_settings()
-        except Exception as e:
-            log.error(f"Critical error in RECOM_OT_ImportFromCyclesSettings: {e}", exc_info=True)
-        return {"FINISHED"}
-
-
-classes = (
-    RECOM_OT_ImportAllSettings,
-    RECOM_OT_ImportFromCyclesSettings,
-)
+classes = (RECOM_OT_ImportAllSettings,)
 
 
 def register():

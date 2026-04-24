@@ -1,14 +1,13 @@
-# utils/extract_scene_info.py
+"""Scene Metadata Extraction Utility for Render Commander Addon"""
 
 import json
 import sys
+import os
 import logging
 import traceback
-import struct
 import datetime
 from datetime import timedelta
 from pathlib import Path
-import math
 
 import bpy
 
@@ -20,101 +19,98 @@ logging.basicConfig(
 
 
 def format_modified_date(timestamp: float) -> str:
-    """Format timestamp into human-readable date string."""
     try:
         dt = datetime.datetime.fromtimestamp(timestamp)
         today = datetime.datetime.now().date()
         yesterday = today - timedelta(days=1)
-
         if dt.date() == today:
             return f"Today {dt.strftime('%H:%M')}"
-        elif dt.date() == yesterday:
+
+        if dt.date() == yesterday:
             return f"Yesterday {dt.strftime('%H:%M')}"
-        else:
-            return dt.strftime("%d %B %Y")  # e.g., "09 May 2025"
+
+        return dt.strftime("%d %B %Y")
     except Exception as e:
-        logging.error(f"Error formatting date: {e}")
+        logging.error("Error formatting date: %s", e)
         return "Unknown"
 
 
 def format_file_size(size_bytes: int) -> str:
     if size_bytes < 1:
         return "0 B"
-
     size_name = ("B", "KB", "MB", "GB", "TB")
     i = 0
     size = float(size_bytes)
-
     while size >= 1024 and i < len(size_name) - 1:
         size /= 1024
         i += 1
-
     formatted = f"{size:.0f}".rstrip("0").rstrip(".")
     return f"{formatted} {size_name[i]}"
 
 
 def get_render_enabled_cameras_in_frame_range():
-    """Counts the number of cameras set to render within the scene's frame range."""
+    """Instantly counts active cameras by checking Timeline Markers"""
     scene = bpy.context.scene
     start_frame = scene.frame_start
     end_frame = scene.frame_end
 
-    render_enabled_camera_count = 0
+    # Get all timeline markers that have a camera bound to them
+    camera_markers = [m for m in scene.timeline_markers if m.camera]
 
-    # Iterate through all objects in the scene
-    for obj in scene.objects:
-        # Check if the object is a camera
-        if obj.type == "CAMERA":
-            # Store original active camera to restore later
-            original_active_camera = scene.camera
+    # If there are no bound camera markers, the scene only uses the main active camera
+    if not camera_markers:
+        return 1 if scene.camera else 0
 
-            is_active_in_range = False
-            for frame in range(start_frame, end_frame + 1):
-                scene.frame_set(frame)
-                if scene.camera == obj:
-                    is_active_in_range = True
-                    break
+    active_cameras = set()
+    camera_markers.sort(key=lambda m: m.frame)
 
-            if is_active_in_range:
-                render_enabled_camera_count += 1
+    # Find which camera is active at the very beginning (start_frame)
+    # This is the last marker positioned BEFORE or ON the start_frame
+    active_at_start = None
+    for m in camera_markers:
+        if m.frame <= start_frame:
+            active_at_start = m.camera
+        else:
+            break
 
-            # Restore original active camera
-            scene.camera = original_active_camera
+    if active_at_start:
+        active_cameras.add(active_at_start.name)
+    elif scene.camera and camera_markers[0].frame > start_frame:
+        # Edge case: No markers before start_frame, so Blender uses scene.camera
+        # until the timeline hits the first marker.
+        active_cameras.add(scene.camera.name)
 
-    return render_enabled_camera_count
+    # Add all cameras triggered by markers DURING the frame range
+    for m in camera_markers:
+        if start_frame < m.frame <= end_frame:
+            active_cameras.add(m.camera.name)
+
+    return len(active_cameras)
 
 
 def get_scene_info() -> dict:
-    """Extract comprehensive scene information from current Blender context."""
     try:
         context = bpy.context
         scene = context.scene
         render = scene.render
-
         cycles = scene.cycles if hasattr(scene, "cycles") else None
         eevee = scene.eevee if hasattr(scene, "eevee") else None
 
         blend_path = Path(bpy.data.filepath)
         modified_time = blend_path.stat().st_mtime
         file_size = blend_path.stat().st_size
-        formatted_date = format_modified_date(modified_time)
-        render_engine = scene.render.engine
-        blender_version = context.blend_data.version
-
-        renderable_view_layers_count = sum(1 for layer in scene.view_layers if layer.use)
-        viewlayer_names = ", ".join(layer.name for layer in scene.view_layers if layer.use)
 
         data = {
             "blend_filepath": str(blend_path),
             "file_size": format_file_size(file_size),
-            "blender_version": ".".join(map(str, blender_version)),
+            "version_file": ".".join(map(str, context.blend_data.version)),
             "modified_date": datetime.datetime.fromtimestamp(modified_time).strftime("%Y-%m-%d %H:%M:%S"),
-            "modified_date_short": formatted_date,
+            "modified_date_short": format_modified_date(modified_time),
             "scene_name": scene.name,
             "view_layer": context.view_layer.name,
-            "view_layer_count": renderable_view_layers_count,
-            "viewlayer_names": viewlayer_names,
-            "render_engine": render_engine,
+            "view_layer_count": sum(1 for layer in scene.view_layers if layer.use),
+            "viewlayer_names": ", ".join(layer.name for layer in scene.view_layers if layer.use),
+            "render_engine": scene.render.engine,
             "view_transform": scene.view_settings.view_transform,
             "look": scene.view_settings.look,
             "frame_current": scene.frame_current,
@@ -126,7 +122,8 @@ def get_scene_info() -> dict:
             "resolution_x": render.resolution_x,
             "resolution_y": render.resolution_y,
             "render_scale": render.resolution_percentage,
-            "filepath": bpy.path.abspath(render.filepath),
+            "filepath": render.filepath,  # bpy.path.abspath(render.filepath),
+            "frame_path": scene.render.frame_path(),
             "is_movie_format": render.is_movie_format,
             "file_format": render.image_settings.file_format,
             "color_depth": render.image_settings.color_depth,
@@ -136,82 +133,81 @@ def get_scene_info() -> dict:
             "motion_blur_position": render.motion_blur_position,
             "motion_blur_shutter": render.motion_blur_shutter,
             "camera_name": scene.camera.name if scene.camera else "No Camera",
-            "camera_lens": 0,
-            "camera_sensor": 0,
-            "use_compositor": bool(scene.compositing_node_group) if bpy.app.version >= (5, 0, 0) else scene.use_nodes,
+            "camera_lens": scene.camera.data.lens if (scene.camera and hasattr(scene.camera.data, "lens")) else 0,
+            "camera_sensor": scene.camera.data.sensor_width
+            if (scene.camera and hasattr(scene.camera.data, "sensor_width"))
+            else 0,
+            "use_compositor": render.use_compositing
+            and (bool(scene.compositing_node_group) if bpy.app.version >= (5, 0, 0) else scene.use_nodes),
             "compositor_device": render.compositor_device,
             "camera_render_count": get_render_enabled_cameras_in_frame_range(),
         }
 
-        if scene.camera and scene.camera.data:
-            if hasattr(scene.camera.data, "lens"):
-                data["camera_lens"] = scene.camera.data.lens
-            if hasattr(scene.camera.data, "sensor_width"):
-                data["camera_sensor"] = scene.camera.data.sensor_width
-
-        if render_engine == "CYCLES":
-            if cycles:
-                data.update(
-                    {
-                        "device": cycles.device,
-                        "use_adaptive_sampling": cycles.use_adaptive_sampling,
-                        "adaptive_threshold": round(cycles.adaptive_threshold, 3),
-                        "samples": cycles.samples,
-                        "adaptive_min_samples": cycles.adaptive_min_samples,
-                        "time_limit": cycles.time_limit,
-                        "use_denoising": cycles.use_denoising,
-                        "denoiser": cycles.denoiser,
-                        "denoising_input_passes": cycles.denoising_input_passes,
-                        "denoising_prefilter": cycles.denoising_prefilter,
-                        "denoising_quality": cycles.denoising_quality,
-                        "use_denoise_gpu": cycles.denoising_use_gpu,
-                        "max_bounces": cycles.max_bounces,
-                        "diffuse_bounces": cycles.diffuse_bounces,
-                        "glossy_bounces": cycles.glossy_bounces,
-                        "transmission_bounces": cycles.transparent_max_bounces,
-                        "volume_bounces": cycles.volume_bounces,
-                        "transparent_bounces": cycles.transparent_max_bounces,
-                        "sample_clamp_direct": cycles.sample_clamp_direct,
-                        "sample_clamp_indirect": cycles.sample_clamp_indirect,
-                        "blur_glossy": cycles.blur_glossy,
-                        "caustics_reflective": cycles.caustics_reflective,
-                        "caustics_refractive": cycles.caustics_refractive,
-                        "use_tiling": cycles.use_auto_tile,
-                        "tile_size": cycles.tile_size,
-                        "use_spatial_splits": cycles.debug_use_spatial_splits,
-                        "use_compact_bvh": cycles.debug_use_compact_bvh,
-                        "persistent_data": render.use_persistent_data,
-                    }
-                )
-
-        elif render_engine in {"BLENDER_EEVEE_NEXT", "BLENDER_EEVEE"}:
-            if eevee:
-                data.update(
-                    {
-                        "eevee_samples": eevee.taa_render_samples,
-                    }
-                )
+        if scene.render.engine == "CYCLES" and cycles:
+            data.update(
+                {
+                    "device": cycles.device,
+                    "use_adaptive_sampling": cycles.use_adaptive_sampling,
+                    "adaptive_threshold": round(cycles.adaptive_threshold, 3),
+                    "samples": cycles.samples,
+                    "adaptive_min_samples": cycles.adaptive_min_samples,
+                    "time_limit": cycles.time_limit,
+                    "use_denoising": cycles.use_denoising,
+                    "denoiser": cycles.denoiser,
+                    "denoising_input_passes": cycles.denoising_input_passes,
+                    "denoising_prefilter": cycles.denoising_prefilter,
+                    "denoising_quality": cycles.denoising_quality,
+                    "use_denoise_gpu": cycles.denoising_use_gpu,
+                    "use_tiling": cycles.use_auto_tile,
+                    "tile_size": cycles.tile_size,
+                    "use_spatial_splits": cycles.debug_use_spatial_splits,
+                    "use_compact_bvh": cycles.debug_use_compact_bvh,
+                    "persistent_data": render.use_persistent_data,
+                }
+            )
+        elif scene.render.engine in {"BLENDER_EEVEE_NEXT", "BLENDER_EEVEE"} and eevee:
+            data.update({"eevee_samples": eevee.taa_render_samples})
 
         return data
     except Exception as e:
-        logging.error(f"Error extracting scene info: {str(e)}")
-        logging.error(traceback.format_exc())
+        logging.error("Error extracting scene info: %s", str(e))
+        logging.error("%s", traceback.format_exc())
         return {"error": str(e), "traceback": traceback.format_exc()}
 
 
 if __name__ == "__main__":
     try:
         if not bpy.data.filepath:
-            err_msg = "No .blend file seems to be loaded in the background Blender process."
-            logging.error(err_msg)
-            print(json.dumps({"error": err_msg}))
+            error_str = "No .blend file seems to be loaded in the background Blender process."
+            logging.error("%s", error_str)
             sys.exit(1)
 
         info = get_scene_info()
-        print(json.dumps(info))
+
+        # Write to cache file if path provided via environment variable
+        cache_path = os.environ.get("BLEND_EXTRACT_CACHE_PATH")
+        if cache_path:
+            cache_file = Path(cache_path)
+            cache_file.parent.mkdir(parents=True, exist_ok=True)
+            with open(cache_file, "w", encoding="utf-8") as f:
+                json.dump(info, f, indent=4)
+            logging.info("Scene info written to cache: %s", cache_file)
+        else:
+            # Fallback to stdout if running manually
+            print(json.dumps(info))
+
     except Exception as e:
-        err_msg = f"Critical error in extract_scene_info.py __main__: {str(e)}"
-        logging.error(err_msg)
-        logging.error(traceback.format_exc())
-        print(json.dumps({"error": err_msg, "traceback": traceback.format_exc()}))
+        error_str = f"Critical error in extract_scene_info.py: {str(e)}"
+        logging.error("%s", error_str)
+        logging.error("%s", traceback.format_exc())
+
+        # Still write error to cache if available
+        cache_path = os.environ.get("BLEND_EXTRACT_CACHE_PATH")
+        if cache_path:
+            Path(cache_path).write_text(
+                json.dumps({"error": error_str, "traceback": traceback.format_exc()}),
+                encoding="utf-8",
+            )
+        else:
+            print(json.dumps({"error": error_str, "traceback": traceback.format_exc()}))
         sys.exit(1)

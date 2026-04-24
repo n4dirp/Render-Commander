@@ -1,11 +1,7 @@
-# ./operators/__init__.py
-
 import logging
 
-import bpy
-
-from .render import background_render
 from . import (
+    background_render,
     presets,
     blend_file,
     operators,
@@ -31,13 +27,13 @@ def register():
     for mdl in operator_modules:
         try:
             mdl.register()
-        except Exception as e:
-            log.error(f"Failed to register module {mdl.__name__}", exc_info=True)
+        except Exception:
+            log.error("Failed to register module %s", mdl.__name__, exc_info=True)
 
 
 def unregister():
     for mdl in reversed(operator_modules):
         try:
             mdl.unregister()
-        except Exception as e:
-            log.error(f"Failed to unregister module {mdl.__name__}", exc_info=True)
+        except Exception:
+            log.error("Failed to unregister module %s", mdl.__name__, exc_info=True)

@@ -1,28 +1,26 @@
-# ./properties/__init__.py
-
 import logging
 
-import bpy
-from . import override_settings
-from . import properties
+from . import override_settings, properties
 
-utils_modules = [
+log = logging.getLogger(__name__)
+
+property_modules = [
     override_settings,
     properties,
 ]
 
 
 def register():
-    for mdl in utils_modules:
+    for mdl in property_modules:
         try:
             mdl.register()
-        except Exception as e:
-            logging.error(f"Failed to register module {mdl.__name__}", exc_info=True)
+        except Exception:
+            log.error("Failed to register module %s", mdl.__name__, exc_info=True)
 
 
 def unregister():
-    for mdl in reversed(utils_modules):
+    for mdl in reversed(property_modules):
         try:
             mdl.unregister()
-        except Exception as e:
-            logging.error(f"Failed to unregister module {mdl.__name__}", exc_info=True)
+        except Exception:
+            log.error("Failed to unregister module %s", mdl.__name__, exc_info=True)

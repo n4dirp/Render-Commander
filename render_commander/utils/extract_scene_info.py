@@ -1,12 +1,11 @@
 """Scene Metadata Extraction Utility for Render Commander Addon"""
 
 import json
-import sys
-import os
 import logging
+import os
+import sys
 import traceback
-import datetime
-from datetime import timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import bpy
@@ -17,6 +16,7 @@ logging.basicConfig(
     format="%(levelname)s: %(message)s",
 )
 
+BLENDER_5_0 = (5, 0, 0)
 
 def format_modified_date(timestamp: float) -> str:
     try:
@@ -41,7 +41,8 @@ def format_file_size(size_bytes: int) -> str:
     size_name = ("B", "KB", "MB", "GB", "TB")
     i = 0
     size = float(size_bytes)
-    while size >= 1024 and i < len(size_name) - 1:
+    MAX_SIZE_INDEX = len(size_name) - 1 
+    while size >= 1024 and i < MAX_SIZE_INDEX:
         size /= 1024
         i += 1
     formatted = f"{size:.0f}".rstrip("0").rstrip(".")
@@ -122,7 +123,7 @@ def get_scene_info() -> dict:
             "resolution_x": render.resolution_x,
             "resolution_y": render.resolution_y,
             "render_scale": render.resolution_percentage,
-            "filepath": render.filepath,  # bpy.path.abspath(render.filepath),
+            "filepath": render.filepath,
             "frame_path": scene.render.frame_path(),
             "is_movie_format": render.is_movie_format,
             "file_format": render.image_settings.file_format,
@@ -138,7 +139,7 @@ def get_scene_info() -> dict:
             if (scene.camera and hasattr(scene.camera.data, "sensor_width"))
             else 0,
             "use_compositor": render.use_compositing
-            and (bool(scene.compositing_node_group) if bpy.app.version >= (5, 0, 0) else scene.use_nodes),
+            and (bool(scene.compositing_node_group) if bpy.app.version >= BLENDER_5_0 else scene.use_nodes),
             "compositor_device": render.compositor_device,
             "camera_render_count": get_render_enabled_cameras_in_frame_range(),
         }
@@ -165,7 +166,7 @@ def get_scene_info() -> dict:
                     "persistent_data": render.use_persistent_data,
                 }
             )
-        elif scene.render.engine in {"BLENDER_EEVEE_NEXT", "BLENDER_EEVEE"} and eevee:
+        elif scene.render.engine in {'BLENDER_EEVEE_NEXT', 'BLENDER_EEVEE'} and eevee:
             data.update({"eevee_samples": eevee.taa_render_samples})
 
         return data

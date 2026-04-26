@@ -3,7 +3,7 @@
 import logging
 
 import bpy
-from bpy.types import AddonPreferences, PropertyGroup, Panel
+from bpy.types import AddonPreferences, PropertyGroup
 from bpy.props import (
     StringProperty,
     BoolProperty,
@@ -11,6 +11,7 @@ from bpy.props import (
     IntProperty,
     PointerProperty,
     EnumProperty,
+    FloatProperty,
 )
 
 from .utils.constants import (
@@ -45,6 +46,8 @@ def on_logging_pref_changed(self, context):
 class RECOM_PG_ScriptEntry(PropertyGroup):
     """Scripts entries for appending during rendering"""
 
+    __slots__ = ()
+
     script_path: StringProperty(
         name="Script Path",
         description="Python script to run before or after render",
@@ -55,10 +58,10 @@ class RECOM_PG_ScriptEntry(PropertyGroup):
     order: EnumProperty(
         name="Execution Order",
         items=[
-            ("PRE", "Pre-Render", "Run before render"),
-            ("POST", "Post-Render", "Run after render"),
+            ('PRE', "Pre-Render", "Run before render"),
+            ('POST', "Post-Render", "Run after render"),
         ],
-        default="PRE",
+        default='PRE',
         update=lambda self, context: redraw_ui(),
     )
 
@@ -78,6 +81,8 @@ class RECOM_PG_ScriptEntry(PropertyGroup):
 
 class RECOM_PG_CustomVariable(PropertyGroup):
     """Custom path variables for output paths"""
+
+    __slots__ = ()
 
     name: StringProperty(
         name="Variable Name",
@@ -99,6 +104,8 @@ class RECOM_PG_CustomVariable(PropertyGroup):
 class RECOM_PG_RenderHistoryItem(PropertyGroup):
     """Render history properties"""
 
+    __slots__ = ()
+
     blend_path: StringProperty(name="Blend Path", default="")
     blend_dir: StringProperty(name="Blend Path", default="")
     blend_file_name: StringProperty(name="Blend Name", default="")
@@ -119,11 +126,14 @@ class RECOM_PG_RenderHistoryItem(PropertyGroup):
 
 
 class RECOM_PG_RecentBlendFile(PropertyGroup):
+    __slots__ = ()
     path: StringProperty(name="Blend File Path")
 
 
 class RECOM_PG_VisiblePanels(PropertyGroup):
     """Visibility settings for addon panels"""
+
+    __slots__ = ()
 
     external_scene: BoolProperty(name="Blend File", default=True, update=lambda self, context: redraw_ui())
     override_settings: BoolProperty(name="Override Settings", default=True, update=lambda self, context: redraw_ui())
@@ -134,6 +144,8 @@ class RECOM_PG_VisiblePanels(PropertyGroup):
 
 class RECOM_PG_OverrideImportSettings(PropertyGroup):
     """Import‑group toggles"""
+
+    __slots__ = ()
 
     import_compute_device: BoolProperty(name="Compute Device", default=False)
     import_frame_range: BoolProperty(name="Frame Range", default=True)
@@ -227,21 +239,29 @@ class RECOM_Preferences(AddonPreferences):
     device_parallel: BoolProperty(
         name="Parallel Rendering",
         description="Launch separate render process for each device",
-        default=True,
+        default=False,
     )
     frame_allocation: EnumProperty(
         name="Frame Mode",
         items=[
             (
-                "SEQUENTIAL",
+                'SEQUENTIAL',
                 "Sequential",
                 "Each device renders the full frame range.\n"
                 "Automatically disables overwriting and enables placeholders.",
             ),
-            ("FRAME_SPLIT", "Split", "Divide frame range among devices"),
+            ('FRAME_SPLIT', "Split", "Divide frame range among devices"),
         ],
-        default="FRAME_SPLIT",
+        default='FRAME_SPLIT',
         description="How frames are distributed across rendering devices",
+    )
+    parallel_delay: FloatProperty(
+        name="Multi-Process Start Delay",
+        description="Delay before starting each additional render process to avoid resource conflicts",
+        min=0.0,
+        default=3.0,
+        step=100.0,
+        unit="TIME_ABSOLUTE",
     )
     multiple_backends: BoolProperty(
         name="Multi-Backend",
@@ -269,7 +289,8 @@ class RECOM_Preferences(AddonPreferences):
         description="Number of render iterations to run simultaneously",
         default=2,
         min=2,
-        soft_max=4,
+        max=32,
+        soft_max=8,
     )
 
     # Render Options
@@ -287,7 +308,7 @@ class RECOM_Preferences(AddonPreferences):
     )
     auto_save_before_render: BoolProperty(
         name="Auto‑Save Before Render",
-        description="Save the current blend file before export",
+        description="Save the current blend file before export, if it has unsaved changes",
         default=False,
     )
     write_still: BoolProperty(
@@ -320,10 +341,10 @@ class RECOM_Preferences(AddonPreferences):
         name="File Separator",
         description="Separator between output filename and frame numbers.\nUsed when the filename does not contain # characters.",
         items=[
-            ("DOT", "Dot (.)", "Filename.####"),
-            ("UNDERSCORE", "Underscore (_)", "Filename_####"),
+            ('DOT', "Dot (.)", "Filename.####"),
+            ('UNDERSCORE', "Underscore (_)", "Filename_####"),
         ],
-        default="DOT",
+        default='DOT',
     )
     # Script Name
     use_blend_name_in_script: BoolProperty(
@@ -341,6 +362,23 @@ class RECOM_Preferences(AddonPreferences):
         description="Append the export date to the generated script filenames",
         default=False,
     )
+    use_frame_range_in_script: BoolProperty(
+        name="Include Frame Range",
+        description="Append the active frame range or list to the generated script filenames",
+        default=False,
+    )
+    custom_script_tag: BoolProperty(
+        name="Custom Tag",
+        description="Add custom text to script filenames",
+        default=False,
+    )
+    custom_script_text: StringProperty(
+        name="Custom Tag Text",
+        description="Custom text appended to script filenames",
+        default="",
+        maxlen=50,
+        update=lambda self, context: redraw_ui(),
+    )
 
     # Export options properties
     auto_open_exported_folder: BoolProperty(
@@ -352,11 +390,11 @@ class RECOM_Preferences(AddonPreferences):
         name="Export Folder Target",
         description="Where the exported files will be saved",
         items=[
-            ("SELECT_DIR", "Select Directory", "Folder chosen in the export dialog"),
-            ("BLEND_DIR", "Blend File Path", "Folder next to the .blend file"),
-            ("CUSTOM_PATH", "Custom Path", "User‑defined folder"),
+            ('SELECT_DIR', "Select Directory", "Folder chosen in the export dialog"),
+            ('BLEND_DIR', "Blend File Path", "Folder next to the .blend file"),
+            ('CUSTOM_PATH', "Custom Path", "User‑defined folder"),
         ],
-        default="SELECT_DIR",
+        default='SELECT_DIR',
     )
     custom_export_path: StringProperty(
         name="Custom Export Path",
@@ -400,11 +438,11 @@ class RECOM_Preferences(AddonPreferences):
     log_to_file_location: EnumProperty(
         name="Log Directory",
         items=[
-            ("EXECUTION_FILES", "Scripts Path", "Save logs files in render scripts directory"),
-            ("BLEND_PATH", "Blend File Path", "Save logs files next to blend file"),
-            ("CUSTOM_PATH", "Custom Path", "Specify custom log folder location"),
+            ('EXECUTION_FILES', "Scripts Path", "Save logs files in render scripts directory"),
+            ('BLEND_PATH', "Blend File Path", "Save logs files next to blend file"),
+            ('CUSTOM_PATH', "Custom Path", "Specify custom log folder location"),
         ],
-        default="EXECUTION_FILES",
+        default='EXECUTION_FILES',
     )
     save_to_log_folder: BoolProperty(
         name="Save to Logs Folder",
@@ -438,12 +476,12 @@ class RECOM_Preferences(AddonPreferences):
     verbose_level: EnumProperty(
         name="Verbosity Level",
         items=[
-            ("0", "None", "No verbosity"),
-            ("1", "Low", "Low verbosity"),
-            ("2", "Medium", "Medium verbosity - default"),
-            ("3", "High", "High verbosity"),
+            ('0', "None", "No verbosity"),
+            ('1', "Low", "Low verbosity"),
+            ('2', "Medium", "Medium verbosity - default"),
+            ('3', "High", "High verbosity"),
         ],
-        default="2",
+        default='2',
         description="Set the verbosity level for debug messages.\n" "Appends: --verbose <verbose>",
     )
     debug_cycles: BoolProperty(
@@ -486,21 +524,22 @@ class RECOM_Preferences(AddonPreferences):
         layout.use_property_split = True
         layout.use_property_decorate = False
 
-        root_col = layout.column()
+        col = layout.column()
 
         # Main panels
-        root_col.label(text="Visible Panels")
-        main_panels_col = root_col.column(align=True)
-        main_panels_col.prop(self.visible_panels, "external_scene")
-        main_panels_col.prop(self.visible_panels, "override_settings")
-        main_panels_col.prop(self.visible_panels, "preferences")
-        main_panels_col.prop(self.visible_panels, "history")
-        preferences_col = root_col.column(heading="Render Preferences")
-        preferences_col.prop(self.visible_panels, "ocio")
+        col.label(text="Visible Panels")
+        col.prop(self.visible_panels, "external_scene")
+        col.prop(self.visible_panels, "override_settings")
+        col.prop(self.visible_panels, "preferences")
+        col.prop(self.visible_panels, "history")
+
+        col = layout.column(heading="Render Preferences")
+        col.prop(self.visible_panels, "ocio")
 
         # Debugging
-        root_col.label(text="Debug")
-        root_col.prop(self, "debug_mode", text="Console Logging")
+        col = layout.column()
+        col.label(text="Debug")
+        col.prop(self, "debug_mode", text="Console Logging")
 
 
 classes = (

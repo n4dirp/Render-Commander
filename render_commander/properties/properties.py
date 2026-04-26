@@ -22,6 +22,8 @@ log = logging.getLogger(__name__)
 class RECOM_PG_RenderSettings(PropertyGroup):
     """Stores render configuration settings"""
 
+    __slots__ = ()
+
     # Frame List
     def _sanitize_frame_list(self, context):
         """Sanitize the frame_list to allow digits, commas, hyphens, and spaces,
@@ -106,6 +108,8 @@ class RECOM_PG_RenderSettings(PropertyGroup):
 
 class RECOM_PG_ExternalSceneInfoItem(PropertyGroup):
     """Container for a single key/value pair extracted from the external scene JSON."""
+
+    __slots__ = ()
 
     key: StringProperty(name="Key")
     value: StringProperty(name="Value")

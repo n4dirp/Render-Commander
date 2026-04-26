@@ -5,7 +5,8 @@ import logging
 import os
 import sys
 import traceback
-from datetime import datetime, timedelta
+import datetime
+from datetime import timedelta
 from pathlib import Path
 
 import bpy

@@ -1,6 +1,6 @@
 schema_version = "1.0.0"
 id = "render_commander"
-version = "1.2.2"
+version = "1.2.3"
 name = "Render Commander"
 tagline = "Configure and export command-line render jobs"
 maintainer = "Nadir Perazzo"

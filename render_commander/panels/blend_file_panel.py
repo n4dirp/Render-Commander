@@ -6,7 +6,7 @@ import bpy
 from bpy.types import Panel, UIList
 
 from ..utils.constants import (
-    ICON_MENU,
+    RECOM_PT_BasePanel,
     RE_CYCLES,
     RE_EEVEE_NEXT,
     RE_EEVEE,
@@ -25,70 +25,6 @@ FORMAT_NAME_MAPPING = {
     "JPEG": "JPEG",
     "TIFF": "TIFF",
 }
-
-
-class RECOM_PT_scene_file_panel(Panel):
-    bl_label = "Blend File"
-    bl_space_type = "VIEW_3D"
-    bl_region_type = "UI"
-    bl_category = "Render Commander"
-    bl_options = {"DEFAULT_CLOSED"}
-
-    @classmethod
-    def poll(cls, context):
-        prefs = get_addon_preferences(context)
-        return prefs.visible_panels.external_scene
-
-    def draw_header(self, context):
-        settings = context.window_manager.recom_render_settings
-        self.layout.prop(settings, "use_external_blend", text="")
-
-    def draw_header_preset(self, context):
-        layout = self.layout
-        prefs = get_addon_preferences(context)
-
-        layout.emboss = "PULLDOWN_MENU"
-        layout.active = bool(prefs.recent_blend_files)
-        layout.menu("RECOM_MT_recent_blend_files", text="", icon="RECOVER_LAST")
-        layout.separator(factor=0.25)
-
-    def draw(self, context):
-        layout = self.layout
-        layout.use_property_split = True
-        layout.use_property_decorate = False
-
-        settings = context.window_manager.recom_render_settings
-        layout.active = settings.use_external_blend
-
-        col = layout.column()
-        blend_path_row = col.row(align=True)
-        blend_path_row.prop(settings, "external_blend_file_path", text="", icon="FILE_BLEND", placeholder="Blend Path")
-        blend_path_row.operator("recom.select_external_blend_file", text="", icon="FILE_FOLDER")
-
-        # Extract Scene Operator
-        sub = col.row(align=True)
-        sub.enabled = bool(settings.external_blend_file_path)
-
-        button_text = "Read Scene"
-        icon = "ZOOM_ALL"
-        info = get_scene_info(settings) if settings.external_blend_file_path else {}
-        if info and settings.external_blend_file_path == info.get("blend_filepath", ""):
-            button_text = "Refresh"
-            icon = "FILE_REFRESH"
-
-        sub_extract = sub.row(align=True)
-
-        if not settings.is_scene_info_loaded:
-            sub_extract.enabled = False
-            button_text = "Processing"
-            icon = "SORTTIME"
-
-        # Extract
-        sub_extract.operator("recom.extract_external_scene_data", text=button_text, icon=icon)
-
-        # Cancel
-        if _extraction_state["is_running"]:
-            sub.operator("recom.cancel_extraction", text="", icon="CANCEL")
 
 
 def format_timecode(frame_start: int, frame_end: int, fps_real: float, show_hours: bool = None) -> str:
@@ -122,12 +58,70 @@ def format_timecode(frame_start: int, frame_end: int, fps_real: float, show_hour
     return f"{minutes:02}:{seconds:02}+{frames:02}"
 
 
-class RECOM_PT_scene_info(Panel):
+class RECOM_PT_scene_file_panel(RECOM_PT_BasePanel, Panel):
+    bl_label = "Blend File"
+    bl_options = {"DEFAULT_CLOSED"}
+
+    @classmethod
+    def poll(cls, context):
+        prefs = get_addon_preferences(context)
+        return prefs.visible_panels.external_scene
+
+    def draw_header(self, context):
+        settings = context.window_manager.recom_render_settings
+        self.layout.prop(settings, "use_external_blend", text="")
+
+    def draw_header_preset(self, context):
+        layout = self.layout
+        prefs = get_addon_preferences(context)
+
+        layout.emboss = "PULLDOWN_MENU"
+        layout.active = bool(prefs.recent_blend_files)
+        layout.menu("RECOM_MT_recent_blend_files", text="", icon="RECOVER_LAST")
+        layout.separator(factor=0.25)
+
+    def draw(self, context):
+        layout = self.layout
+        layout.use_property_split = True
+        layout.use_property_decorate = False
+
+        settings = context.window_manager.recom_render_settings
+        layout.active = settings.use_external_blend
+
+        col = layout.column()
+        row = col.row(align=True)
+        row.prop(settings, "external_blend_file_path", text="", placeholder="Blend Path")
+        row.operator("recom.select_external_blend_file", text="", icon="FILE_FOLDER")
+
+        # Extract Scene Operator
+        sub = col.row(align=True)
+        sub.enabled = bool(settings.external_blend_file_path)
+
+        button_text = "Read Scene"
+        icon = "ZOOM_ALL"
+        info = get_scene_info(settings) if settings.external_blend_file_path else {}
+        if info and settings.external_blend_file_path == info.get("blend_filepath", ""):
+            button_text = "Refresh"
+            icon = "FILE_REFRESH"
+
+        sub_extract = sub.row(align=True)
+
+        if not settings.is_scene_info_loaded:
+            sub_extract.enabled = False
+            button_text = "Processing"
+            icon = "SORTTIME"
+
+        # Extract
+        sub_extract.operator("recom.extract_external_scene_data", text=button_text, icon=icon)
+
+        # Cancel
+        if _extraction_state["is_running"]:
+            sub.operator("recom.cancel_extraction", text="", icon="CANCEL")
+
+
+class RECOM_PT_scene_info(RECOM_PT_BasePanel, Panel):
     bl_label = "File Details"
     bl_parent_id = "RECOM_PT_scene_file_panel"
-    bl_space_type = "VIEW_3D"
-    bl_region_type = "UI"
-    bl_category = "Render Commander"
 
     @classmethod
     def poll(cls, context):
@@ -137,7 +131,7 @@ class RECOM_PT_scene_info(Panel):
     def draw_header_preset(self, context):
         layout = self.layout
         layout.emboss = "PULLDOWN_MENU"
-        layout.menu("RECOM_MT_external_blend_options", text="", icon=ICON_MENU)
+        layout.menu("RECOM_MT_external_blend_options", text="", icon='COLLAPSEMENU')
         layout.separator(factor=0.25)
 
     def draw(self, context):
@@ -174,11 +168,8 @@ class RECOM_PT_scene_info(Panel):
         file_size = info.get("file_size", "N/A")
 
         col = layout.column(align=True)
-        header_row = col.row(align=True)
-        header_text_col = header_row.column(align=True)
-        header_text_col.label(text=f"{blend_filename}", icon="FILE_BLEND")
-        header_text_line2 = col.column(align=True)
-        header_text_line2.label(text=f"{modified_date_short} | {version_file} | {file_size}", icon="BLANK1")
+        col.label(text=f"{blend_filename}", icon="FILE_BLEND")
+        col.label(text=f"{modified_date_short} | {version_file} | {file_size}", icon="BLANK1")
 
         return col
 
@@ -191,8 +182,8 @@ class RECOM_PT_scene_info(Panel):
         scene_name = info.get("scene_name", "")
         viewlayer_names = info.get("viewlayer_names", "")
 
-        labels_col = col.column(align=True)
-        labels_col.label(text=f"{scene_name} | {viewlayer_names}", icon="SCENE_DATA")
+        col = col.column(align=True)
+        col.label(text=f"{scene_name} | {viewlayer_names}", icon="SCENE_DATA")
 
         # Engine
         render_engine = info.get("render_engine", RE_CYCLES)
@@ -208,16 +199,16 @@ class RECOM_PT_scene_info(Panel):
             if compute_device == "GPU":
                 compute_device = "GPU Compute"
 
-            labels_col.separator(factor=0.5)
-            labels_col.label(text=f"{render_engine_display} | {compute_device}", icon="SCENE")
-            labels_col.label(text=f"Samples: {samples}{threshold_text}{denoising_text}", icon="BLANK1")
+            col.separator(factor=0.5)
+            col.label(text=f"{render_engine_display} | {compute_device}", icon="SCENE")
+            col.label(text=f"Samples: {samples}{threshold_text}{denoising_text}", icon="BLANK1")
 
         elif render_engine in {RE_EEVEE_NEXT, RE_EEVEE}:
             eevee_samples = info.get("eevee_samples", "0")
             raytracing_text = " | Raytracing" if info.get("eevee_use_raytracing", False) else ""
 
-            labels_col.separator(factor=0.5)
-            labels_col.label(
+            col.separator(factor=0.5)
+            col.label(
                 text=f"{render_engine_display} | Samples: {eevee_samples}{raytracing_text}",
                 icon="SCENE",
             )
@@ -225,14 +216,14 @@ class RECOM_PT_scene_info(Panel):
         # Compositing
         compositing_text = "Compositing" if info.get("use_compositor", False) else ""
         if compositing_text:
-            labels_col.separator(factor=0.5)
-            labels_col.label(text=f"{compositing_text}", icon="NODE_COMPOSITING")
+            col.separator(factor=0.5)
+            col.label(text=f"{compositing_text}", icon="NODE_COMPOSITING")
 
         # Camera
         camera_count = info.get("camera_render_count", 0)
         if camera_count > 1:
-            labels_col.separator(factor=0.5)
-            labels_col.label(text=f"Render Cameras: {camera_count}", icon="CAMERA_DATA")
+            col.separator(factor=0.5)
+            col.label(text=f"Render Cameras: {camera_count}", icon="CAMERA_DATA")
 
         # Frame/time info
         frame_current = info.get("frame_current", 0)
@@ -244,12 +235,12 @@ class RECOM_PT_scene_info(Panel):
         timecode = format_timecode(frame_start, frame_end, fps_real)
         motion_text = " | Motion Enabled" if info.get("use_motion_blur", False) else ""
 
-        labels_col.separator(factor=0.5)
-        labels_col.label(
+        col.separator(factor=0.5)
+        col.label(
             text=f"Frame {frame_current} ({frame_start}-{frame_end}) | {fps_real} fps",
             icon="PREVIEW_RANGE",
         )
-        labels_col.label(text=f"{timecode}{motion_text}", icon="BLANK1")
+        col.label(text=f"{timecode}{motion_text}", icon="BLANK1")
 
         # Output format/resolution
         file_format = info.get("file_format", "No Data")
@@ -261,8 +252,8 @@ class RECOM_PT_scene_info(Panel):
         render_scale = info.get("render_scale", 100)
         render_scale_text = f" ({render_scale}%)" if render_scale != 100 else ""
 
-        labels_col.separator(factor=0.5)
-        labels_col.label(
+        col.separator(factor=0.5)
+        col.label(
             text=f"{resolution_x} x {resolution_y} px{render_scale_text} | {file_format_text}{color_depth_text}",
             icon="IMAGE_DATA",
         )
@@ -271,8 +262,8 @@ class RECOM_PT_scene_info(Panel):
         output_path = info.get("filepath", "")
         frame_path = info.get("frame_path", "")
         if output_path and frame_path:
-            labels_col.separator(factor=0.5)
-            op_folder_row = labels_col.row(align=True)
+            col.separator(factor=0.5)
+            op_folder_row = col.row(align=True)
             op_folder_row.alignment = "LEFT"
             op_folder = op_folder_row.operator(
                 "recom.open_blend_output_path", text=f"{output_path}", icon="FILE_FOLDER"

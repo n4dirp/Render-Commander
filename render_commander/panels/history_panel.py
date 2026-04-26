@@ -3,15 +3,16 @@
 import bpy
 from bpy.types import Panel, UIList
 
-from ..utils.constants import ICON_OPTION, RENDER_ENGINE_MAPPING
+from ..utils.constants import (
+    RECOM_PT_BasePanel,
+    ICON_OPTION,
+    RENDER_ENGINE_MAPPING,
+)
 from ..preferences import get_addon_preferences
 
 
-class RECOM_PT_render_history_panel(Panel):
+class RECOM_PT_render_history_panel(RECOM_PT_BasePanel, Panel):
     bl_label = "Export History"
-    bl_space_type = "VIEW_3D"
-    bl_region_type = "UI"
-    bl_category = "Render Commander"
     bl_options = {"DEFAULT_CLOSED"}
 
     @classmethod
@@ -39,35 +40,17 @@ class RECOM_PT_render_history_panel(Panel):
             item_dyntip_propname="tooltip_display",
         )
 
-        menu_column = row.column(align=True)
-        menu_column.enabled = len(prefs.render_history) > 0
-        menu_column.operator("recom.clean_render_history", text="", icon="TRASH")
-        menu_column.separator()
-        menu_column.menu("RECOM_MT_render_history_item", text="", icon=ICON_OPTION)
+        col = row.column(align=True)  # Changed from 'menu_column'
+        col.enabled = len(prefs.render_history) > 0
+        col.operator("recom.clean_render_history", text="", icon="TRASH")
+        col.separator()
+        col.menu("RECOM_MT_render_history_item", text="", icon=ICON_OPTION)
 
 
-def draw_kv(layout, label, value, operator=""):
-    if label and value:
-        row = layout.row(align=True)
-        split = row.split(factor=0.4)
-        row1 = split.row(align=True)
-        row1.alignment = "RIGHT"
-        row2 = split.row()
-        row1.label(text=label)
-        if operator:
-            row2.alignment = "LEFT"
-            op_folder = row2.operator(operator, text=f"{value}")
-            op_folder.folder_path = value
-        else:
-            row2.label(text=str(value))
-
-
-class RECOM_PT_render_details_panel(Panel):
+class RECOM_PT_render_details_panel(RECOM_PT_BasePanel, Panel):
     bl_label = "Script Details"
     bl_parent_id = "RECOM_PT_render_history_panel"
-    bl_space_type = "VIEW_3D"
-    bl_region_type = "UI"
-    bl_category = "Render Commander"
+    # bl_options = {"DEFAULT_CLOSED"}
 
     @classmethod
     def poll(cls, context):
@@ -86,32 +69,54 @@ class RECOM_PT_render_details_panel(Panel):
 
             col = layout.column(align=True)
 
-            draw_kv(col, "Blend File", active_item.blend_file_name)
-            draw_kv(col, "Blend Path", active_item.blend_dir, "recom.open_output_folder")
+            self.draw_kv(col, "Blend File", active_item.blend_file_name)
+            self.draw_kv(col, "Blend Path", active_item.blend_dir, "recom.open_output_folder")
 
             col.separator()
-            draw_kv(col, "Render ID", active_item.render_id)
-            draw_kv(col, "Export Path", active_item.export_path, "recom.open_output_folder")
-            draw_kv(col, "Date", active_item.date)
+            self.draw_kv(col, "Render ID", active_item.render_id)
+            self.draw_kv(col, "Export Path", active_item.export_path, "recom.open_output_folder")
+            self.draw_kv(col, "Date", active_item.date)
 
             col.separator()
-            draw_kv(col, "Engine", RENDER_ENGINE_MAPPING.get(active_item.render_engine, active_item.render_engine))
-            draw_kv(col, "Samples", active_item.samples)
+            self.draw_kv(col, "Engine", RENDER_ENGINE_MAPPING.get(active_item.render_engine, active_item.render_engine))
+            self.draw_kv(col, "Samples", active_item.samples)
 
             col.separator()
-            draw_kv(col, "Resolution", f"{active_item.resolution_x} x {active_item.resolution_y} px")
-            draw_kv(col, "Frame", active_item.frames.replace(" - ", "-"))
-            draw_kv(col, "Format", active_item.file_format)
-            draw_kv(col, "Output Path", active_item.output_folder)
+            self.draw_kv(col, "Resolution", f"{active_item.resolution_x} x {active_item.resolution_y} px")
+            self.draw_kv(col, "Frame", active_item.frames.replace(" - ", "-"))
+            self.draw_kv(col, "Format", active_item.file_format)
+            self.draw_kv(col, "Output Path", active_item.output_folder)
+
+    def draw_kv(self, layout, label, value, operator=""):
+        if not (label and value):
+            return
+
+        row = layout.row(align=True)
+        split = row.split(factor=0.4)
+
+        # Label column
+        col = split.column(align=True)
+        col.alignment = "RIGHT"
+        col.label(text=label)
+
+        # Value column
+        col = split.column(align=True)
+        col.alignment = "LEFT"
+
+        if operator:
+            op = col.operator(operator, text=str(value))
+            op.folder_path = value
+        else:
+            col.label(text=str(value))
 
 
 class RECOM_UL_render_history(UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
         split = layout.split(factor=0.6)
         split.label(text=item.blend_file_name)
-        sub_row = split.row(align=True)
-        sub_row.active = False
-        sub_row.label(text=item.render_id)
+        row = split.row(align=True)
+        row.active = False
+        row.label(text=item.render_id)
 
     def filter_items(self, context, data, propname):
         search_text = self.filter_name.lower().strip() if self.filter_name else ""

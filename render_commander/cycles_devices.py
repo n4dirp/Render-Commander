@@ -81,15 +81,6 @@ def get_device_types_items(self, context):
     return _DEVICE_ITEMS_CACHE
 
 
-def update_compute_device_type(self, context):
-    """Update callback when the compute device type changes."""
-    if not self.devices_ini:
-        refresh_cycles_devices(self, context, False)
-
-    redraw_ui()
-    self.devices_ini = True
-
-
 # Device List Management (Refactored / Merged)
 #################################################
 

@@ -23,7 +23,7 @@ from .utils.helpers import redraw_ui
 from .cycles_devices import (
     RECOM_PG_DeviceSettings,
     get_device_types_items,
-    update_compute_device_type,
+    refresh_cycles_devices,
 )
 
 
@@ -173,8 +173,8 @@ class RECOM_Preferences(AddonPreferences):
 
     launch_mode: EnumProperty(
         items=[
-            (MODE_SINGLE, "Image", "Render a single frame"),
-            (MODE_SEQ, "Animation", "Render a full frame range"),
+            (MODE_SINGLE, "Still", "Render a single frame"),
+            (MODE_SEQ, "Sequence", "Render a full frame range"),
             (
                 MODE_LIST,
                 "List",
@@ -221,7 +221,7 @@ class RECOM_Preferences(AddonPreferences):
         description="Device to use for computation (rendering with Cycles)",
         default=0,
         items=lambda self, context: get_device_types_items(self, context),
-        update=lambda self, context: update_compute_device_type(self, context),
+        update=lambda self, context: redraw_ui(),
     )
     devices: CollectionProperty(type=RECOM_PG_DeviceSettings)
     devices_ini: BoolProperty(
@@ -558,6 +558,13 @@ def register():
     for cls in classes:
         bpy.utils.register_class(cls)
 
+    try:
+        prefs = get_addon_preferences(bpy.context)
+        if prefs and not prefs.devices_ini:
+            refresh_cycles_devices(prefs, bpy.context, sync_type=True)
+            prefs.devices_ini = True
+    except Exception as e:
+        log.warning("Could not initialize Cycles devices: %s", e)
 
 def unregister():
     for cls in reversed(classes):

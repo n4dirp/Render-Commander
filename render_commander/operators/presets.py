@@ -91,6 +91,7 @@ class RECOM_OT_overrides_preset(AddPresetBase, Operator):
         "settings.override_settings.cycles.use_adaptive_sampling",
         "settings.override_settings.cycles.adaptive_threshold",
         # Cycles Denoising Settings
+        "settings.override_settings.cycles.denoising_override",
         "settings.override_settings.cycles.use_denoising",
         "settings.override_settings.cycles.denoiser",
         "settings.override_settings.cycles.denoising_input_passes",
@@ -301,8 +302,30 @@ class RECOM_OT_render_preferences_preset(AddPresetBase, Operator):
         "settings.custom_export_path",
         "settings.export_scripts_subfolder",
         "settings.export_scripts_folder_name",
+        # Script Name
+        "settings.use_blend_name_in_script",
+        "settings.use_render_type_in_script",
+        "settings.use_export_date_in_script",
+        "settings.use_frame_range_in_script",
+        "settings.custom_script_tag",
+        "settings.custom_script_text",
     ]
     preset_subdir = PRESET_REGISTRY["render_prefs"]
+
+    def execute(self, context):
+        # Get current settings
+        settings = bpy.context.preferences.addons[base_package].preferences
+
+        # If manage_cycles_devices is False, exclude device-related settings
+        if not settings.manage_cycles_devices:
+            # Create filtered list excluding device settings
+            exclude_if_disabled = [
+                "settings.compute_device_type",
+                "settings.devices",
+            ]
+            self.preset_values = [val for val in self.preset_values if val not in exclude_if_disabled]
+
+        return super().execute(context)
 
 
 class RECOM_OT_additional_script_preset(AddPresetBase, Operator):

@@ -9,6 +9,7 @@ from bl_ui.utils import PresetPanel
 from ..preferences import get_addon_preferences
 from ..utils.constants import (
     RECOM_PT_BasePanel,
+    RECOM_PT_SubPanel,
     RE_CYCLES,
     RE_EEVEE,
     RE_EEVEE_NEXT,
@@ -59,7 +60,7 @@ class RECOM_PT_additional_script_presets(PresetPanel, Panel):
 #################################################
 
 
-class RECOM_PT_render_preferences(RECOM_PT_BasePanel, Panel):
+class RECOM_PT_render_preferences(RECOM_PT_SubPanel, Panel):
     """Main panel for render preferences"""
 
     bl_label = "Render Preferences"
@@ -380,6 +381,7 @@ class RECOM_PT_device_settings(RECOM_PT_BasePanel, Panel):
 class RECOM_PT_device_parallel(RECOM_PT_BasePanel, Panel):
     bl_label = "Device Parallel"
     bl_parent_id = "RECOM_PT_device_settings"
+    bl_options = {"DEFAULT_CLOSED"}
 
     @classmethod
     def poll(cls, context):
@@ -435,7 +437,8 @@ class RECOM_PT_device_parallel(RECOM_PT_BasePanel, Panel):
 class RECOM_PT_render_parallel(RECOM_PT_BasePanel, Panel):
     bl_label = "Multi-Process"
     bl_parent_id = "RECOM_PT_render_options"
-
+    bl_options = {"DEFAULT_CLOSED"}
+    
     @classmethod
     def poll(cls, context):
         prefs = get_addon_preferences(context)
@@ -497,7 +500,7 @@ class RECOM_PT_render_options(RECOM_PT_BasePanel, Panel):
 
 
 class RECOM_PT_output_filename(Panel):
-    bl_label = "File Naming"
+    bl_label = "File Output"
     bl_parent_id = "RECOM_PT_render_options"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
@@ -512,28 +515,13 @@ class RECOM_PT_output_filename(Panel):
         prefs = get_addon_preferences(context)
 
         col = layout.column()
-        col.prop(prefs, "default_render_filename", text="Output File")
+        col.prop(prefs, "default_render_filename", text="Default Name")
         col.prop(prefs, "frame_length_digits", text="Frame Padding")
         col.prop(prefs, "filename_separator", text="Separator")
 
 
-class RECOM_PT_scripts_filename(RECOM_PT_BasePanel, Panel):
-    bl_label = "Script Name"
-    bl_parent_id = "RECOM_PT_output_filename"
-
-    def draw(self, context):
-        layout = self.layout
-        layout.use_property_split = True
-        layout.use_property_decorate = False
-
-        prefs = get_addon_preferences(context)
-
-        col = layout.column(heading="Include", align=True)
-        draw_script_filename(col, prefs)
-
-
 class RECOM_PT_export_options(RECOM_PT_BasePanel, Panel):
-    bl_label = "Export Path"
+    bl_label = "Script Export"
     bl_parent_id = "RECOM_PT_render_options"
     bl_options = {"DEFAULT_CLOSED"}
 
@@ -554,8 +542,12 @@ class RECOM_PT_export_options(RECOM_PT_BasePanel, Panel):
         sub_folder_row.active = prefs.export_scripts_subfolder
         sub_folder_row.prop(prefs, "export_scripts_folder_name", text="")
 
-        col.prop(prefs, "auto_open_exported_folder", text="Open Scripts Folder")
 
+        col = layout.column(heading="File Name", align=True)
+        draw_script_filename(col, prefs)
+
+        col = layout.column(heading="Auto", align=True)
+        col.prop(prefs, "auto_open_exported_folder", text="Open Scripts Folder")
 
 classes = (
     RECOM_PT_render_preferences_presets,
@@ -572,7 +564,6 @@ classes = (
     RECOM_PT_ocio,
     RECOM_PT_render_options,
     RECOM_PT_output_filename,
-    RECOM_PT_scripts_filename,
     RECOM_PT_export_options,
     RECOM_PT_device_settings,
     RECOM_PT_device_parallel,

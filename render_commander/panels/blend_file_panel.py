@@ -7,6 +7,7 @@ from bpy.types import Panel, UIList
 
 from ..utils.constants import (
     RECOM_PT_BasePanel,
+    RECOM_PT_SubPanel,
     RE_CYCLES,
     RE_EEVEE_NEXT,
     RE_EEVEE,
@@ -57,8 +58,7 @@ def format_timecode(frame_start: int, frame_end: int, fps_real: float, show_hour
 
     return f"{minutes:02}:{seconds:02}+{frames:02}"
 
-
-class RECOM_PT_scene_file_panel(RECOM_PT_BasePanel, Panel):
+class RECOM_PT_scene_file_panel(RECOM_PT_SubPanel, Panel):
     bl_label = "Blend File"
     bl_options = {"DEFAULT_CLOSED"}
 

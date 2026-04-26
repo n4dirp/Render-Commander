@@ -5,13 +5,14 @@ from bpy.types import Panel, UIList
 
 from ..utils.constants import (
     RECOM_PT_BasePanel,
+    RECOM_PT_SubPanel,
     ICON_OPTION,
     RENDER_ENGINE_MAPPING,
 )
 from ..preferences import get_addon_preferences
 
 
-class RECOM_PT_render_history_panel(RECOM_PT_BasePanel, Panel):
+class RECOM_PT_render_history_panel(RECOM_PT_SubPanel, Panel):
     bl_label = "Export History"
     bl_options = {"DEFAULT_CLOSED"}
 

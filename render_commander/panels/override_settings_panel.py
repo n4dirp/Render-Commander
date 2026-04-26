@@ -10,6 +10,7 @@ from bl_ui.utils import PresetPanel
 from ..preferences import get_addon_preferences
 from ..utils.constants import (
     RECOM_PT_BasePanel,
+    RECOM_PT_SubPanel,
     RE_EEVEE_NEXT,
     RE_EEVEE,
     RE_CYCLES,
@@ -290,7 +291,7 @@ class RECOM_PT_override_advanced_property_presets(PresetPanel, Panel):
 #################################################
 
 
-class RECOM_PT_scene_override_settings(RECOM_PT_BasePanel, Panel):
+class RECOM_PT_scene_override_settings(RECOM_PT_SubPanel, Panel):
     """Main scene overrides panel"""
 
     bl_label = "Override Settings"

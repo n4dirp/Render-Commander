@@ -67,4 +67,13 @@ class RECOM_PT_BasePanel:
 
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
-    bl_category = "Render Commander"
+    bl_category = "RC"
+
+current_parent = "" # RECOM_PT_main_panel
+
+class RECOM_PT_SubPanel(RECOM_PT_BasePanel):
+    """Mix-in for sub-panels to standardize layout metadata and allow dynamic parent assignment"""
+
+    bl_parent_id = current_parent
+
+

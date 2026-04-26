@@ -33,6 +33,7 @@ log = logging.getLogger(__name__)
 
 _IS_WINDOWS = sys.platform == "win32"
 ADDON_INFO = f"Render Commander v{ADDON_VERSION_STR} - Blender v{BLENDER_VERSION_STR}"
+SAFE_MAX_LENGTH = 180  # conservative filename length
 
 
 def _wrap_in_try(lines, section_name, abort_on_fail=False) -> list[str]:
@@ -42,7 +43,6 @@ def _wrap_in_try(lines, section_name, abort_on_fail=False) -> list[str]:
 
     wrapped = ["try:"]
     for line in lines:
-        # Add 4 spaces of indentation, but leave empty lines blank to avoid trailing spaces
         wrapped.append(f"    {line}" if line.strip() else "")
 
     if abort_on_fail:
@@ -57,7 +57,7 @@ def _wrap_in_try(lines, section_name, abort_on_fail=False) -> list[str]:
         wrapped.extend(
             [
                 "except Exception as e:",
-                f"    print(f'Render Commander Warning: Failed to apply {section_name} -> {{e}}')",
+                f"    log.error(f'Render Commander: Failed to apply {section_name} -> {{e}}')",
                 "",
             ]
         )
@@ -94,14 +94,16 @@ def _generate_base_script(
         ]
     )
 
+    _add_logging_formatter(script_lines)
+
     if start_msg:
-        script_lines.append(f'print("{start_msg}")')
+        script_lines.append(f'log.info("{start_msg}")')
         script_lines.append("")
 
     _add_render_time_tracking(prefs, script_lines)
     _apply_data_path_overrides(settings, script_lines)
     _apply_motion_blur_settings(settings, script_lines)
-    _apply_frame_settings(prefs, is_animation, frame_start, frame_end, frame_step, script_lines)
+    _apply_frame_settings(prefs, settings, is_animation, frame_start, frame_end, frame_step, script_lines)
     _apply_camera_settings(settings, script_lines)
     _apply_resolution_settings(context, settings, script_lines)
     _apply_output_format_settings(settings, script_lines)
@@ -126,7 +128,9 @@ def _apply_data_path_overrides(settings, script_lines):
         if not overrides:
             return
 
-        script_lines.append("# Custom API Overrides")
+        script_lines.append("# Data Path Overrides")
+        script_lines.append(f'log.info("Applying {len(overrides)} data path override(s)")')
+
         for item in overrides:
             path = item.data_path
 
@@ -153,12 +157,20 @@ def _apply_data_path_overrides(settings, script_lines):
                     "try:",
                     f"    {path} = {val_str}",
                     "except Exception as e:",
-                    f"    print(f'Failed to apply custom override {path}: {{e}}')",
+                    f'    log.error("Failed to apply custom override (%s): %s", "{path}", {{e}})',
                 ]
             )
         script_lines.append("")
     except Exception as e:
         log.error("Error applying data path overrides: %s", e, exc_info=True)
+
+
+def _add_logging_formatter(script_lines):
+    generated_lines = []
+    generated_lines.extend(_load_template_script("logging_formatter.py"))
+    if generated_lines:
+        script_lines.extend(generated_lines)
+        script_lines.append("")
 
 
 def _add_render_time_tracking(prefs, script_lines):
@@ -178,8 +190,6 @@ def _add_render_time_tracking(prefs, script_lines):
     elif prefs.launch_mode == MODE_LIST:
         script_lines.extend(
             [
-                "import time",
-                "",
                 "start_time = time.time()",
                 "",
             ]
@@ -189,19 +199,21 @@ def _add_render_time_tracking(prefs, script_lines):
 def _apply_motion_blur_settings(settings, script_lines):
     """Apply motion blur override settings."""
     if settings.override_settings.motion_blur_override:
+        script_lines.append("# Motion Blur Settings")
+        script_lines.append('log.info("Applying Motion Blur override")')
         lines = [
             f"bpy.context.scene.render.use_motion_blur = {settings.override_settings.use_motion_blur}",
             f"bpy.context.scene.render.motion_blur_position = '{settings.override_settings.motion_blur_position}'",
             f"bpy.context.scene.render.motion_blur_shutter = {settings.override_settings.motion_blur_shutter}",
             "",
         ]
-        script_lines.append("# Motion Blur Settings")
         script_lines.extend(lines)
 
 
-def _apply_frame_settings(prefs, is_animation, frame_start, frame_end, frame_step, script_lines):
+def _apply_frame_settings(prefs, settings, is_animation, frame_start, frame_end, frame_step, script_lines):
     """Apply frame start, end, and step settings."""
     lines = []
+
     if is_animation:
         lines.extend(
             [
@@ -217,6 +229,8 @@ def _apply_frame_settings(prefs, is_animation, frame_start, frame_end, frame_ste
 
     if prefs.launch_mode != MODE_LIST:
         script_lines.append("# Frame Settings")
+        if settings.override_settings.frame_range_override:
+            script_lines.append('log.info(f"Applying Frame Range override")')
         script_lines.extend(lines)
 
 
@@ -255,6 +269,7 @@ def _apply_camera_settings(settings, script_lines):
 
     if lines:
         script_lines.append("# Camera Settings")
+        script_lines.append('log.info("Applying Camera override")')
         script_lines.extend(_wrap_in_try(lines, "Camera Settings", True))
 
 
@@ -265,6 +280,7 @@ def _apply_resolution_settings(context, settings, script_lines):
 
     try:
         script_lines.append("# Format Settings")
+        script_lines.append('log.info("Applying Resolution/Format override")')
         lines = []
 
         if settings.override_settings.resolution_override:
@@ -398,6 +414,7 @@ def _apply_output_format_settings(settings, script_lines):
     try:
         if settings.override_settings.file_format_override:
             script_lines.append("# File Format Settings")
+            script_lines.append('log.info(f"Applying File Format override")')
             lines = []
 
             if settings.override_settings.file_format == "OPEN_EXR_MULTILAYER":
@@ -444,10 +461,11 @@ def _apply_output_format_settings(settings, script_lines):
 def _apply_compositing_settings(settings, script_lines):
     """Apply compositing override settings."""
     if settings.override_settings.compositor_override:
+        script_lines.append("# Compositor Settings")
+        script_lines.append('log.info(f"Applying Compositor override")')
         lines = []
         lines.extend(
             [
-                "# Compositor Settings",
                 f"bpy.context.scene.render.use_compositing = {settings.override_settings.use_compositor}",
                 f"bpy.context.scene.render.compositor_device = '{settings.override_settings.compositor_device}'",
                 "",
@@ -479,11 +497,13 @@ def _apply_cycles_settings(prefs, settings, selected_ids, script_lines):
             prefs.manage_cycles_devices
             or override_settings.cycles.device_override
             or override_settings.cycles.sampling_override
+            or override_settings.cycles.denoising_override
             or override_settings.cycles.performance_override
         ):
             return
 
         script_lines.append("# Cycles Settings")
+        script_lines.append('log.info("Applying Cycles overrides")')
         lines = []
         lines.append(f"if bpy.context.scene.render.engine == '{RE_CYCLES}':")
 
@@ -494,6 +514,7 @@ def _apply_cycles_settings(prefs, settings, selected_ids, script_lines):
 
         _apply_cycles_device_settings(prefs, selected_ids, lines)
         _apply_cycles_sampling_settings(override_settings, lines)
+        _apply_cycles_denoising_settings(override_settings, lines)
         _apply_cycles_performance_settings(override_settings, lines)
 
         # Wrap all Cycles code together
@@ -511,7 +532,7 @@ def _apply_cycles_sampling_settings(override_settings, lines):
     cycles = override_settings.cycles
 
     if cycles.sampling_mode == "FACTOR":
-        factor = float(cycles.sampling_factor)
+        factor = float(cycles.sampling_factor) / 100.0
         lines.extend(
             [
                 "    # Sampling Factor Override",
@@ -538,7 +559,15 @@ def _apply_cycles_sampling_settings(override_settings, lines):
             ]
         )
 
-    if cycles.use_denoising:
+
+def _apply_cycles_denoising_settings(override_settings, lines):
+    """Apply Cycles sampling settings."""
+    if not override_settings.cycles.denoising_override:
+        return
+
+    cycles = override_settings.cycles
+
+    if cycles.denoising_override:
         lines.extend(
             [
                 f"    bpy.context.scene.cycles.use_denoising = {cycles.use_denoising}",
@@ -606,14 +635,13 @@ def _apply_cycles_device_settings(prefs, selected_ids, lines):
             "    else:",
             "        active_devices = [d for d in cycles_prefs.devices if d.type == 'CPU']",
             "",
-            "    # Print enabled devices",
+            "    # Log enabled devices",
             "    if active_devices:",
-            "        prefix = 'Devices: ' if is_gpu else 'Device: '",
-            "        for i, d in enumerate(active_devices):",
-            "            indent = prefix if i == 0 else '\\t '",
-            "            print(f'{indent}{d.name} ({d.type}) [{d.id}]')",
+            "        log.info(f'Active Devices: {len(active_devices)}')",
+            "        for d in active_devices:",
+            "            log.info(f'  - {d.name} ({d.type}) [{d.id}]')",
             "    elif not is_gpu:",
-            "        print('Device: CPU')",
+            "        log.info('Device: CPU')",
             "",
         ]
     )
@@ -626,6 +654,7 @@ def _apply_eevee_settings(settings, script_lines):
         return
 
     script_lines.append("# EEVEE Settings")
+    script_lines.append('log.info(f"Applying EEVEE override")')
     eevee = override_settings.eevee
 
     lines = [
@@ -672,32 +701,140 @@ def _get_log_file_path(prefs, blend_file, log_filename: str, target_dir=None) ->
     return str(log_folder / log_filename)
 
 
-def _resolve_script_base_name(blend_name: str, settings, prefs) -> str:
-    """Resolve the base filename for generated scripts based on preferences."""
-    parts = []
+def _format_frame_range(frames) -> str:
+    """Format frame input into a filename-safe string with prefix."""
+
+    prefix = "f"
+
+    if isinstance(frames, list):
+        if not frames:
+            return f"{prefix}_empty"
+
+        sorted_frames = sorted(set(map(int, frames)))
+        ranges = []
+
+        start = end = sorted_frames[0]
+
+        for num in sorted_frames[1:]:
+            if num == end + 1:
+                end = num
+            else:
+                ranges.append((start, end))
+                start = end = num
+
+        ranges.append((start, end))
+
+        formatted = [f"{s}" if s == e else f"{s}-{e}" for s, e in ranges]
+
+        return f"{prefix}_" + "_".join(formatted)
+
+    elif isinstance(frames, tuple):
+        start, end, step = frames
+
+        if start == end:
+            return f"{prefix}_{start}"
+
+        result = f"{prefix}_{start}-{end}"
+        if step > 1:
+            result += f"_s{step}"
+
+        return result
+
+    return f"{prefix}_unknown"
+
+
+def _resolve_script_base_name(
+    blend_name: str,
+    settings,
+    prefs,
+    frames,
+) -> str:
+    """Build a safe, readable base filename for generated scripts."""
+
     LAUNCH_MODE_MAP = {
         MODE_SINGLE: "Still",
         MODE_SEQ: "Animation",
         MODE_LIST: "List",
     }
 
-    if prefs.use_blend_name_in_script:
-        parts.append(blend_name)
-    if prefs.use_render_type_in_script:
-        render_type = LAUNCH_MODE_MAP.get(prefs.launch_mode)
-        parts.append(render_type)
+    def _add(parts, value):
+        """Append non-empty values."""
+        if value:
+            parts.append(str(value))
+
+    parts = []
+
+    # --- Build parts ---
     if prefs.use_export_date_in_script:
-        parts.append(datetime.now().strftime("%Y-%m-%d_%H%M%S"))
-    parts.append(settings.render_id)
+        _add(parts, datetime.now().strftime("%Y-%m-%d_%H%M%S"))
 
-    return "_".join(parts)
+    if prefs.use_blend_name_in_script:
+        _add(parts, bpy.path.clean_name(blend_name))
+
+    if prefs.use_render_type_in_script:
+        _add(parts, LAUNCH_MODE_MAP.get(prefs.launch_mode))
+
+    if prefs.custom_script_tag and prefs.custom_script_text:
+        _add(parts, bpy.path.clean_name(prefs.custom_script_text))
+
+    # Always include render_id (critical identifier)
+    render_id = settings.render_id
+    _add(parts, render_id)
+
+    if prefs.use_frame_range_in_script:
+        _add(parts, _format_frame_range(frames))
+
+    base_name = "_".join(parts)
+
+    # Truncation strategy
+    if len(base_name) <= SAFE_MAX_LENGTH:
+        return base_name
+
+    # Prefer preserving the render_id (and anything after it)
+    pivot = base_name.rfind(render_id)
+
+    if pivot == -1:
+        return _truncate_simple(base_name)
+
+    prefix = base_name[:pivot].rstrip("_")
+    suffix = base_name[pivot:]  # includes render_id + trailing info
+
+    available = SAFE_MAX_LENGTH - len(suffix)
+
+    if available <= 0:
+        # render_id itself is too long → fallback
+        return _truncate_simple(suffix)
+
+    truncated_prefix = _truncate_with_ellipsis(prefix, available)
+
+    return f"{truncated_prefix}_{suffix}" if truncated_prefix else suffix
 
 
-def _create_process_files(self, prefs, settings, blend_file, script_lines, process_id, target_dir) -> Path | None:
+def _truncate_simple(value: str) -> str:
+    """Hard truncate with ellipsis."""
+    if len(value) <= SAFE_MAX_LENGTH:
+        return value
+    return value[: SAFE_MAX_LENGTH - 3].rstrip("_") + "..."
+
+
+def _truncate_with_ellipsis(value: str, max_len: int) -> str:
+    """Truncate preserving readability."""
+    if len(value) <= max_len:
+        return value
+
+    if max_len <= 3:
+        return value[:max_len]
+
+    return value[: max_len - 3].rstrip("_") + "..."
+
+
+def _create_process_files(
+    self, prefs, settings, blend_file, script_lines, process_id, target_dir, frames
+) -> Path | None:
     """Creates the .py script and the OS-specific shell/batch script."""
     blend_name = Path(blend_file).stem
     sanitized_blend_name = bpy.path.clean_name(blend_name)
-    base_name = _resolve_script_base_name(sanitized_blend_name, settings, prefs)
+    base_name = _resolve_script_base_name(sanitized_blend_name, settings, prefs, frames)
 
     exec_extension = ".bat" if _IS_WINDOWS else ".sh"
 
@@ -779,8 +916,13 @@ def _create_process_files(self, prefs, settings, blend_file, script_lines, proce
     )
     shell_content.extend(script_check)
 
+    # Set OCIO Env
     if prefs.set_ocio and prefs.ocio_path:
-        shell_content.append(set_env("OCIO", bpy.path.abspath(prefs.ocio_path), export=True))
+        ocio_path = Path(bpy.path.abspath(prefs.ocio_path))
+        if ocio_path.exists() and ocio_path.suffix.lower() == '.ocio':
+            shell_content.append(set_env("OCIO", str(ocio_path), export=True))
+        else:
+            log.warning('Invalid OCIO path: "%s"', prefs.ocio_path)
 
     # Additional Scripts
     def add_script_vars(order: str):
@@ -788,7 +930,7 @@ def _create_process_files(self, prefs, settings, blend_file, script_lines, proce
         for entry in prefs.additional_scripts:
             if entry.order == order and entry.script_path:
                 abs_path = Path(bpy.path.abspath(entry.script_path)).resolve()
-                if abs_path.is_file():
+                if abs_path.is_file() and abs_path.suffix.lower() == '.py':
                     shell_content.append(set_env(f"RC_{order}_SCRIPT_{idx}", str(abs_path)))
                     idx += 1
         return idx - 1
@@ -840,6 +982,20 @@ def _create_process_files(self, prefs, settings, blend_file, script_lines, proce
     shell_content.extend(["", f'echo "Executing Render: {blend_name} ({settings.render_id} - worker{process_id})"'])
     if prefs.log_to_file:
         shell_content.append(f"echo Log written to: {ref_env('RC_LOG')}")
+
+    # Add staggered start delay for parallel/multi-instance workers
+    if prefs.parallel_delay > 0 and process_id > 0:
+        delay_time = prefs.parallel_delay * process_id
+        delay_display = f"{int(delay_time)}s" if delay_time == int(delay_time) else f"{delay_time}s"
+
+        if _IS_WINDOWS:
+            shell_content.append(f'echo [Worker {process_id}] Waiting {delay_display}...')
+            shell_content.append(f'timeout /t {int(delay_time)} /nobreak')
+            shell_content.append(f'echo [Worker {process_id}] Wait complete. Starting render...')
+        else:
+            shell_content.append(f'echo "[Worker {process_id}] Waiting {delay_display}..."')
+            shell_content.append(f'sleep {delay_time}')
+            shell_content.append(f'echo "[Worker {process_id}] Wait complete. Starting render..."')
 
     shell_content.extend(["", cmd_str, ""])
 

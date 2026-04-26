@@ -29,35 +29,13 @@ def get_addon_temp_dir() -> Path:
         raise
 
 
-def get_nearest_existing_path(path: str) -> Path:
-    """Navigate up directory tree to find the nearest existing path."""
-    path = Path(path)
+def replace_variables(prefs, path_template: str) -> str:
+    """Replace template variables in a path with context-specific values."""
+    if not prefs:
+        return path_template
 
-    # Traverse upward until we find an existing directory
-    while path != path.parent:  # Stop when we hit root (root.parent == root)
-        if path.exists() and path.is_dir():
-            return path
-
-        path = path.parent
-
-    # Fallback: user's home directory
-    return Path.home()
-
-
-def replace_variables(path_template: str) -> str:
-    """
-    Replace template variables in a path with context-specific values.
-    Used with the Override Output Path
-    """
     try:
-        context = bpy.context
-        prefs = context.preferences.addons[".".join(__package__.split(".")[:-1])].preferences
-
-        variables_map = {
-            var.token: var.value
-            for var in prefs.custom_variables
-            if var.token not in RESERVED_TOKENS  # exclude reserved upfront
-        }
+        variables_map = {var.token: var.value for var in prefs.custom_variables if var.token not in RESERVED_TOKENS}
 
         def replacement_func(match):
             var_name = match.group(1)
@@ -83,7 +61,6 @@ def redraw_ui() -> None:
         for area in window.screen.areas:
             if area.type == "VIEW_3D":
                 area.tag_redraw()
-    bpy.context.window_manager.update_tag()
 
 
 def is_blend_or_backup_file(file_path: str) -> bool:

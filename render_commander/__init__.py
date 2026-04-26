@@ -8,14 +8,13 @@ import bpy
 
 from . import properties, preferences, utils, operators, panels
 
-ADDON_NAME = __package__
 ADDON_DIR = os.path.dirname(__file__)
 
-log = logging.getLogger(ADDON_NAME)
+log = logging.getLogger(__package__)
 log.propagate = False
 
 
-class ModernBlenderFormatter(logging.Formatter):
+class AddonLogFormatter(logging.Formatter):
     """Custom formatter to provide timestamped and addon-prefixed logs."""
 
     def __init__(self, with_level=False):
@@ -28,7 +27,7 @@ class ModernBlenderFormatter(logging.Formatter):
         rel_time = record.created - self.start_time
         minutes, seconds = divmod(rel_time, 60)
         timestamp = f"{int(minutes):02d}:{seconds:06.3f}"
-        short_name = ADDON_NAME.rsplit(".", maxsplit=1)[-1]
+        short_name = __package__.rsplit(".", maxsplit=1)[-1]
 
         if self.with_level:
             return f"{timestamp}  {short_name} | {record.levelname.title()}: {record.getMessage()}"
@@ -53,7 +52,7 @@ def update_logger_from_prefs():
         return
 
     handler = logging.StreamHandler()
-    handler.setFormatter(ModernBlenderFormatter(with_level=True))
+    handler.setFormatter(AddonLogFormatter(with_level=True))
 
     log.addHandler(handler)
     log.setLevel(logging.DEBUG if enable_logging else logging.INFO)
@@ -75,7 +74,7 @@ def register():
         try:
             mdl.register()
         except Exception as err:
-            print(f"[{ADDON_NAME}] Failed to register module {mdl.__name__}: {err}")
+            print(f"[{__package__}] Failed to register module {mdl.__name__}: {err}")
 
     update_logger_from_prefs()
 
@@ -89,7 +88,7 @@ def unregister():
         try:
             mdl.unregister()
         except Exception as err:
-            log.error("[%s] Failed to unreg module %s: %s", ADDON_NAME, mdl.__name__, err)
+            log.error("[%s] Failed to unreg module %s: %s", __package__, mdl.__name__, err)
 
 
 if __name__ == "__main__":

@@ -1,20 +1,19 @@
 """Render Time Logic for Sequence Renders"""
 
-import time
 from bpy.app.handlers import persistent
 
 
 def format_duration(seconds):
-    """Convert seconds into a human-readable time string (e.g., 2h 15m 30s)."""
+    """Convert seconds into a human-readable time string."""
     seconds = round(seconds)
     hours, remainder = divmod(seconds, 3600)
     minutes, remaining_seconds = divmod(remainder, 60)
 
     if hours:
-        return f"{hours}h {minutes}m {remaining_seconds}s"
+        return "%dh %dm %ds" % (hours, minutes, remaining_seconds)
     if minutes:
-        return f"{minutes}m {remaining_seconds}s"
-    return f"{remaining_seconds}s"
+        return "%dm %ds" % (minutes, remaining_seconds)
+    return "%ds" % remaining_seconds
 
 
 @persistent
@@ -31,40 +30,52 @@ def on_render_post(scene):
     scene["recom_render_frames_completed"] = frames_completed
 
     render_start_time = scene.get("recom_render_start_time")
-    try:
-        frame_step = scene.frame_step or 1
-        total_frames = int((scene.frame_end - scene.frame_start) / frame_step) + 1
-        progress_percentage = min(frames_completed / total_frames, 1.0) if total_frames else 0
 
-        progress_indicator = "#" * int(32 * progress_percentage) + "-" * (32 - int(32 * progress_percentage))
-        estimated_time_remaining = None
+    frame_step = scene.frame_step if scene.frame_step else 1
+    total_frames = int((scene.frame_end - scene.frame_start) / frame_step) + 1
 
-        if render_start_time and 0 < frames_completed < total_frames:
-            estimated_time_remaining = format_duration(
-                (time.time() - render_start_time) / frames_completed * (total_frames - frames_completed)
-            )
+    if total_frames <= 0:
+        return
 
-        status_message = f"Progress: [{progress_indicator}] {int(progress_percentage*100)}% | Frame {frames_completed}/{total_frames}"
-        if estimated_time_remaining:
-            status_message += f" | ETA: {estimated_time_remaining}"
+    progress_percentage = min(frames_completed / total_frames, 1.0)
+    bar_size = 32
+    filled_len = int(bar_size * progress_percentage)
+    progress_indicator = "#" * filled_len + "-" * (bar_size - filled_len)
 
-        print(status_message)
-    except Exception as e:
-        print(f"Progress bar calculation error: {e}")
+    estimated_time_remaining = None
+    if render_start_time and 0 < frames_completed < total_frames:
+        elapsed = time.time() - render_start_time
+        eta_seconds = (elapsed / frames_completed) * (total_frames - frames_completed)
+        estimated_time_remaining = format_duration(eta_seconds)
+
+    status_message = "Progress: [%s] %d%% | Frame %d/%d" % (
+        progress_indicator,
+        int(progress_percentage * 100),
+        frames_completed,
+        total_frames,
+    )
+
+    if estimated_time_remaining:
+        status_message += " | ETA: %s" % estimated_time_remaining
+
+    log.info("%s", status_message)
 
 
 @persistent
 def on_render_complete(scene):
-    """Log total render time and clean up tracking variables when the render finishes."""
+    """Log total render time and clean up tracking variables."""
     render_start_time = scene.get("recom_render_start_time")
     frames_completed = scene.get("recom_render_frames_completed", 0)
 
     if render_start_time is not None:
         total_elapsed_time = time.time() - render_start_time
-        print(f"Total Render Time: {format_duration(total_elapsed_time)} ({total_elapsed_time:.2f}s)")
+        hours, remainder = divmod(total_elapsed_time, 3600)
+        minutes, seconds = divmod(remainder, 60)
+
+        log.info("Render completed in %02d:%02d:%05.2f", int(hours), int(minutes), seconds)
 
         if frames_completed > 0:
-            print(f"Frames: {frames_completed} | Avg: {total_elapsed_time/frames_completed:.2f}s")
+            log.info("Frames: %d | Avg: %.2fs", frames_completed, total_elapsed_time / frames_completed)
 
         # Clean up scene properties
         scene.pop("recom_render_start_time", None)

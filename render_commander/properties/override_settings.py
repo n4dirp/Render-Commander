@@ -63,6 +63,8 @@ def data_path_search_callback(self, context, edit_text):
 class RECOM_PG_DataPathOverride(PropertyGroup):
     """Stores arbitrary data path overrides entered by the user"""
 
+    __slots__ = ()
+
     name: StringProperty(name="Name", default="Data Path Override")
     data_path: StringProperty(
         name="Data Path",
@@ -72,25 +74,27 @@ class RECOM_PG_DataPathOverride(PropertyGroup):
     prop_type: EnumProperty(
         name="Type",
         items=[
-            ("BOOL", "Boolean", ""),
-            ("INT", "Integer", ""),
-            ("FLOAT", "Float", ""),
-            ("STRING", "String", ""),
-            ("VECTOR_3", "Vector (3D)", ""),
-            ("COLOR_4", "Color (RGBA)", ""),
+            ('BOOL', "Boolean", ""),
+            ('INT', "Integer", ""),
+            ('FLOAT', "Float", ""),
+            ('STRING', "String", ""),
+            ('VECTOR_3', "Vector (3D)", ""),
+            ('COLOR_4', "Color (RGBA)", ""),
         ],
-        default="FLOAT",
+        default='FLOAT',
     )
     value_bool: BoolProperty(name="Value")
     value_int: IntProperty(name="Value")
     value_float: FloatProperty(name="Value")
     value_string: StringProperty(name="Value")
     value_vector_3: FloatVectorProperty(name="Value", size=3)
-    value_color_4: FloatVectorProperty(name="Value", size=4, subtype="COLOR", min=0.0, max=1.0)
+    value_color_4: FloatVectorProperty(name="Value", size=4, subtype='COLOR', min=0.0, max=1.0)
 
 
 class RECOM_PG_CyclesRenderOverrides(PropertyGroup):
     """Stores Cycles render override settings"""
+
+    __slots__ = ()
 
     device_override: BoolProperty(
         name="Override Compute Device",
@@ -99,10 +103,10 @@ class RECOM_PG_CyclesRenderOverrides(PropertyGroup):
     device: EnumProperty(
         name="",
         items=[
-            ("CPU", "CPU", "Use CPU for rendering"),
-            ("GPU", "GPU", "Use GPU compute devices for rendering"),
+            ('CPU', "CPU", "Use CPU for rendering"),
+            ('GPU', "GPU", "Use GPU compute devices for rendering"),
         ],
-        default="GPU",
+        default='GPU',
         description="Device to use for rendering",
     )
 
@@ -114,25 +118,22 @@ class RECOM_PG_CyclesRenderOverrides(PropertyGroup):
     sampling_mode: EnumProperty(
         name="Mode",
         items=[
-            ("CUSTOM", "Custom", "Set absolute sampling values manually"),
-            ("FACTOR", "Factor", "Multiply the scene's current sampling settings by a factor"),
+            ('CUSTOM', "Custom", "Set absolute sampling values manually"),
+            ('FACTOR', "Factor", "Multiply the scene's current sampling settings by a factor"),
         ],
-        default="CUSTOM",
+        default='CUSTOM',
         description="Choose how to override sampling values",
         update=lambda self, context: redraw_ui(),
     )
-    sampling_factor: EnumProperty(
+    sampling_factor: FloatProperty(
         name="Quality Factor",
-        items=[
-            ("0.25", "25%", "0.25x Samples, 2.0x Noise Threshold"),
-            ("0.50", "50%", "0.5x Samples, ~1.41x Noise Threshold"),
-            ("1.00", "100%", "Original Scene Values"),
-            ("1.50", "150%", "1.5x Samples, ~0.81x Noise Threshold"),
-            ("2.00", "200%", "2x Samples, ~0.71x Noise Threshold"),
-            ("4.00", "400%", "4x Samples, 0.5x Noise Threshold"),
-        ],
-        default="1.00",
-        description="Multiplier for the scene's sampling settings",
+        default=100.0,
+        min=1.0,
+        soft_max=200.0,
+        precision=0,
+        step=10,
+        subtype='PERCENTAGE',
+        description="Multiplier for the scene's sampling settings as a percentage",
     )
     use_adaptive_sampling: BoolProperty(
         name="Use Adaptive Sampling",
@@ -175,53 +176,57 @@ class RECOM_PG_CyclesRenderOverrides(PropertyGroup):
         min=0.0,
         default=0.0,
         step=100.0,
-        unit="TIME_ABSOLUTE",
+        unit='TIME_ABSOLUTE',
     )
 
     # Denoise
+    denoising_override: BoolProperty(
+        name="Override Denoising",
+        default=False,
+    )
     use_denoising: BoolProperty(
         name="Use Denoising",
-        default=False,
+        default=True,
         description="Toggle denoising during rendering",
     )
     denoiser: EnumProperty(
         name="Denoiser",
         description="Denoiser to use",
         items=[
-            ("OPTIX", "OptiX", "Use OptiX AI denoiser"),
-            ("OPENIMAGEDENOISE", "OIDN", "Use Intel Open Image Denoise"),
+            ('OPTIX', "OptiX", "Use OptiX AI denoiser"),
+            ('OPENIMAGEDENOISE', "OIDN", "Use Intel Open Image Denoise"),
         ],
-        default="OPENIMAGEDENOISE",
+        default='OPENIMAGEDENOISE',
     )
     denoising_input_passes: EnumProperty(
         name="Passes",
         description="Input passes used by the denoiser",
         items=[
-            ("RGB", "None", "Use only the color pass"),
-            ("RGB_ALBEDO", "Albedo", "Use color and albedo passes"),
-            ("RGB_ALBEDO_NORMAL", "Albedo and Normal", "Use all passes"),
+            ('RGB', "None", "Use only the color pass"),
+            ('RGB_ALBEDO', "Albedo", "Use color and albedo passes"),
+            ('RGB_ALBEDO_NORMAL', "Albedo and Normal", "Use all passes"),
         ],
-        default="RGB_ALBEDO_NORMAL",
+        default='RGB_ALBEDO_NORMAL',
     )
     denoising_prefilter: EnumProperty(
         name="Prefilter",
         description="Prefilter for auxiliary passes",
         items=[
-            ("NONE", "None", "No prefiltering"),
-            ("FAST", "Fast", "Fast prefiltering (less accurate)"),
-            ("ACCURATE", "Accurate", "Better quality prefiltering"),
+            ('NONE', "None", "No prefiltering"),
+            ('FAST', "Fast", "Fast prefiltering (less accurate)"),
+            ('ACCURATE', "Accurate", "Better quality prefiltering"),
         ],
-        default="ACCURATE",
+        default='ACCURATE',
     )
     denoising_quality: EnumProperty(
         name="Quality",
         description="Overall denoise quality",
         items=[
-            ("HIGH", "High", "High Quality"),
-            ("BALANCED", "Balanced", "Balanced between performance and quality"),
-            ("FAST", "Fast", "High performance"),
+            ('HIGH', "High", "High Quality"),
+            ('BALANCED', "Balanced", "Balanced between performance and quality"),
+            ('FAST', "Fast", "High performance"),
         ],
-        default="HIGH",
+        default='HIGH',
     )
     denoising_use_gpu: BoolProperty(
         name="Use GPU",
@@ -265,6 +270,8 @@ class RECOM_PG_CyclesRenderOverrides(PropertyGroup):
 class RECOM_PG_EEVEERenderOverrides(PropertyGroup):
     """Stores EEVEE render override settings"""
 
+    __slots__ = ()
+
     samples: IntProperty(
         name="Samples",
         default=256,
@@ -277,6 +284,7 @@ class RECOM_PG_EEVEERenderOverrides(PropertyGroup):
 class RECOM_PG_OverrideSettings(PropertyGroup):
     """Stores override settings"""
 
+    __slots__ = ()
     # Data Path Overrides
     property_path_input: StringProperty(
         name="Blender Data Path",
@@ -313,17 +321,25 @@ class RECOM_PG_OverrideSettings(PropertyGroup):
         default=1,
         min=0,
     )
+
+    def _update_frame_range(self, context):
+        """Ensure frame_start is always less than or equal to frame_end."""
+        if self.frame_start > self.frame_end:
+            self.frame_end = self.frame_start
+
     frame_start: IntProperty(
         name="",
         description="Define the start frame for animation rendering",
         default=1,
         min=0,
+        update=_update_frame_range,
     )
     frame_end: IntProperty(
         name="",
         description="Define the end frame for animation rendering",
         default=250,
         min=0,
+        update=_update_frame_range,
     )
     frame_step: IntProperty(
         name="",
@@ -363,9 +379,9 @@ class RECOM_PG_OverrideSettings(PropertyGroup):
             self._cached_res_y = self.resolution_y
 
             # Recalculate based on the new mode
-            if self.resolution_mode == "SET_WIDTH":
+            if self.resolution_mode == 'SET_WIDTH':
                 self.cached_auto_height = calculate_auto_height(context)
-            elif self.resolution_mode == "SET_HEIGHT":
+            elif self.resolution_mode == 'SET_HEIGHT':
                 self.cached_auto_width = calculate_auto_width(context)
             else:
                 # No auto calculation needed for CUSTOM mode
@@ -375,19 +391,19 @@ class RECOM_PG_OverrideSettings(PropertyGroup):
     resolution_mode: EnumProperty(
         name="",
         items=[
-            ("CUSTOM", "Custom", "Manually set both width and height"),
+            ('CUSTOM', "Custom", "Manually set both width and height"),
             (
-                "SET_WIDTH",
+                'SET_WIDTH',
                 "Set X",
                 "Specify the width; height will be calculated automatically to maintain the scene's aspect ratio.",
             ),
             (
-                "SET_HEIGHT",
+                'SET_HEIGHT',
                 "Set Y",
                 "Specify the height; width will be calculated automatically to maintain the scene's aspect ratio.",
             ),
         ],
-        default="CUSTOM",
+        default='CUSTOM',
         description="Choose how resolution is configured",
         update=_update_auto_resolution_cache,
     )
@@ -396,14 +412,14 @@ class RECOM_PG_OverrideSettings(PropertyGroup):
         default=1000,
         min=1,
         description="Auto set the resolution maintaining aspect ratio from scene",
-        subtype="PIXEL",
+        subtype='PIXEL',
     )
     resolution_x: IntProperty(
         name="Resolution X",
         default=1920,
         min=1,
         description="Horizontal resolution in pixels",
-        subtype="PIXEL",
+        subtype='PIXEL',
         update=_update_auto_resolution_cache,
     )
     resolution_y: IntProperty(
@@ -411,20 +427,20 @@ class RECOM_PG_OverrideSettings(PropertyGroup):
         default=1080,
         min=1,
         description="Vertical resolution in pixels",
-        subtype="PIXEL",
+        subtype='PIXEL',
         update=_update_auto_resolution_cache,
     )
     cached_auto_width: IntProperty(
         name="Cached Auto X",
         default=0,
         description="Cached width that keeps the aspect ratio when SET_HEIGHT is active",
-        subtype="PIXEL",
+        subtype='PIXEL',
     )
     cached_auto_height: IntProperty(
         name="Cached Auto Y",
         default=0,
         description="Cached height that keeps the aspect ratio when SET_WIDTH is active",
-        subtype="PIXEL",
+        subtype='PIXEL',
     )
     custom_render_scale: FloatProperty(
         name="Custom Render Scale",
@@ -434,7 +450,7 @@ class RECOM_PG_OverrideSettings(PropertyGroup):
         precision=1,
         step=10,
         description="Enter a custom scale factor %",
-        subtype="PERCENTAGE",
+        subtype='PERCENTAGE',
     )
 
     # Overscan
@@ -446,11 +462,11 @@ class RECOM_PG_OverrideSettings(PropertyGroup):
     overscan_type: EnumProperty(
         name="",
         items=[
-            ("PERCENTAGE", "Percentage", "Add percentage of the image size"),
-            ("PIXELS", "Pixels", "Add an absolute number of pixels"),
+            ('PERCENTAGE', "Percentage", "Add percentage of the image size"),
+            ('PIXELS', "Pixels", "Add an absolute number of pixels"),
         ],
         description="How the overscan is calculated.",
-        default="PERCENTAGE",
+        default='PERCENTAGE',
     )
     overscan_percent: FloatProperty(
         name="Overscan %",
@@ -459,7 +475,7 @@ class RECOM_PG_OverrideSettings(PropertyGroup):
         soft_max=30.0,
         default=5.0,
         precision=0,
-        subtype="PERCENTAGE",
+        subtype='PERCENTAGE',
     )
     overscan_uniform: BoolProperty(
         name="Uniform Overscan",
@@ -471,14 +487,14 @@ class RECOM_PG_OverrideSettings(PropertyGroup):
         description="Extra pixels added to the left and right sides",
         min=0,
         default=50,
-        subtype="PIXEL",
+        subtype='PIXEL',
     )
     overscan_height: IntProperty(
         name="Height Overscan",
         description="Extra pixels added to the top and bottom sides",
         min=0,
         default=50,
-        subtype="PIXEL",
+        subtype='PIXEL',
     )
 
     # Camera
@@ -495,10 +511,10 @@ class RECOM_PG_OverrideSettings(PropertyGroup):
     use_dof: EnumProperty(
         name="Depth of Field",
         items=[
-            ("DISABLED", "Disabled", "Disable depth of field on all cameras in the scene"),
-            ("ENABLED", "Enabled", "Use depth of field on all cameras in the scene"),
+            ('DISABLED', "Disabled", "Disable depth of field on all cameras in the scene"),
+            ('ENABLED', "Enabled", "Use depth of field on all cameras in the scene"),
         ],
-        default="DISABLED",
+        default='DISABLED',
     )
     # Lens Shift
     camera_shift_override: BoolProperty(
@@ -531,29 +547,29 @@ class RECOM_PG_OverrideSettings(PropertyGroup):
     file_format: EnumProperty(
         name="Format",
         items=[
-            ("OPEN_EXR", "OpenEXR (.exr)", "Output image in OpenEXR format"),
+            ('OPEN_EXR', "OpenEXR (.exr)", "Output image in OpenEXR format"),
             (
-                "OPEN_EXR_MULTILAYER",
+                'OPEN_EXR_MULTILAYER',
                 "OpenEXR MultiLayer (.exr)",
                 "Output image in OpenEXR MultiLayer format",
             ),
-            ("PNG", "PNG (.png)", "Output image in PNG format"),
-            ("JPEG", "JPEG (.jpg)", "Output image in JPEG format"),
-            ("TIFF", "TIFF (.tif)", "Output image in TIFF format"),
+            ('PNG', "PNG (.png)", "Output image in PNG format"),
+            ('JPEG', "JPEG (.jpg)", "Output image in JPEG format"),
+            ('TIFF', "TIFF (.tif)", "Output image in TIFF format"),
         ],
-        default="OPEN_EXR_MULTILAYER",
+        default='OPEN_EXR_MULTILAYER',
         description="Select the output format for rendered images",
     )
     codec: EnumProperty(
         name="Codec",
         items=[
-            ("ZIP", "ZIP", "Lossless compression using DEFLATE"),
-            ("PIZ", "PIZ", "Lossless compression using PIZ algorithm"),
-            ("DWAA", "DWAA (lossy)", "Deep image format (lossy)"),
-            ("DWAB", "DWAB (lossy)", "Deep image format (lossy)"),
-            ("PXR24", "Pxr24 (lossy)", "Legacy format for Pixar workflows"),
+            ('ZIP', "ZIP", "Lossless compression using DEFLATE"),
+            ('PIZ', "PIZ", "Lossless compression using PIZ algorithm"),
+            ('DWAA', "DWAA (lossy)", "Deep image format (lossy)"),
+            ('DWAB', "DWAB (lossy)", "Deep image format (lossy)"),
+            ('PXR24', "Pxr24 (lossy)", "Legacy format for Pixar workflows"),
         ],
-        default="DWAA",
+        default='DWAA',
         description="Codec for OpenEXR/TIFF output",
     )
     jpeg_quality: IntProperty(
@@ -568,15 +584,15 @@ class RECOM_PG_OverrideSettings(PropertyGroup):
         """Get color depth options based on output format."""
         file_format = self.file_format
 
-        if file_format in ["OPEN_EXR", "OPEN_EXR_MULTILAYER"]:
+        if file_format in ['OPEN_EXR', 'OPEN_EXR_MULTILAYER']:
             return [
-                ("16", "Float (Half)", "16-bit color channels"),
-                ("32", "Float (Full)", "32-bit color channels"),
+                ('16', "Float (Half)", "16-bit color channels"),
+                ('32', "Float (Full)", "32-bit color channels"),
             ]
 
         return [
-            ("8", "8", "8-bit color channels"),
-            ("16", "16", "16-bit color channels"),
+            ('8', "8", "8-bit color channels"),
+            ('16', "16", "16-bit color channels"),
         ]
 
     color_depth: EnumProperty(
@@ -594,24 +610,24 @@ class RECOM_PG_OverrideSettings(PropertyGroup):
     output_directory: StringProperty(
         name="Output Directory",
         default="/tmp\\",
-        subtype="DIR_PATH",
-        options={"OUTPUT_PATH", "PATH_SUPPORTS_BLEND_RELATIVE"},
+        subtype='DIR_PATH',
+        options={'OUTPUT_PATH', 'PATH_SUPPORTS_BLEND_RELATIVE'},
         description="Specify the directory where rendered files will be saved",
         update=lambda self, context: redraw_ui(),
     )
     output_filename: StringProperty(
         name="Output Filename",
-        subtype="FILE_NAME",
+        subtype='FILE_NAME',
         description="Specify the filename pattern for rendered files",
         update=lambda self, context: redraw_ui(),
     )
     variable_insert_target: EnumProperty(
         name="Insert Into",
         items=[
-            ("DIRECTORY", "Directory", "Insert variable into the output directory path string"),
-            ("FILENAME", "Filename", "Insert variable into the output filename string"),
+            ('DIRECTORY', "Directory", "Insert variable into the output directory path string"),
+            ('FILENAME', "Filename", "Insert variable into the output filename string"),
         ],
-        default="FILENAME",
+        default='FILENAME',
     )
 
     # Motion Blur
@@ -627,11 +643,11 @@ class RECOM_PG_OverrideSettings(PropertyGroup):
     motion_blur_position: EnumProperty(
         name="Motion Blur Position",
         items=[
-            ("CENTER", "Center of Frame", "Based on the center of the frame"),
-            ("START", "Start of Frame", "Based on the start of the frame"),
-            ("END", "End of Frame", "Based on the end of the frame"),
+            ('CENTER', "Center of Frame", "Based on the center of the frame"),
+            ('START', "Start of Frame", "Based on the start of the frame"),
+            ('END', "End of Frame", "Based on the end of the frame"),
         ],
-        default="CENTER",
+        default='CENTER',
     )
     motion_blur_shutter: FloatProperty(
         name="Shutter Length",
@@ -653,10 +669,10 @@ class RECOM_PG_OverrideSettings(PropertyGroup):
     compositor_device: EnumProperty(
         name="Compositor Device",
         items=[
-            ("CPU", "CPU", "Use CPU for compositing"),
-            ("GPU", "GPU", "Use GPU for compositing"),
+            ('CPU', "CPU", "Use CPU for compositing"),
+            ('GPU', "GPU", "Use GPU for compositing"),
         ],
-        default="GPU",
+        default='GPU',
         description="Set the device used for compositing",
     )
     compositor_disable_output_files: BoolProperty(

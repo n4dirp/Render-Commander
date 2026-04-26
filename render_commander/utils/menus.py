@@ -96,6 +96,34 @@ class RECOM_MT_external_blend_options(Menu):
         layout.prop(prefs, "compact_external_info", text="Compact Scene Info")
 
 
+class RECOM_MT_sampling_factor(Menu):
+    bl_label = "Sampling Factor Menu"
+
+    def draw(self, context):
+        layout = self.layout
+
+        settings = context.window_manager.recom_render_settings
+        current_value = f"{settings.override_settings.cycles.sampling_factor:.1f}"
+
+        layout.label(text="Sampling Factor")
+        layout.separator()
+
+        scale_options = [
+            ("25", "25%", "0.25x Samples"),
+            ("50", "50%", "0.5x Samples"),
+            ("100", "100%", "Original Scene Values"),
+            ("150", "150%", "1.5x Samples"),
+            ("200", "200%", "2x Samples"),
+            ("400", "400%", "4x Samples"),
+        ]
+
+        for value, label, description in scale_options:
+            icon = "DOT" if f"{float(value):.1f}" == current_value else "BLANK1"
+
+            op = layout.operator("recom.set_sampling_factor", text=label, icon=icon)
+            op.value = float(value)
+
+
 class RECOM_MT_resolution_x(Menu):
     bl_label = "X Resolution Menu"
 
@@ -126,7 +154,9 @@ class RECOM_MT_resolution_x(Menu):
         for i, (label, values) in enumerate(sections.items()):
             for val in values:
                 icon = "DOT" if val == current_x else "BLANK1"
-                op = layout.operator("recom.set_resolution_x", text=f"{str(val)} px", icon=icon)
+
+                op = layout.operator("recom.set_resolution", text=f"{val} px", icon=icon)
+                op.dimension = "X"
                 op.value = val
 
             if i < section_count - 1:
@@ -163,7 +193,9 @@ class RECOM_MT_resolution_y(Menu):
         for i, (label, values) in enumerate(sections.items()):
             for val in values:
                 icon = "DOT" if val == current_y else "BLANK1"
-                op = layout.operator("recom.set_resolution_y", text=f"{str(val)} px", icon=icon)
+
+                op = layout.operator("recom.set_resolution", text=f"{val} px", icon=icon)
+                op.dimension = "Y"
                 op.value = val
 
             if i < section_count - 1:
@@ -322,7 +354,6 @@ class RECOM_MT_cycles_render_devices(Menu):
     def draw(self, context):
         layout = self.layout
         layout.operator("recom.cycles_device_ids", text="Show Device IDs", icon="INFO")
-        layout.separator()
         layout.operator("recom.reinitialize_devices", icon="FILE_REFRESH")
 
 
@@ -466,6 +497,7 @@ class RECOM_MT_insert_variable_root(Menu):
 classes = (
     RECOM_MT_recent_blend_files,
     RECOM_MT_external_blend_options,
+    RECOM_MT_sampling_factor,
     RECOM_MT_resolution_x,
     RECOM_MT_resolution_y,
     RECOM_MT_custom_render_scale,

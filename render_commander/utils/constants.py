@@ -5,20 +5,9 @@ from pathlib import Path
 
 import bpy
 
-from .. import __package__ as base_package
-
-
-def get_addon_name() -> str:
-    """Get the name of the addon."""
-    return base_package
-
 
 def get_extension_version() -> str:
-    """
-    Reads the blender_manifest.toml located one level above this helper file
-    to get the extension version as a string.
-    """
-
+    """Get extension version as a string from blender_manifest.toml"""
     manifest_path = Path(__file__).parent.parent / "blender_manifest.toml"
 
     if manifest_path.exists():
@@ -34,16 +23,15 @@ def get_extension_version() -> str:
 
 # General
 BLENDER_VERSION_STR = bpy.app.version_string
-ADDON_NAME = get_addon_name()
 ADDON_VERSION_STR = get_extension_version()
 EXTERNAL_BLEND_FILE_HISTORY_LIMIT = 30
-RENDER_HISTORY_LIMIT = 30
+RENDER_HISTORY_LIMIT = 50
 
 # Render Engines
-RE_CYCLES = "CYCLES"
-RE_EEVEE = "BLENDER_EEVEE"
-RE_EEVEE_NEXT = "BLENDER_EEVEE_NEXT"
-RE_WORKBENCH = "BLENDER_WORKBENCH"
+RE_CYCLES = 'CYCLES'
+RE_EEVEE = 'BLENDER_EEVEE'
+RE_EEVEE_NEXT = 'BLENDER_EEVEE_NEXT'
+RE_WORKBENCH = 'BLENDER_WORKBENCH'
 
 RENDER_ENGINE_MAPPING = {
     RE_CYCLES: "Cycles",
@@ -53,16 +41,14 @@ RENDER_ENGINE_MAPPING = {
 }
 
 # Render Modes
-MODE_SINGLE = "SINGLE_FRAME"
-MODE_SEQ = "SEQUENCE"
-MODE_LIST = "FRAME_LIST"
+MODE_SINGLE = 'SINGLE_FRAME'
+MODE_SEQ = 'SEQUENCE'
+MODE_LIST = 'FRAME_LIST'
 
 # UI
-ICON_OPTION = "DOWNARROW_HLT"
-ICON_MENU = "COLLAPSEMENU"
-ICON_SYNC = "IMPORT"
+ICON_OPTION = 'DOWNARROW_HLT'
 
-
+# Path Templates
 RESERVED_TOKENS = {
     "blend_dir",
     "blend_name",
@@ -74,3 +60,11 @@ RESERVED_TOKENS = {
     "scene_name",
     "camera_name",
 }
+
+
+class RECOM_PT_BasePanel:
+    """Mix-in to standardize layout metadata across all Render Commander panels"""
+
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'UI'
+    bl_category = "Render Commander"

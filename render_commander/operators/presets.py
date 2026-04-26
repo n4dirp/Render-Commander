@@ -9,6 +9,8 @@ from .. import __package__ as base_package
 
 log = logging.getLogger(__name__)
 
+BASE_NAME = base_package.split('.')[-1]
+
 PRESET_REGISTRY = {
     # Overrides
     "overrides_main": "recom/overrides_main",
@@ -253,7 +255,10 @@ class RECOM_OT_render_preferences_preset(AddPresetBase, Operator):
     bl_label = "Add Render Preferences Preset"
     bl_description = "Add or remove a preset"
     preset_menu = "RECOM_PT_render_preferences_presets"
-    preset_defines = [f"settings = bpy.context.preferences.addons['{base_package}'].preferences"]
+    preset_defines = [
+        f"addon_id = next((ext.module for ext in bpy.context.preferences.addons if ext.module.endswith('{BASE_NAME}')), '{BASE_NAME}')",
+        "settings = bpy.context.preferences.addons[addon_id].preferences"
+    ]
     preset_values = [
         "settings.auto_save_before_render",
         "settings.write_still",
@@ -333,7 +338,10 @@ class RECOM_OT_additional_script_preset(AddPresetBase, Operator):
     bl_label = "Add Additional Script Preset"
     bl_description = "Add or remove a preset"
     preset_menu = "RECOM_PT_additional_script_presets"
-    preset_defines = [f"settings = bpy.context.preferences.addons['{base_package}'].preferences"]
+    preset_defines = [
+        f"addon_id = next((ext.module for ext in bpy.context.preferences.addons if ext.module.endswith('{BASE_NAME}')), '{BASE_NAME}')",
+        "settings = bpy.context.preferences.addons[addon_id].preferences"
+    ]
     preset_values = ["settings.additional_scripts"]
     preset_subdir = PRESET_REGISTRY["scripts"]
 
@@ -343,7 +351,10 @@ class RECOM_OT_ocio_preset(AddPresetBase, Operator):
     bl_label = "Add OCIO Preset"
     bl_description = "Add or remove a preset"
     preset_menu = "RECOM_PT_ocio_presets"
-    preset_defines = [f"settings = bpy.context.preferences.addons['{base_package}'].preferences"]
+    preset_defines = [
+        f"addon_id = next((ext.module for ext in bpy.context.preferences.addons if ext.module.endswith('{BASE_NAME}')), '{BASE_NAME}')",
+        "settings = bpy.context.preferences.addons[addon_id].preferences"
+    ]
     preset_values = ["settings.ocio_path"]
     preset_subdir = PRESET_REGISTRY["ocio"]
 
@@ -353,7 +364,10 @@ class RECOM_OT_command_line_arguments_preset(AddPresetBase, Operator):
     bl_label = "Add Command Line Arguments Preset"
     bl_description = "Add or remove a preset"
     preset_menu = "RECOM_PT_command_line_arguments_presets"
-    preset_defines = [f"settings = bpy.context.preferences.addons['{base_package}'].preferences"]
+    preset_defines = [
+        f"addon_id = next((ext.module for ext in bpy.context.preferences.addons if ext.module.endswith('{BASE_NAME}')), '{BASE_NAME}')",
+        "settings = bpy.context.preferences.addons[addon_id].preferences"
+    ]
     preset_values = ["settings.custom_command_line_args"]
     preset_subdir = PRESET_REGISTRY["cmd_args"]
 
@@ -363,7 +377,11 @@ class RECOM_OT_custom_variables_preset(AddPresetBase, Operator):
     bl_label = "Add Custom Variables Preset"
     bl_description = "Add or remove a preset"
     preset_menu = "RECOM_PT_custom_variables_presets"
-    preset_defines = [f"settings = bpy.context.preferences.addons['{base_package}'].preferences"]
+    
+    preset_defines = [
+        f"addon_id = next((ext.module for ext in bpy.context.preferences.addons if ext.module.endswith('{BASE_NAME}')), '{BASE_NAME}')",
+        "settings = bpy.context.preferences.addons[addon_id].preferences"
+    ]
     preset_values = ["settings.custom_variables"]
     preset_subdir = PRESET_REGISTRY["custom_variables"]
 

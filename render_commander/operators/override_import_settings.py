@@ -21,6 +21,7 @@ class RECOM_OT_ImportAllSettings(Operator):
 
     bl_idname = "recom.import_all_settings"
     bl_label = "Import Scene Values"
+    bl_options = {"INTERNAL"}
 
     def execute(self, context):
         scene = context.scene

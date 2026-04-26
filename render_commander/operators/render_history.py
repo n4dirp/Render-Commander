@@ -16,6 +16,7 @@ class RECOM_OT_CleanRenderHistory(Operator):
 
     bl_idname = "recom.clean_render_history"
     bl_label = "Clean History List"
+    bl_options = {"INTERNAL"}
 
     remove_type: EnumProperty(
         name="Remove",
@@ -66,6 +67,7 @@ class RECOM_OT_RemoveRenderHistoryItem(Operator):
     bl_idname = "recom.remove_render_history_item"
     bl_label = "Remove Render History Item"
     bl_description = "Remove selected render history item"
+    bl_options = {"INTERNAL"}
 
     def execute(self, context):
         prefs = get_addon_preferences(context)
@@ -86,6 +88,7 @@ class RECOM_OT_OpenOutputFolder(Operator):
     bl_idname = "recom.open_output_folder"
     bl_label = "Open Output Folder"
     bl_description = "Open the folder"
+    bl_options = {"INTERNAL"}
 
     folder_path: StringProperty(name="Folder Path", default="")
 

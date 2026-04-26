@@ -6,35 +6,51 @@ import mathutils
 
 import bpy
 from bpy.types import Operator
-from bpy.props import IntProperty, FloatProperty, StringProperty
+from bpy.props import (
+    IntProperty,
+    FloatProperty,
+    StringProperty,
+    EnumProperty,
+)
 
 from ..preferences import get_addon_preferences
 from ..utils.helpers import redraw_ui, resolve_blender_path
 
 
-class RECOM_OT_SetResolutionX(Operator):
-    bl_idname = "recom.set_resolution_x"
-    bl_label = "Set Resolution Width"
-    bl_description = "Set Resolution Width"
+class RECOM_OT_SetResolution(Operator):
+    bl_idname = "recom.set_resolution"
+    bl_label = "Set Resolution"
+    bl_description = "Set the resolution width or height"
+    bl_options = {"INTERNAL"}
 
-    value: IntProperty()
+    dimension: EnumProperty(
+        items=[
+            ("X", "Width", "Set the resolution width (X)"),
+            ("Y", "Height", "Set the resolution height (Y)"),
+        ],
+        name="Dimension",
+        description="Which resolution dimension to set",
+        default="X",
+    )
+
+    value: IntProperty(
+        name="Value",
+        description="The resolution value to set",
+    )
 
     def execute(self, context):
         settings = context.window_manager.recom_render_settings
-        settings.override_settings.resolution_x = self.value
-        return {"FINISHED"}
 
+        # Map dimension to property name
+        property_map = {
+            "X": "resolution_x",
+            "Y": "resolution_y",
+        }
 
-class RECOM_OT_SetResolutionY(Operator):
-    bl_idname = "recom.set_resolution_y"
-    bl_label = "Set Resolution Height"
-    bl_description = "Set Resolution Height"
+        prop_name = property_map.get(self.dimension)
+        if prop_name:
+            setattr(settings.override_settings, prop_name, self.value)
 
-    value: IntProperty()
-
-    def execute(self, context):
-        settings = context.window_manager.recom_render_settings
-        settings.override_settings.resolution_y = self.value
         return {"FINISHED"}
 
 
@@ -44,6 +60,7 @@ class RECOM_OT_SwapResolution(Operator):
     bl_idname = "recom.swap_resolution"
     bl_label = "Swap Width / Height"
     bl_description = "Exchange the current width and height values"
+    bl_options = {"INTERNAL"}
 
     def execute(self, context):
         rs = context.window_manager.recom_render_settings.override_settings
@@ -62,6 +79,7 @@ class RECOM_OT_set_custom_render_scale(Operator):
 
     bl_idname = "recom.set_custom_render_scale"
     bl_label = "Set Custom Render Scale"
+    bl_options = {"INTERNAL"}
 
     value: FloatProperty()
 
@@ -75,6 +93,7 @@ class RECOM_OT_SetAdaptiveThreshold(Operator):
     bl_idname = "recom.set_adaptive_threshold"
     bl_label = "Set Adaptive Threshold"
     bl_description = "Set Adaptive Threshold"
+    bl_options = {"INTERNAL"}
 
     value: FloatProperty()
 
@@ -84,10 +103,23 @@ class RECOM_OT_SetAdaptiveThreshold(Operator):
         return {"FINISHED"}
 
 
+class RECOM_OT_set_sampling_factor(Operator):
+    bl_idname = "recom.set_sampling_factor"
+    bl_label = "Set Sampling Factor"
+    bl_options = {"UNDO", "INTERNAL"}
+
+    value: FloatProperty()
+
+    def execute(self, context):
+        context.window_manager.recom_render_settings.override_settings.cycles.sampling_factor = self.value
+        return {"FINISHED"}
+
+
 class RECOM_OT_SetSamples(Operator):
     bl_idname = "recom.set_samples"
     bl_label = "Set Samples"
     bl_description = "Set Samples"
+    bl_options = {"INTERNAL"}
 
     value: IntProperty()
 
@@ -101,6 +133,7 @@ class RECOM_OT_SetAdaptiveMinSamples(Operator):
     bl_idname = "recom.set_adaptive_min_samples"
     bl_label = "Set Adaptive Min Samples"
     bl_description = "Set Adaptive Min Samples"
+    bl_options = {"INTERNAL"}
 
     value: IntProperty()
 
@@ -114,6 +147,7 @@ class RECOM_OT_SetTimeLimit(Operator):
     bl_idname = "recom.set_time_limit"
     bl_label = "Set Time Limit"
     bl_description = "Set Time Limit"
+    bl_options = {"INTERNAL"}
 
     value: FloatProperty()
 
@@ -127,6 +161,7 @@ class RECOM_OT_SetTileSize(Operator):
     bl_idname = "recom.set_tile_size"
     bl_label = "Set Tile Size"
     bl_description = "Set Tile Size"
+    bl_options = {"INTERNAL"}
 
     value: IntProperty()
 
@@ -140,6 +175,7 @@ class RECOM_OT_SetEEVEESamples(Operator):
     bl_idname = "recom.set_eevee_samples"
     bl_label = "Set Samples"
     bl_description = "Set Samples"
+    bl_options = {"INTERNAL"}
 
     value: IntProperty()
 
@@ -150,11 +186,10 @@ class RECOM_OT_SetEEVEESamples(Operator):
 
 
 class RECOM_OT_InsertVariable(Operator):
-    """Insert variables into output paths"""
-
     bl_idname = "recom.insert_variable"
     bl_label = "Insert Variable"
     bl_description = "Insert selected variable into output path"
+    bl_options = {"INTERNAL"}
 
     variable: StringProperty(
         name="Variable",
@@ -199,6 +234,7 @@ class RECOM_OT_AddCustomVariable(Operator):
     bl_idname = "recom.add_custom_variable"
     bl_label = "Add Custom Variable"
     bl_description = "Create a simple custom variable"
+    bl_options = {"INTERNAL"}
 
     def execute(self, context):
         prefs = get_addon_preferences(context)
@@ -230,6 +266,7 @@ class RECOM_OT_RemoveCustomVariable(Operator):
     bl_idname = "recom.remove_custom_variable"
     bl_label = "Remove Custom Variable"
     bl_description = "Remove active item from list"
+    bl_options = {"INTERNAL"}
 
     def execute(self, context):
         prefs = get_addon_preferences(context)
@@ -246,35 +283,31 @@ class RECOM_OT_RemoveCustomVariable(Operator):
         return {"FINISHED"}
 
 
-class RECOM_OT_MoveCustomVariableUp(Operator):
-    bl_idname = "recom.move_custom_variable_up"
-    bl_label = "Move Up"
-    bl_description = "Move the selected custom variable up in the list"
+class RECOM_OT_MoveCustomVariable(Operator):
+    bl_idname = "recom.move_custom_variable"
+    bl_label = "Move Custom Variable"
+    bl_description = "Move the selected custom variable up or down in the list"
+    bl_options = {"INTERNAL"}
+
+    direction: EnumProperty(
+        items=[
+            ('UP', "Up", "Move the selected item up"),
+            ('DOWN', "Down", "Move the selected item down"),
+        ],
+        name="Direction",
+        description="Direction to move the custom variable",
+        default='UP',
+    )
 
     def execute(self, context):
         prefs = get_addon_preferences(context)
         idx = prefs.active_custom_variable_index
+        total = len(prefs.custom_variables)
 
-        if idx > 0:
-            # Swap with the previous item
+        if self.direction == 'UP' and idx > 0:
             prefs.custom_variables.move(idx, idx - 1)
             prefs.active_custom_variable_index -= 1
-
-        redraw_ui()
-        return {"FINISHED"}
-
-
-class RECOM_OT_MoveCustomVariableDown(Operator):
-    bl_idname = "recom.move_custom_variable_down"
-    bl_label = "Move Down"
-    bl_description = "Move the selected custom variable down in the list"
-
-    def execute(self, context):
-        prefs = get_addon_preferences(context)
-        idx = prefs.active_custom_variable_index
-
-        if idx < len(prefs.custom_variables) - 1:
-            # Swap with the next item
+        elif self.direction == 'DOWN' and idx < total - 1:
             prefs.custom_variables.move(idx, idx + 1)
             prefs.active_custom_variable_index += 1
 
@@ -311,7 +344,7 @@ class RECOM_OT_add_advanced_property_override(Operator):
         "Creates a new property override. \nIf the input is empty, "
         "it will automatically attempt to use a path from your clipboard."
     )
-    bl_options = {"UNDO"}
+    bl_options = {"UNDO", "INTERNAL"}
 
     def execute(self, context):
         settings = context.window_manager.recom_render_settings.override_settings
@@ -370,7 +403,7 @@ class RECOM_OT_remove_advanced_property_override(Operator):
     bl_idname = "recom.remove_advanced_property_override"
     bl_label = "Remove Property Override"
     bl_description = "Remove the currently selected property override from the list."
-    bl_options = {"UNDO"}
+    bl_options = {"UNDO", "INTERNAL"}
 
     @classmethod
     def poll(cls, context):
@@ -386,10 +419,10 @@ class RECOM_OT_remove_advanced_property_override(Operator):
 
 
 classes = (
-    RECOM_OT_SetResolutionX,
-    RECOM_OT_SetResolutionY,
+    RECOM_OT_SetResolution,
     RECOM_OT_SwapResolution,
     RECOM_OT_set_custom_render_scale,
+    RECOM_OT_set_sampling_factor,
     RECOM_OT_SetAdaptiveThreshold,
     RECOM_OT_SetSamples,
     RECOM_OT_SetAdaptiveMinSamples,
@@ -399,8 +432,7 @@ classes = (
     RECOM_OT_InsertVariable,
     RECOM_OT_AddCustomVariable,
     RECOM_OT_RemoveCustomVariable,
-    RECOM_OT_MoveCustomVariableUp,
-    RECOM_OT_MoveCustomVariableDown,
+    RECOM_OT_MoveCustomVariable,
     RECOM_OT_add_advanced_property_override,
     RECOM_OT_remove_advanced_property_override,
 )

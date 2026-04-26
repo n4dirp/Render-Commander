@@ -43,8 +43,9 @@ from ..utils.helpers import (
 from ..cycles_devices import get_devices_for_display
 from .generate_scripts import _generate_base_script, _create_process_files, _resolve_script_base_name
 
-
 log = logging.getLogger(__name__)
+
+MAX_FRAME_RANGE = 100000
 
 
 @dataclass
@@ -53,22 +54,26 @@ class RenderJobChunk:
 
     process_index: int
     device_ids: List[str]
-    # Frames can be a range tuple (start, end, step) OR a list of integers
     frames: Union[Tuple[int, int, int], List[int]]
     is_animation_call: bool  # True uses render(animation=True), False uses render(write_still=...)
     description: str
 
 
 def generate_job_id() -> str:
-    """Generate a unique job ID using timestamp and random character."""
-    timestamp = int(time.time())
-    alphabet = string.digits + string.ascii_uppercase  # standard base-36
-    base36 = ""
+    alphabet = string.digits + string.ascii_uppercase
+
+    # 3 chars time + 3 chars random
+    timestamp = int(time.time()) % (36**3)
+
+    chars = []
     while timestamp > 0:
         timestamp, rem = divmod(timestamp, 36)
-        base36 = alphabet[rem] + base36
-    random_char = random.choice(alphabet)
-    return base36 + random_char
+        chars.append(alphabet[rem])
+
+    time_part = "".join(reversed(chars)).rjust(3, '0')
+    random_part = "".join(random.choices(alphabet, k=3))
+
+    return time_part + random_part
 
 
 def parse_frame_string(frame_str: str) -> List[int]:
@@ -78,6 +83,9 @@ def parse_frame_string(frame_str: str) -> List[int]:
     for token in tokens:
         if "-" in token:
             start, end = sorted(map(int, token.split("-")))
+            if end - start > MAX_FRAME_RANGE:
+                log.warning("Frame range %s-%s exceeds limit, capping at %s", start, end, MAX_FRAME_RANGE)
+                end = start + MAX_FRAME_RANGE
             frames.update(range(start, end + 1))
         else:
             frames.add(int(token))
@@ -167,7 +175,7 @@ def validate_render_settings(operator, context) -> bool:
     # Save Blend
     if not settings.use_external_blend and prefs.auto_save_before_render and bpy.data.is_dirty:
         try:
-            bpy.ops.wm.save_mainfile()
+            bpy.ops.wm.save_mainfile(check_existing=True)
             log.info("Auto-saved")
         except Exception as e:
             log.error("Failed to auto-save blend file: %s", e)
@@ -216,13 +224,28 @@ def validate_render_settings(operator, context) -> bool:
     return True
 
 
+def draw_script_filename(layout, prefs):
+    col = layout.column(align=True)
+    col.prop(prefs, "use_export_date_in_script", text="Export Date")
+    col.prop(prefs, "use_blend_name_in_script", text="Blend Name")
+    col.prop(prefs, "use_render_type_in_script", text="Render Mode")
+
+    tag_row = col.row(align=True, heading="")
+    tag_row.prop(prefs, "custom_script_tag", text="")
+    tag_input = tag_row.row()
+    tag_input.enabled = prefs.custom_script_tag
+    tag_input.prop(prefs, "custom_script_text", text="", placeholder='Custom')
+
+    col.prop(prefs, "use_frame_range_in_script", text="Frame Range")
+
+
 class RECOM_OT_ExportRenderScript(Operator):
     """Main operator for background rendering script generation."""
 
     bl_idname = "recom.export_render_script"
     bl_label = "Export Render Scripts"
     bl_description = "Export script render files"
-    bl_options = {"REGISTER", "INTERNAL"}
+    bl_options = {"REGISTER"}
 
     directory: StringProperty(
         name="Export Directory",
@@ -272,7 +295,11 @@ class RECOM_OT_ExportRenderScript(Operator):
         sub_folder_row = folder_row.row()
         sub_folder_row.active = prefs.export_scripts_subfolder
         sub_folder_row.prop(prefs, "export_scripts_folder_name", text="")
-        col.prop(prefs, "auto_open_exported_folder", text="Open Scripts Folder")
+
+        col = layout.column(heading="Scrip Name", align=True)
+        draw_script_filename(col, prefs)
+
+        layout.prop(prefs, "auto_open_exported_folder", text="Open Scripts Folder")
 
     def execute(self, context):
         """Main execution method that handles single and parallel rendering."""
@@ -365,7 +392,7 @@ class RECOM_OT_ExportRenderScript(Operator):
 
         history_item = prefs.render_history.add()
 
-        override = settings.override_settings
+        override_settings = settings.override_settings
         is_external = settings.use_external_blend
         is_eevee = render_engine in {RE_EEVEE_NEXT, RE_EEVEE}
 
@@ -390,13 +417,15 @@ class RECOM_OT_ExportRenderScript(Operator):
             history_item.blend_file_name = "untitled"
 
         # Resolution
-        if override.format_override:
-            res_mode = override.resolution_mode
+        if override_settings.format_override:
+            res_mode = override_settings.resolution_mode
             history_item.resolution_x = (
-                override.resolution_x if res_mode in {"SET_WIDTH", "CUSTOM"} else calculate_auto_width(context)
+                override_settings.resolution_x if res_mode in {"SET_WIDTH", "CUSTOM"} else calculate_auto_width(context)
             )
             history_item.resolution_y = (
-                override.resolution_y if res_mode in {"SET_HEIGHT", "CUSTOM"} else calculate_auto_height(context)
+                override_settings.resolution_y
+                if res_mode in {"SET_HEIGHT", "CUSTOM"}
+                else calculate_auto_height(context)
             )
         else:
             history_item.resolution_x = ext_info.get("resolution_x", 0) if is_external else scene.render.resolution_x
@@ -404,18 +433,18 @@ class RECOM_OT_ExportRenderScript(Operator):
 
         # Samples
         if render_engine == RE_CYCLES:
-            if override.cycles.sampling_override:
+            if override_settings.cycles.sampling_override:
                 history_item.samples = (
-                    f"{override.cycles.sampling_factor}x"
-                    if override.cycles.sampling_mode == "FACTOR"
-                    else str(override.cycles.samples)
+                    f"{int(override_settings.cycles.sampling_factor)}%"
+                    if override_settings.cycles.sampling_mode == "FACTOR"
+                    else str(override_settings.cycles.samples)
                 )
             else:
                 history_item.samples = str(ext_info.get("samples", 0) if is_external else scene.cycles.samples)
 
         elif is_eevee:
-            if override.eevee_override:
-                history_item.samples = str(override.eevee.samples)
+            if override_settings.eevee_override:
+                history_item.samples = str(override_settings.eevee.samples)
             else:
                 history_item.samples = str(
                     ext_info.get("eevee_samples", 0) if is_external else scene.eevee.taa_render_samples
@@ -425,8 +454,8 @@ class RECOM_OT_ExportRenderScript(Operator):
         if prefs.launch_mode == MODE_LIST and settings.frame_list:
             frames = format_frame_range(parse_frame_string(settings.frame_list))
         elif prefs.launch_mode == MODE_SEQ:
-            if override.frame_range_override:
-                frames = f"{override.frame_start}-{override.frame_end}"
+            if override_settings.frame_range_override:
+                frames = f"{override_settings.frame_start}-{override_settings.frame_end}"
             else:
                 frames = (
                     f"{ext_info.get('frame_start', 0)}-{ext_info.get('frame_end', 0)}"
@@ -434,16 +463,16 @@ class RECOM_OT_ExportRenderScript(Operator):
                     else f"{scene.frame_start}-{scene.frame_end}"
                 )
         else:  # Single frame
-            if override.frame_range_override:
-                frames = str(override.frame_current)
+            if override_settings.frame_range_override:
+                frames = str(override_settings.frame_current)
             else:
                 frames = str(ext_info.get("frame_current", 0)) if is_external else str(scene.frame_current)
 
         history_item.frames = frames
 
         # File Format
-        if override.file_format_override:
-            history_item.file_format = override.file_format
+        if override_settings.file_format_override:
+            history_item.file_format = override_settings.file_format
         else:
             history_item.file_format = (
                 ext_info.get("file_format", "") if is_external else scene.render.image_settings.file_format
@@ -797,7 +826,7 @@ class RECOM_OT_ExportRenderScript(Operator):
 
             # Generate Files (.py and .bat/.sh)
             shell_script_path = _create_process_files(
-                self, prefs, settings, blend_file, script_lines, process_id, target_dir
+                self, prefs, settings, blend_file, script_lines, process_id, target_dir, chunk.frames
             )
 
             if shell_script_path:
@@ -806,7 +835,9 @@ class RECOM_OT_ExportRenderScript(Operator):
             if settings.first_worker_info == "":
                 blend_name = Path(blend_file).stem if blend_file else "untitled"
                 sanitized_blend_name = bpy.path.clean_name(blend_name)
-                settings.first_worker_info = _resolve_script_base_name(sanitized_blend_name, settings, prefs)
+                settings.first_worker_info = _resolve_script_base_name(
+                    sanitized_blend_name, settings, prefs, chunk.frames
+                )
 
         if not generated_script_paths:
             return {"CANCELLED"}
@@ -941,7 +972,10 @@ class RECOM_OT_ExportRenderScript(Operator):
                     [
                         "end_time = time.time()",
                         "total_seconds = end_time - start_time",
-                        'print(f"Total Render Time: {total_seconds:.2f} seconds")',
+                        "hours, remainder = divmod(total_seconds, 3600)",
+                        "minutes, seconds = divmod(remainder, 60)",
+                        "",
+                        'log.info("Render completed in %02d:%02d:%05.2f", int(hours), int(minutes), seconds)',
                         "",
                     ]
                 )
@@ -994,7 +1028,7 @@ class RECOM_OT_ExportRenderScript(Operator):
 
             # Replace variables
             if is_override:
-                output_path = replace_variables(output_path)
+                output_path = replace_variables(prefs, output_path)
 
         except Exception as exc:
             log.error("Failed to resolve output path: %s", exc)

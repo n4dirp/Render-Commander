@@ -111,17 +111,33 @@ def add_recent_blend_file(prefs, new_path):
 
 
 def generate_cache_key(blend_path_obj: Path, script_path: Path) -> str:
-    """Generate a cache key based on blend hash and script modification time."""
+    """Generate a cache key based on file identity (name, size, mtime)"""
     try:
-        script_mtime = int(script_path.stat().st_mtime)
-        path_str = str(blend_path_obj.resolve()).encode('utf-8')
-        blend_hash = hashlib.md5(path_str).hexdigest()
-    except OSError as e:
-        log.warning("Cannot stat cache key file: %s", e)
-        safe_path = bpy.path.clean_name(str(blend_path_obj.resolve()))[:100]  # Limit length
-        return safe_path  # Fall back to path only
+        # Get stats for both the blend file and the script
+        blend_stat = blend_path_obj.stat()
+        script_stat = script_path.stat()
 
-    return f"{blend_hash}_{script_mtime}"
+        # Create a metadata string:
+        # Filename + Size + Blend Mtime + Script Mtime
+        metadata_parts = [
+            blend_path_obj.name,
+            str(blend_stat.st_size),
+            str(int(blend_stat.st_mtime)),
+            str(int(script_stat.st_mtime)),
+        ]
+
+        metadata_string = "|".join(metadata_parts).encode('utf-8')
+        return hashlib.md5(metadata_string).hexdigest()
+
+    except (OSError, FileNotFoundError) as e:
+        # Fallback: If files are inaccessible, use a truncated name
+        # to prevent the cache from breaking entirely.
+        log.warning("Cannot access file stats for cache key: %s", e)
+        try:
+            safe_name = blend_path_obj.name[:50]
+            return f"fallback_{safe_name}"
+        except Exception:
+            return "fallback_generic_key"
 
 
 class RECOM_OT_ExtractExternalSceneData(Operator):
@@ -130,6 +146,7 @@ class RECOM_OT_ExtractExternalSceneData(Operator):
     bl_idname = "recom.extract_external_scene_data"
     bl_label = "Read Blend File"
     bl_description = "Read scene information from an external blend file"
+    bl_options = {"INTERNAL"}
 
     @classmethod
     def description(cls, context, properties):
@@ -249,6 +266,7 @@ class RECOM_OT_CancelExtraction(Operator):
     bl_idname = "recom.cancel_extraction"
     bl_label = "Cancel Extraction"
     bl_description = "Stop the current background extraction process"
+    bl_options = {"INTERNAL"}
 
     def execute(self, context):
         if not _extraction_state["is_running"]:
@@ -294,6 +312,7 @@ class RECOM_OT_ClearAndReloadSceneInfo(Operator):
     bl_idname = "recom.clear_and_reload_scene_info"
     bl_label = "Clear Cache & Reload Scene Info"
     bl_description = "Clear the scene info cache and reload from external blend file"
+    bl_options = {"INTERNAL"}
 
     def execute(self, context):
         settings = context.window_manager.recom_render_settings
@@ -334,6 +353,7 @@ class RECOM_OT_SelectRecentFile(Operator):
     bl_idname = "recom.select_recent_file"
     bl_label = "Select Recent File"
     bl_description = "Read Blend File"
+    bl_options = {"INTERNAL"}
 
     file_path: StringProperty(name="Blend File Path", subtype="FILE_PATH")
 
@@ -367,12 +387,13 @@ class RECOM_OT_ClearRecentFiles(Operator):
 
     bl_idname = "recom.clear_recent_files"
     bl_label = "Clear Recent Files List"
+    bl_options = {"INTERNAL"}
 
     remove_type: EnumProperty(
         name="Remove",
         description="Select items to remove",
-        items=[("ALL", "All Items", ""), ("NOT_FOUND", "Items not Found", "")],
-        default="ALL",
+        items=[("ALL", "All Items", ""), ("NOT_FOUND", "Blend File Not Found", "")],
+        default="NOT_FOUND",
     )
 
     def invoke(self, context, event):
@@ -412,12 +433,14 @@ class RECOM_OT_OpenBlendFile(Operator):
 
     bl_idname = "recom.open_blend_file"
     bl_label = "Open Blend File in Blender"
+    bl_options = {"INTERNAL"}
 
     file_path: StringProperty(name="Blend File Path", subtype="FILE_PATH")
 
-    def execute(self, context):
-        bpy.ops.wm.open_mainfile(filepath=self.file_path)
-        return {"FINISHED"}
+    def invoke(self, context, event):
+        return bpy.ops.wm.open_mainfile(
+            'INVOKE_DEFAULT', filepath=self.file_path, check_existing=True, display_file_selector=False
+        )
 
 
 class RECOM_OT_OpenInNewBlender(Operator):
@@ -425,6 +448,7 @@ class RECOM_OT_OpenInNewBlender(Operator):
 
     bl_idname = "recom.open_in_new_blender"
     bl_label = "Open in New Blender Instance"
+    bl_options = {"INTERNAL"}
 
     file_path: StringProperty(name="File Path", subtype="FILE_PATH")
 
@@ -455,6 +479,7 @@ class RECOM_OT_OpenBlendDirectory(Operator):
 
     bl_idname = "recom.open_blend_directory"
     bl_label = "Open Blend File Directory"
+    bl_options = {"INTERNAL"}
 
     file_path: StringProperty(name="File Path", subtype="FILE_PATH")
 
@@ -477,6 +502,7 @@ class RECOM_OT_OpenBlendOutputPath(Operator):
     bl_idname = "recom.open_blend_output_path"
     bl_label = "Open File Output Path"
     bl_description = "Open the folder"
+    bl_options = {"INTERNAL"}
 
     file_path: StringProperty(name="File Path", subtype="FILE_PATH")
 
@@ -513,6 +539,7 @@ class RECOM_OT_SelectExternalBlendFile(Operator):
 
     bl_idname = "recom.select_external_blend_file"
     bl_label = "Select External Blend File"
+    bl_options = {"INTERNAL"}
 
     filepath: StringProperty(
         subtype="FILE_PATH",
@@ -522,7 +549,6 @@ class RECOM_OT_SelectExternalBlendFile(Operator):
         default="*.blend;*.blend1;*.blend2;*.blend3",
         options={"HIDDEN"},
     )
-
     read_scene: BoolProperty(
         name="Read Scene",
         description="Automatically read the scene information",
@@ -534,7 +560,7 @@ class RECOM_OT_SelectExternalBlendFile(Operator):
         abs_path = bpy.path.abspath(self.filepath)
         settings.external_blend_file_path = abs_path
 
-        log.info("External blend set to: %s", abs_path)
+        log.info('External blend set to: "%s"', abs_path)
 
         if self.read_scene and abs_path:
             self.report({"INFO"}, "Reading scene in background")

@@ -21,6 +21,7 @@ class RECOM_OT_ReinitializeDevices(Operator):
     bl_idname = "recom.reinitialize_devices"
     bl_label = "Refresh Device List"
     bl_description = "Refresh the local device list from Cycles"
+    bl_options = {"INTERNAL"}
 
     def execute(self, context):
         prefs = get_addon_preferences(context)
@@ -36,9 +37,10 @@ class RECOM_OT_DeviceID(Operator):
     bl_idname = "recom.cycles_device_ids"
     bl_label = "Show Device IDs"
     bl_description = "Displays the unique identifier of the compute devices"
+    bl_options = {"INTERNAL"}
 
     def execute(self, context):
-        return context.window_manager.invoke_popup(self, width=500)
+        return context.window_manager.invoke_popup(self, width=400)
 
     def draw(self, context):
         layout = self.layout
@@ -54,6 +56,7 @@ class RECOM_OT_RemoveAdditionalScript(Operator):
     bl_idname = "recom.remove_additional_script"
     bl_label = "Remove"
     bl_description = "Remove script from List"
+    bl_options = {"INTERNAL"}
 
     index: IntProperty()
 
@@ -67,6 +70,7 @@ class RECOM_OT_AddAdditionalScript(Operator):
     bl_idname = "recom.add_additional_script"
     bl_label = "Add Script"
     bl_description = "Add new python script"
+    bl_options = {"INTERNAL"}
 
     def execute(self, context):
         prefs = get_addon_preferences(context)
@@ -78,7 +82,7 @@ class RECOM_OT_ScriptAddItem(Operator):
     bl_idname = "recom.script_list_add_item"
     bl_label = "Add Script"
     bl_description = "Add a new script to the list"
-    bl_options = {"REGISTER", "UNDO"}
+    bl_options = {"INTERNAL"}
 
     order: EnumProperty(
         name="Execution Order",
@@ -121,6 +125,7 @@ class RECOM_OT_ScriptRemoveItem(Operator):
     bl_idname = "recom.script_list_remove_item"
     bl_label = "Remove Script"
     bl_description = "Remove the selected script from the list"
+    bl_options = {"INTERNAL"}
 
     @classmethod
     def poll(cls, context):
@@ -147,6 +152,7 @@ class RECOM_OT_ScriptMoveItem(Operator):
     bl_idname = "recom.script_list_move_item"
     bl_label = "Move Script"
     bl_description = "Move the selected script within its list"
+    bl_options = {"INTERNAL"}
 
     direction: EnumProperty(items=[("UP", "Up", ""), ("DOWN", "Down", "")])
 
@@ -188,7 +194,7 @@ class RECOM_OT_OpenScript(Operator):
     bl_idname = "recom.open_script"
     bl_label = "Open Script"
     bl_description = "Opens the script into a new text data-block"
-    bl_options = {"REGISTER", "UNDO"}
+    bl_options = {"REGISTER", "UNDO", "INTERNAL"}
 
     @classmethod
     def poll(cls, context):
@@ -232,7 +238,7 @@ class RECOM_OT_OpenScript(Operator):
 class RECOM_OT_ChangeScriptOrder(Operator):
     bl_idname = "recom.change_script_order"
     bl_label = "Change Script Order"
-    bl_options = {"UNDO"}
+    bl_options = {"UNDO", "INTERNAL"}
 
     order: EnumProperty(items=[("PRE", "Pre-Render", ""), ("POST", "Post-Render", "")])
 
@@ -244,10 +250,11 @@ class RECOM_OT_ChangeScriptOrder(Operator):
         return {"FINISHED"}
 
 
-class RECOM_OT_open_docs(bpy.types.Operator):
+class RECOM_OT_open_docs(Operator):
     bl_idname = "recom.open_docs_custom"
     bl_label = "Open Blender Docs"
     bl_description = "Open the Blender command line arguments documentation"
+    bl_options = {"INTERNAL"}
 
     URL = None
 

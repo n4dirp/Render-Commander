@@ -22,17 +22,22 @@ def get_cycles_prefs(context=None):
     prefs = getattr(context, "preferences", None)
     if prefs is None:
         return None
+
     addon = prefs.addons.get("cycles")
     if addon is None:
         return None
+
     return addon.preferences
 
 
 _CYCLES_AVAILABLE = get_cycles_prefs()
+_DEVICE_ITEMS_CACHE = None
 
 
 class RECOM_PG_DeviceSettings(PropertyGroup):
     """Local mirror of a Cycles device entry."""
+
+    __slots__ = ()
 
     id: StringProperty(name="ID", description="Unique identifier of the device")
     name: StringProperty(name="Name", description="Name of the device")
@@ -46,11 +51,17 @@ class RECOM_PG_DeviceSettings(PropertyGroup):
 
 def get_device_types_items(self, context):
     """Build dynamic enum items from the currently available Cycles device entries."""
-    cycles_prefs = get_cycles_prefs(context)
+    global _DEVICE_ITEMS_CACHE
 
+    # Return the cached items if they exist to prevent UI lag and memory crashes
+    if _DEVICE_ITEMS_CACHE is not None:
+        return _DEVICE_ITEMS_CACHE
+
+    cycles_prefs = get_cycles_prefs(context)
     items = [("NONE", "None", "Don't use compute device")]
 
     if not cycles_prefs:
+        _DEVICE_ITEMS_CACHE = items
         return items
 
     seen = set()
@@ -66,7 +77,8 @@ def get_device_types_items(self, context):
         name = friendly_names.get(dev_type, dev_type)
         items.append((dev_type, name, f"Use {name} for GPU acceleration"))
 
-    return items
+    _DEVICE_ITEMS_CACHE = items  # Save to cache
+    return _DEVICE_ITEMS_CACHE
 
 
 def update_compute_device_type(self, context):
@@ -84,6 +96,9 @@ def update_compute_device_type(self, context):
 
 def refresh_cycles_devices(prefs, context=None, sync_type=True):
     """Refresh the local device list from Cycles."""
+    global _DEVICE_ITEMS_CACHE
+    _DEVICE_ITEMS_CACHE = None  # Reset the cache so the Enum updates
+
     context = context or bpy.context
     cycles_prefs = get_cycles_prefs(context)
 
@@ -167,30 +182,22 @@ def get_devices_for_display(prefs):
     devices_to_display = []
 
     if prefs.multiple_backends and prefs.device_parallel and prefs.launch_mode != MODE_SINGLE:
-        cpu_devs = [d for d in prefs.devices if d.type == "CPU"]
-        non_cpu_devs = [d for d in prefs.devices if d.type != "CPU"]
-        devices_to_display = cpu_devs + non_cpu_devs
+        devices_to_display.extend([d for d in prefs.devices if d.type == 'CPU'])
+        devices_to_display.extend([d for d in prefs.devices if d.type != 'CPU'])
     else:
-        for dev in prefs.devices:
-            if dev.type == selected and dev.type != "CPU":
-                devices_to_display.append(dev)
-        if selected != "CPU":
-            for dev in prefs.devices:
-                if dev.type == "CPU" and not any(d.id == dev.id for d in devices_to_display):
-                    devices_to_display.append(dev)
+        devices_to_display.extend([d for d in prefs.devices if d.type == selected and d.type != 'CPU'])
+
+        if selected != 'CPU':
+            existing_ids = {d.id for d in devices_to_display}
+            devices_to_display.extend([d for d in prefs.devices if d.type == 'CPU' and d.id not in existing_ids])
         else:
-            devices_to_display = [d for d in prefs.devices if d.type == "CPU"]
+            devices_to_display = [d for d in prefs.devices if d.type == 'CPU']
 
     return devices_to_display
 
 
 def draw_devices(layout, prefs, show_id=False):
     """Draw device list in UI."""
-    if not get_cycles_prefs(bpy.context):
-        col = layout.column(align=True)
-        col.active = False
-        col.label(text="Cycles renderer not available")
-        return
 
     devices_to_draw = get_devices_for_display(prefs)
 
@@ -206,13 +213,14 @@ def draw_devices(layout, prefs, show_id=False):
             layout.separator(factor=0.5)
 
         device_name = device.id if show_id else format_device_name(device.name)
-        type_col = layout.column(align=True)
+        col = layout.column(align=True)
 
-        # Draw group labels
-        if device.type != prev_type:
-            type_row = type_col.row()
-            type_row.active = False
-            type_row.label(text=device.type)
+        if prefs.multiple_backends and prefs.device_parallel and prefs.launch_mode != MODE_SINGLE:
+            # Draw group labels
+            if device.type != prev_type:
+                row = col.row()
+                row.active = False
+                row.label(text=device.type)
 
-        type_col.prop(device, "use", text=device_name, translate=False)
+        col.prop(device, "use", text=device_name, translate=False)
         prev_type = device.type

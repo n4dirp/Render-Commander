@@ -1,8 +1,5 @@
 # Render Commander
 
-[![GitHub Release](https://img.shields.io/github/v/release/n4dirp/Render-Commander?style=flat-square)](https://github.com/n4dirp/Render-Commander/releases)
-[![Blender Version](https://img.shields.io/badge/Blender-4.3+%20-orange?style=flat-square&logo=blender)](https://www.blender.org/)
-
 Render Commander exports standalone render scripts with fully embedded settings. It enables parallel rendering across multiple devices and supports advanced configuration for Cycles and EEVEE.
 
 ---
@@ -71,5 +68,8 @@ blender --command extension build
 
 ## Installation
 
-1. Download the latest release from the [Releases](https://github.com/n4dirp/render-commander/releases) page.
-2. Drag and drop the `.zip` into Blender to install the add-on.
+1. Open Blender and go to **Edit → Preferences → Extensions**.
+2. Search for **Render Commander**.
+3. Click **Install** and enable the add-on.
+4. Alternatively, you can install it manually from the [Blender Extensions page](https://extensions.blender.org/add-ons/render-commander/).
+

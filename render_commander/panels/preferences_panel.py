@@ -438,7 +438,7 @@ class RECOM_PT_render_parallel(RECOM_PT_BasePanel, Panel):
     bl_label = "Multi-Process"
     bl_parent_id = "RECOM_PT_render_options"
     bl_options = {"DEFAULT_CLOSED"}
-    
+
     @classmethod
     def poll(cls, context):
         prefs = get_addon_preferences(context)
@@ -542,12 +542,12 @@ class RECOM_PT_export_options(RECOM_PT_BasePanel, Panel):
         sub_folder_row.active = prefs.export_scripts_subfolder
         sub_folder_row.prop(prefs, "export_scripts_folder_name", text="")
 
-
         col = layout.column(heading="File Name", align=True)
         draw_script_filename(col, prefs)
 
         col = layout.column(heading="Auto", align=True)
         col.prop(prefs, "auto_open_exported_folder", text="Open Scripts Folder")
+
 
 classes = (
     RECOM_PT_render_preferences_presets,

@@ -69,24 +69,25 @@ class RECOM_PT_render_details_panel(RECOM_PT_BasePanel, Panel):
             active_item = prefs.render_history[prefs.active_render_history_index]
 
             col = layout.column(align=True)
-
-            self.draw_kv(col, "Blend File", active_item.blend_file_name)
-            self.draw_kv(col, "Blend Path", active_item.blend_dir, "recom.open_output_folder")
-
-            col.separator()
             self.draw_kv(col, "Render ID", active_item.render_id)
-            self.draw_kv(col, "Export Path", active_item.export_path, "recom.open_output_folder")
-            self.draw_kv(col, "Date", active_item.date)
+            self.draw_kv(col, "Export Date", active_item.date)
+            if active_item.worker_count > 1:
+                self.draw_kv(col, "Workers", active_item.worker_count)
+            self.draw_kv(col, "Script Name", active_item.script_filename)
+            self.draw_kv(col, "Path", active_item.export_path, "recom.open_output_folder")
 
-            col.separator()
+            col.separator(type="LINE", factor=2.0)
+            self.draw_kv(col, "Blend Name", active_item.blend_file_name)
+            self.draw_kv(col, "Path", active_item.blend_dir, "recom.open_output_folder")
+
+            col.separator(type="LINE", factor=2.0)
             self.draw_kv(col, "Engine", RENDER_ENGINE_MAPPING.get(active_item.render_engine, active_item.render_engine))
             self.draw_kv(col, "Samples", active_item.samples)
-
-            col.separator()
+            col = layout.column(align=True)
             self.draw_kv(col, "Resolution", f"{active_item.resolution_x} x {active_item.resolution_y} px")
             self.draw_kv(col, "Frame", active_item.frames.replace(" - ", "-"))
             self.draw_kv(col, "Format", active_item.file_format)
-            self.draw_kv(col, "Output Path", active_item.output_folder)
+            self.draw_kv(col, "Output Path", active_item.output_path)
 
     def draw_kv(self, layout, label, value, operator=""):
         if not (label and value):

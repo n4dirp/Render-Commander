@@ -107,22 +107,21 @@ class RECOM_PG_RenderHistoryItem(PropertyGroup):
     __slots__ = ()
 
     blend_path: StringProperty(name="Blend Path", default="")
-    blend_dir: StringProperty(name="Blend Path", default="")
+    blend_dir: StringProperty(name="Blend Directory", default="")
     blend_file_name: StringProperty(name="Blend Name", default="")
     render_id: StringProperty(name="Render ID", default="")
+    worker_count: IntProperty(name="Workers", default=0)
     date: StringProperty(name="Date", default="")
     export_path: StringProperty(name="Export Path", default="")
-    render_engine: StringProperty(name="Engine", default="")
-    launch_mode: StringProperty(name="Mode", default="")
-    device_configuration: StringProperty(name="Devices Used", default="")
+    script_filename: StringProperty(name="Script Filename", default="")
+    render_engine: StringProperty(name="Render Engine", default="")
+    launch_mode: StringProperty(name="Render Mode", default="")
     frames: StringProperty(name="Frames", default="")
     resolution_x: IntProperty(name="Width", default=0)
     resolution_y: IntProperty(name="Height", default=0)
     samples: StringProperty(name="Samples", default="")
-    output_folder: StringProperty(name="Output Folder", default="")
-    output_filename: StringProperty(name="Output Filename", default="")
+    output_path: StringProperty(name="Output Path", default="")
     file_format: StringProperty(name="File Format", default="")
-    is_output_path_valid: BoolProperty(name="Is Output Path Valid", default=False)
 
 
 class RECOM_PG_RecentBlendFile(PropertyGroup):
@@ -528,12 +527,7 @@ class RECOM_Preferences(AddonPreferences):
 
         # Main panels
         col.label(text="Visible Panels")
-        col.prop(self.visible_panels, "external_scene")
-        col.prop(self.visible_panels, "override_settings")
-        col.prop(self.visible_panels, "preferences")
-        col.prop(self.visible_panels, "history")
-
-        col = layout.column(heading="Render Preferences")
+        col = col.column(heading="Render Preferences")
         col.prop(self.visible_panels, "ocio")
 
         # Debugging
@@ -565,6 +559,7 @@ def register():
             prefs.devices_ini = True
     except Exception as e:
         log.warning("Could not initialize Cycles devices: %s", e)
+
 
 def unregister():
     for cls in reversed(classes):

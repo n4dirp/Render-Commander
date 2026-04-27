@@ -5,8 +5,6 @@ import logging
 import os
 import sys
 import traceback
-import datetime
-from datetime import timedelta
 from pathlib import Path
 
 import bpy
@@ -19,22 +17,6 @@ logging.basicConfig(
 
 BLENDER_5_0 = (5, 0, 0)
 
-def format_modified_date(timestamp: float) -> str:
-    try:
-        dt = datetime.datetime.fromtimestamp(timestamp)
-        today = datetime.datetime.now().date()
-        yesterday = today - timedelta(days=1)
-        if dt.date() == today:
-            return f"Today {dt.strftime('%H:%M')}"
-
-        if dt.date() == yesterday:
-            return f"Yesterday {dt.strftime('%H:%M')}"
-
-        return dt.strftime("%d %B %Y")
-    except Exception as e:
-        logging.error("Error formatting date: %s", e)
-        return "Unknown"
-
 
 def format_file_size(size_bytes: int) -> str:
     if size_bytes < 1:
@@ -42,7 +24,7 @@ def format_file_size(size_bytes: int) -> str:
     size_name = ("B", "KB", "MB", "GB", "TB")
     i = 0
     size = float(size_bytes)
-    MAX_SIZE_INDEX = len(size_name) - 1 
+    MAX_SIZE_INDEX = len(size_name) - 1
     while size >= 1024 and i < MAX_SIZE_INDEX:
         size /= 1024
         i += 1
@@ -106,8 +88,8 @@ def get_scene_info() -> dict:
             "blend_filepath": str(blend_path),
             "file_size": format_file_size(file_size),
             "version_file": ".".join(map(str, context.blend_data.version)),
-            "modified_date": datetime.datetime.fromtimestamp(modified_time).strftime("%Y-%m-%d %H:%M:%S"),
-            "modified_date_short": format_modified_date(modified_time),
+            "modified_date": modified_time,
+            "modified_date_short": None,
             "scene_name": scene.name,
             "view_layer": context.view_layer.name,
             "view_layer_count": sum(1 for layer in scene.view_layers if layer.use),

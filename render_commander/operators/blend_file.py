@@ -11,6 +11,7 @@ import logging
 import sys
 import os
 import hashlib
+import datetime
 from pathlib import Path
 
 import bpy
@@ -62,6 +63,23 @@ def _poll_extraction_timer():
         return None
 
 
+def format_modified_date(timestamp: float) -> str:
+    """Format a file's modification timestamp relative to CURRENT time."""
+    try:
+        dt = datetime.datetime.fromtimestamp(timestamp)
+        now = datetime.datetime.now()
+        today = now.date()
+        yesterday = today - datetime.timedelta(days=1)
+        if dt.date() == today:
+            return f"Today {dt.strftime('%H:%M')}"
+        if dt.date() == yesterday:
+            return f"Yesterday {dt.strftime('%H:%M')}"
+        return dt.strftime("%d %B %Y")
+    except Exception as e:
+        log.error("Error formatting date: %s", e)
+        return "Unknown"
+
+
 def _finalize_extraction():
     """Reads cache and updates UI. Runs safely outside operator lifecycle."""
     cache_path = _extraction_state["cache_path"]
@@ -71,6 +89,10 @@ def _finalize_extraction():
         try:
             with open(cache_path, "r", encoding="utf-8") as f:
                 info_data = json.load(f)
+
+                if "modified_date" in info_data and info_data["modified_date"]:
+                    info_data["modified_date_short"] = format_modified_date(info_data["modified_date"])
+
         except Exception as e:
             log.error("Failed to read cache file: %s", e)
             info_data = {"error": f"Failed to read cache: {str(e)}"}
@@ -203,6 +225,9 @@ class RECOM_OT_ExtractExternalSceneData(Operator):
                 if blend_mtime <= cache_mtime:
                     with open(cache_path, "r", encoding="utf-8") as f:
                         cached_data = json.load(f)
+
+                    if "modified_date" in cached_data and cached_data["modified_date"]:
+                        cached_data["modified_date_short"] = format_modified_date(cached_data["modified_date"])
 
                     # Ensure cache doesn't contain a previous extraction error
                     if "error" not in cached_data:
@@ -339,7 +364,7 @@ class RECOM_OT_ClearAndReloadSceneInfo(Operator):
                 log.info('Cleared scene info cache: "%s"', str(cache_path))
 
             except Exception as e:
-                self.report({"ERROR"}, f"Failed to clear cache")
+                self.report({"ERROR"}, "Failed to clear cache")
                 log.error('Failed to clear cache: "%s"', e)
 
                 return {"CANCELLED"}

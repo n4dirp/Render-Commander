@@ -37,8 +37,6 @@ _DEVICE_ITEMS_CACHE = None
 class RECOM_PG_DeviceSettings(PropertyGroup):
     """Local mirror of a Cycles device entry."""
 
-    __slots__ = ()
-
     id: StringProperty(name="ID", description="Unique identifier of the device")
     name: StringProperty(name="Name", description="Name of the device")
     use: BoolProperty(name="Use", description="Use device for rendering", default=True)

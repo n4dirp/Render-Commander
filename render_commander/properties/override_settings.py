@@ -63,8 +63,6 @@ def data_path_search_callback(self, context, edit_text):
 class RECOM_PG_DataPathOverride(PropertyGroup):
     """Stores arbitrary data path overrides entered by the user"""
 
-    __slots__ = ()
-
     name: StringProperty(name="Name", default="Data Path Override")
     data_path: StringProperty(
         name="Data Path",
@@ -93,8 +91,6 @@ class RECOM_PG_DataPathOverride(PropertyGroup):
 
 class RECOM_PG_CyclesRenderOverrides(PropertyGroup):
     """Stores Cycles render override settings"""
-
-    __slots__ = ()
 
     device_override: BoolProperty(
         name="Override Compute Device",
@@ -270,8 +266,6 @@ class RECOM_PG_CyclesRenderOverrides(PropertyGroup):
 class RECOM_PG_EEVEERenderOverrides(PropertyGroup):
     """Stores EEVEE render override settings"""
 
-    __slots__ = ()
-
     samples: IntProperty(
         name="Samples",
         default=256,
@@ -284,7 +278,6 @@ class RECOM_PG_EEVEERenderOverrides(PropertyGroup):
 class RECOM_PG_OverrideSettings(PropertyGroup):
     """Stores override settings"""
 
-    __slots__ = ()
     # Data Path Overrides
     property_path_input: StringProperty(
         name="Blender Data Path",

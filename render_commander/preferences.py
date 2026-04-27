@@ -46,8 +46,6 @@ def on_logging_pref_changed(self, context):
 class RECOM_PG_ScriptEntry(PropertyGroup):
     """Scripts entries for appending during rendering"""
 
-    __slots__ = ()
-
     script_path: StringProperty(
         name="Script Path",
         description="Python script to run before or after render",
@@ -82,8 +80,6 @@ class RECOM_PG_ScriptEntry(PropertyGroup):
 class RECOM_PG_CustomVariable(PropertyGroup):
     """Custom path variables for output paths"""
 
-    __slots__ = ()
-
     name: StringProperty(
         name="Variable Name",
         description="Custom variable name (e.g. 'scene')",
@@ -104,8 +100,6 @@ class RECOM_PG_CustomVariable(PropertyGroup):
 class RECOM_PG_RenderHistoryItem(PropertyGroup):
     """Render history properties"""
 
-    __slots__ = ()
-
     blend_path: StringProperty(name="Blend Path", default="")
     blend_dir: StringProperty(name="Blend Directory", default="")
     blend_file_name: StringProperty(name="Blend Name", default="")
@@ -125,14 +119,11 @@ class RECOM_PG_RenderHistoryItem(PropertyGroup):
 
 
 class RECOM_PG_RecentBlendFile(PropertyGroup):
-    __slots__ = ()
     path: StringProperty(name="Blend File Path")
 
 
 class RECOM_PG_VisiblePanels(PropertyGroup):
     """Visibility settings for addon panels"""
-
-    __slots__ = ()
 
     external_scene: BoolProperty(name="Blend File", default=True, update=lambda self, context: redraw_ui())
     override_settings: BoolProperty(name="Override Settings", default=True, update=lambda self, context: redraw_ui())
@@ -143,8 +134,6 @@ class RECOM_PG_VisiblePanels(PropertyGroup):
 
 class RECOM_PG_OverrideImportSettings(PropertyGroup):
     """Import‑group toggles"""
-
-    __slots__ = ()
 
     import_compute_device: BoolProperty(name="Compute Device", default=False)
     import_frame_range: BoolProperty(name="Frame Range", default=True)

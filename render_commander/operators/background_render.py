@@ -296,10 +296,11 @@ class RECOM_OT_ExportRenderScript(Operator):
         sub_folder_row.active = prefs.export_scripts_subfolder
         sub_folder_row.prop(prefs, "export_scripts_folder_name", text="")
 
-        col = layout.column(heading="Scrip Name", align=True)
+        col = layout.column(heading="Script Name", align=True)
         draw_script_filename(col, prefs)
 
-        layout.prop(prefs, "auto_open_exported_folder", text="Open Scripts Folder")
+        col = layout.column(heading="Auto", align=True)
+        col.prop(prefs, "auto_open_exported_folder", text="Open Scripts Folder")
 
     def execute(self, context):
         """Main execution method that handles single and parallel rendering."""
@@ -354,6 +355,9 @@ class RECOM_OT_ExportRenderScript(Operator):
             return {"CANCELLED"}
 
         if settings.first_worker_info:
+            prefs.render_history[0].script_filename = settings.first_worker_info
+            prefs.render_history[0].worker_count = settings.worker_count
+
             self.report({"INFO"}, f"Saved: {settings.first_worker_info} ({settings.worker_count})")
 
         folder_name = prefs.export_scripts_folder_name if prefs.export_scripts_subfolder else ""
@@ -984,13 +988,7 @@ class RECOM_OT_ExportRenderScript(Operator):
             # Update history entry with actual output path from the first chunk
             if prefs.render_history:
                 hist = prefs.render_history[0]
-                hist.output_folder = settings.render_output_folder_path
-
-                if hist.output_folder:
-                    abs_path = Path(hist.output_folder).resolve()
-                    hist.is_output_path_valid = abs_path.is_dir()
-                else:
-                    hist.is_output_path_valid = False
+                hist.output_path = settings.render_output_folder_path
         return script_lines
 
     def _resolve_output_path(self, prefs, settings, scene, ext_info: dict) -> str:

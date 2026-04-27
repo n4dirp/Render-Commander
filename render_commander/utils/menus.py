@@ -81,7 +81,7 @@ class RECOM_MT_external_blend_options(Menu):
             output_path = info.get("filepath", "")
             frame_path = info.get("frame_path", "")
         except (json.JSONDecodeError, TypeError, AttributeError) as e:
-            pass
+            log.error("Error occurred while fetching scene info: %s", e)
         if output_path and frame_path:
             op_open_output_folder = layout.operator("recom.open_blend_output_path", text="Open Output Path")
             op_open_output_folder.file_path = frame_path
@@ -421,9 +421,9 @@ class RECOM_MT_render_history_item(Menu):
         op_load_external_scene = blend_col.operator("recom.select_recent_file", text="Read Blend File", icon="ZOOM_ALL")
         op_load_external_scene.file_path = active_item.blend_path
         blend_col.separator()
-        op_open_blend_folder = blend_col.operator(
+        blend_col.operator(
             "recom.open_output_folder", text="Open Blend File Path", icon="FILE_FOLDER"
-        )
+        ).folder_path = str(Path(active_item.blend_path).parent)
         layout.separator()
         layout.operator("recom.remove_render_history_item", text="Remove from History", icon="TRASH")
 

@@ -563,7 +563,7 @@ class RECOM_OT_SelectExternalBlendFile(Operator):
     """Choose an external .blend file to render"""
 
     bl_idname = "recom.select_external_blend_file"
-    bl_label = "Select External Blend File"
+    bl_label = "Accept"
     bl_options = {"INTERNAL"}
 
     filepath: StringProperty(

@@ -5,10 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on Keep a Changelog,
 and this project adheres to Semantic Versioning.
 
-## [Unreleased]
+## [1.2.3] - 2026-04-27
+
+### Added
+- Added a `Start Delay` setting for parallel renders
+
+### Changed
+- Updated UI for improved consistency
+- Updated the log format for rendering
 
 ### Fixed
-- Fixed remove items not found from export history
+- Fixed an issue where removing items not found in export history removed all items
+- Fixed an issue where opening a blend file did not check for unsaved changes
+- Fixed preset settings in the add-on preferences
+- Fixed the modified date in blend info
 
 ---
 

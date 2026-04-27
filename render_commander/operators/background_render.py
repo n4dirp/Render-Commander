@@ -475,12 +475,15 @@ class RECOM_OT_ExportRenderScript(Operator):
         history_item.frames = frames
 
         # File Format
-        if override_settings.file_format_override:
-            history_item.file_format = override_settings.file_format
-        else:
-            history_item.file_format = (
-                ext_info.get("file_format", "") if is_external else scene.render.image_settings.file_format
-            )
+        fmt_id = (
+            override_settings.file_format
+            if override_settings.file_format_override
+            else ext_info.get("file_format", "")
+            if is_external
+            else scene.render.image_settings.file_format
+        )
+        prop = scene.render.image_settings.bl_rna.properties['file_format']
+        history_item.file_format = prop.enum_items[fmt_id].name if fmt_id in prop.enum_items else fmt_id
 
         # Metadata and Export Path
         history_item.render_engine = render_engine

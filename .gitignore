@@ -1,7 +1,15 @@
+# Python
 __pycache__/
-.vscode/
-.venv/
-.ropeproject/
-.zed/
 pyrightconfig.json
+pyproject.toml
+
+# IDE / Editor
+.ropeproject/
+.vscode/
+.zed/
+
+# Virtual environments
+.venv/
+
+# Documentation (optional - remove if you want AGENTS.md tracked)
 AGENTS.md

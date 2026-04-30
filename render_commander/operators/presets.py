@@ -2,8 +2,8 @@ import logging
 from pathlib import Path
 
 import bpy
-from bpy.types import Operator
 from bl_operators.presets import AddPresetBase
+from bpy.types import Operator
 
 from .. import __package__ as base_package
 

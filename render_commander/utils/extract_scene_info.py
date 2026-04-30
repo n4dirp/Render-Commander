@@ -86,9 +86,7 @@ def get_scene_info() -> dict:
             "scene_name": scene.name,
             "view_layer": context.view_layer.name,
             "view_layer_count": sum(1 for layer in scene.view_layers if layer.use),
-            "viewlayer_names": ", ".join(
-                layer.name for layer in scene.view_layers if layer.use
-            ),
+            "viewlayer_names": ", ".join(layer.name for layer in scene.view_layers if layer.use),
             "render_engine": scene.render.engine,
             "view_transform": scene.view_settings.view_transform,
             "look": scene.view_settings.look,
@@ -135,9 +133,7 @@ def get_scene_info() -> dict:
             data["jpeg_quality"] = render.image_settings.quality
 
         use_compositor = render.use_compositing and (
-            bool(scene.compositing_node_group)
-            if bpy.app.version >= BLENDER_5_0
-            else scene.use_nodes
+            bool(scene.compositing_node_group) if bpy.app.version >= BLENDER_5_0 else scene.use_nodes
         )
         if use_compositor:
             data.update(
@@ -209,9 +205,7 @@ def get_scene_info() -> dict:
 if __name__ == "__main__":
     try:
         if not bpy.data.filepath:
-            error_str = (
-                "No .blend file seems to be loaded in the background Blender process."
-            )
+            error_str = "No .blend file seems to be loaded in the background Blender process."
             logging.error("%s", error_str)
             sys.exit(1)
 

@@ -1,9 +1,9 @@
 # ./utils/constants.py
 
-import tomllib
 from pathlib import Path
 
 import bpy
+import tomllib
 
 
 def get_extension_version() -> str:

@@ -40,9 +40,7 @@ class RECOM_PG_DeviceSettings(PropertyGroup):
     id: StringProperty(name="ID", description="Unique identifier of the device")
     name: StringProperty(name="Name", description="Name of the device")
     use: BoolProperty(name="Use", description="Use device for rendering", default=True)
-    type: StringProperty(
-        name="Type", description="Backend type (e.g., CUDA, OPTIX, CPU)"
-    )
+    type: StringProperty(name="Type", description="Backend type (e.g., CUDA, OPTIX, CPU)")
 
 
 # Enum & Update Callbacks
@@ -178,27 +176,15 @@ def get_devices_for_display(prefs):
     selected = prefs.compute_device_type
     devices_to_display = []
 
-    if (
-        prefs.multiple_backends
-        and prefs.device_parallel
-        and prefs.launch_mode != MODE_SINGLE
-    ):
+    if prefs.multiple_backends and prefs.device_parallel and prefs.launch_mode != MODE_SINGLE:
         devices_to_display.extend([d for d in prefs.devices if d.type == "CPU"])
         devices_to_display.extend([d for d in prefs.devices if d.type != "CPU"])
     else:
-        devices_to_display.extend(
-            [d for d in prefs.devices if d.type == selected and d.type != "CPU"]
-        )
+        devices_to_display.extend([d for d in prefs.devices if d.type == selected and d.type != "CPU"])
 
         if selected != "CPU":
             existing_ids = {d.id for d in devices_to_display}
-            devices_to_display.extend(
-                [
-                    d
-                    for d in prefs.devices
-                    if d.type == "CPU" and d.id not in existing_ids
-                ]
-            )
+            devices_to_display.extend([d for d in prefs.devices if d.type == "CPU" and d.id not in existing_ids])
         else:
             devices_to_display = [d for d in prefs.devices if d.type == "CPU"]
 
@@ -223,11 +209,7 @@ def draw_devices(layout, prefs):
 
         col = layout.column(align=True)
 
-        if (
-            prefs.multiple_backends
-            and prefs.device_parallel
-            and prefs.launch_mode != MODE_SINGLE
-        ):
+        if prefs.multiple_backends and prefs.device_parallel and prefs.launch_mode != MODE_SINGLE:
             # Draw group labels
             if device.type != prev_type:
                 row = col.row()

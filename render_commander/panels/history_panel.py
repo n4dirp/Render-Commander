@@ -13,7 +13,7 @@ from ..utils.constants import (
 
 
 class RECOM_PT_render_history_panel(RCSubPanel, Panel):
-    bl_label = "Export History"
+    bl_label = "History"
     bl_options = {"DEFAULT_CLOSED"}
 
     @classmethod
@@ -49,9 +49,7 @@ class RECOM_PT_render_history_panel(RCSubPanel, Panel):
 
 
 class RECOM_UL_render_history(UIList):
-    def draw_item(
-        self, context, layout, data, item, icon, active_data, active_propname, index
-    ):
+    def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
         # split = layout.split(factor=0.6)
         row = layout.row(align=True)
         row.label(text="", icon="FILE_BLEND")
@@ -109,17 +107,13 @@ class RECOM_PT_render_details_panel(RCBasePanel, Panel):
 
             self.draw_kv(col, "Export Date", active_item.date)
             self.draw_kv(col, "Blend Name", active_item.blend_file_name)
-            self.draw_kv(
-                col, "Blend Path", active_item.blend_dir, "recom.open_output_folder"
-            )
+            self.draw_kv(col, "Blend Path", active_item.blend_dir, "recom.open_output_folder")
 
             col.separator()
 
             self.draw_kv(col, "Render ID", active_item.render_id)
             self.draw_kv(col, "Script Name", active_item.script_filename)
-            self.draw_kv(
-                col, "Script Path", active_item.export_path, "recom.open_output_folder"
-            )
+            self.draw_kv(col, "Script Path", active_item.export_path, "recom.open_output_folder")
             self.draw_kv(col, "Workers", active_item.worker_count)
 
             col.separator()
@@ -127,9 +121,7 @@ class RECOM_PT_render_details_panel(RCBasePanel, Panel):
             self.draw_kv(
                 col,
                 "Engine",
-                RENDER_ENGINE_MAPPING.get(
-                    active_item.render_engine, active_item.render_engine
-                ),
+                RENDER_ENGINE_MAPPING.get(active_item.render_engine, active_item.render_engine),
             )
             self.draw_kv(col, "Samples", active_item.samples)
             self.draw_kv(
@@ -164,9 +156,7 @@ class RECOM_PT_render_details_panel(RCBasePanel, Panel):
 
 
 class RECOM_UL_active_item_properties(UIList):
-    def draw_item(
-        self, context, layout, data, item, icon, active_data, active_propname, index
-    ):
+    def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
         split = layout.split(factor=0.45)
         split.label(text=item.name)
         split.label(text=item.value)
@@ -180,11 +170,7 @@ class RECOM_PT_active_item_properties_panel(RCBasePanel, Panel):
     @classmethod
     def poll(cls, context):
         prefs = get_addon_preferences(context)
-        return (
-            prefs.render_history
-            and prefs.active_render_history_index >= 0
-            and len(prefs.active_item_properties) > 0
-        )
+        return prefs.render_history and prefs.active_render_history_index >= 0 and len(prefs.active_item_properties) > 0
 
     def draw(self, context):
         layout = self.layout

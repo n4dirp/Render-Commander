@@ -1,32 +1,31 @@
 """
-Handles the logic for interacting with external .blend files. 
-It manages background extraction of scene information using a separate 
+Handles the logic for interacting with external .blend files.
+It manages background extraction of scene information using a separate
 Blender instance, implements a caching system to store extracted JSON data.
 """
 
-import subprocess
-import json
-import time
-import logging
-import sys
-import os
-import hashlib
 import datetime
+import hashlib
+import json
+import logging
+import os
+import subprocess
+import sys
+import time
 from pathlib import Path
 
 import bpy
+from bpy.props import BoolProperty, EnumProperty, StringProperty
 from bpy.types import Operator
-from bpy.props import StringProperty, EnumProperty, BoolProperty
 
-from ..utils.constants import EXTERNAL_BLEND_FILE_HISTORY_LIMIT
 from ..preferences import get_addon_preferences
+from ..utils.constants import EXTERNAL_BLEND_FILE_HISTORY_LIMIT
 from ..utils.helpers import (
-    redraw_ui,
+    get_addon_temp_dir,
     is_blend_or_backup_file,
     open_folder,
-    get_addon_temp_dir,
+    redraw_ui,
 )
-
 
 log = logging.getLogger(__name__)
 
@@ -148,7 +147,7 @@ def generate_cache_key(blend_path_obj: Path, script_path: Path) -> str:
             str(int(script_stat.st_mtime)),
         ]
 
-        metadata_string = "|".join(metadata_parts).encode('utf-8')
+        metadata_string = "|".join(metadata_parts).encode("utf-8")
         return hashlib.md5(metadata_string).hexdigest()
 
     except (OSError, FileNotFoundError) as e:
@@ -468,7 +467,7 @@ class RECOM_OT_OpenBlendFile(Operator):
 
     def invoke(self, context, event):
         return bpy.ops.wm.open_mainfile(
-            'INVOKE_DEFAULT', filepath=self.file_path, check_existing=True, display_file_selector=False
+            "INVOKE_DEFAULT", filepath=self.file_path, check_existing=True, display_file_selector=False
         )
 
 

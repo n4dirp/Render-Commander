@@ -1,12 +1,12 @@
-from pathlib import Path
 import logging
+from pathlib import Path
 
 import bpy
+from bpy.props import EnumProperty, StringProperty
 from bpy.types import Operator
-from bpy.props import StringProperty, EnumProperty
 
 from ..preferences import get_addon_preferences
-from ..utils.helpers import redraw_ui, open_folder
+from ..utils.helpers import open_folder, redraw_ui
 
 log = logging.getLogger(__name__)
 

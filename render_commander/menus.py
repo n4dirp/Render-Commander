@@ -7,7 +7,8 @@ from pathlib import Path
 import bpy
 from bpy.types import Menu
 
-from ..preferences import get_addon_preferences
+from .preferences import get_addon_preferences
+from .utils.helpers import get_scene_info
 
 log = logging.getLogger(__name__)
 
@@ -33,26 +34,15 @@ class RECOM_MT_recent_blend_files(Menu):
 
         # Add recent files to the menu
         for item in reversed(prefs.recent_blend_files):
-            op = layout.operator("recom.select_recent_file", text=item.path, icon="FILE_BLEND")
+            op = layout.operator(
+                "recom.select_recent_file", text=item.path, icon="FILE_BLEND"
+            )
             op.file_path = item.path  # Pass the file path as a parameter
 
         layout.separator()
-        layout.operator("recom.clear_recent_files", text="Clear Recent Files List...", icon="TRASH")
-
-
-def get_scene_info(settings):
-    """Single source of truth for scene info parsing"""
-    if not settings.external_scene_info or not settings.is_scene_info_loaded:
-        return None
-
-    try:
-        info = json.loads(settings.external_scene_info)
-        if info.get("blend_filepath", "") == "No Data":
-            return None
-        return info
-    except json.JSONDecodeError as e:
-        log.error("Failed to decode JSON: %s", e)
-        return None
+        layout.operator(
+            "recom.clear_recent_files", text="Clear Recent Files List...", icon="TRASH"
+        )
 
 
 class RECOM_MT_external_blend_options(Menu):
@@ -66,14 +56,22 @@ class RECOM_MT_external_blend_options(Menu):
 
         file_path = bpy.path.abspath(settings.external_blend_file_path)
 
-        op = layout.operator("recom.open_blend_file", text="Open in Blender", icon="FILE_BLEND")
+        op = layout.operator(
+            "recom.open_blend_file", text="Open in Blender", icon="FILE_BLEND"
+        )
         op.file_path = file_path
 
-        op_open_in_new_session = layout.operator("recom.open_in_new_blender", text="Open in New Instance")
+        op_open_in_new_session = layout.operator(
+            "recom.open_in_new_blender", text="Open in New Instance"
+        )
         op_open_in_new_session.file_path = file_path
         layout.separator()
 
-        op_dir = layout.operator("recom.open_blend_directory", text="Open Blend File Path", icon="FILE_FOLDER")
+        op_dir = layout.operator(
+            "recom.open_blend_directory",
+            text="Open Blend File Path",
+            icon="FILE_FOLDER",
+        )
         op_dir.file_path = file_path
 
         try:
@@ -83,7 +81,9 @@ class RECOM_MT_external_blend_options(Menu):
         except (json.JSONDecodeError, TypeError, AttributeError) as e:
             log.error("Error occurred while fetching scene info: %s", e)
         if output_path and frame_path:
-            op_open_output_folder = layout.operator("recom.open_blend_output_path", text="Open Output Path")
+            op_open_output_folder = layout.operator(
+                "recom.open_blend_output_path", text="Open Output Path"
+            )
             op_open_output_folder.file_path = frame_path
 
         layout.separator()
@@ -141,7 +141,9 @@ class RECOM_MT_resolution_x(Menu):
 
         swap_row = layout.row()
         swap_row.active = settings.override_settings.resolution_override
-        swap_row.operator("recom.swap_resolution", text="Swap X and Y", icon="UV_SYNC_SELECT")
+        swap_row.operator(
+            "recom.swap_resolution", text="Swap X and Y", icon="UV_SYNC_SELECT"
+        )
         layout.separator()
 
         sections = {
@@ -155,7 +157,9 @@ class RECOM_MT_resolution_x(Menu):
             for val in values:
                 icon = "DOT" if val == current_x else "BLANK1"
 
-                op = layout.operator("recom.set_resolution", text=f"{val} px", icon=icon)
+                op = layout.operator(
+                    "recom.set_resolution", text=f"{val} px", icon=icon
+                )
                 op.dimension = "X"
                 op.value = val
 
@@ -180,7 +184,9 @@ class RECOM_MT_resolution_y(Menu):
 
         swap_row = layout.row()
         swap_row.active = settings.override_settings.resolution_override
-        swap_row.operator("recom.swap_resolution", text="Swap X and Y", icon="UV_SYNC_SELECT")
+        swap_row.operator(
+            "recom.swap_resolution", text="Swap X and Y", icon="UV_SYNC_SELECT"
+        )
         layout.separator()
 
         sections = {
@@ -194,7 +200,9 @@ class RECOM_MT_resolution_y(Menu):
             for val in values:
                 icon = "DOT" if val == current_y else "BLANK1"
 
-                op = layout.operator("recom.set_resolution", text=f"{val} px", icon=icon)
+                op = layout.operator(
+                    "recom.set_resolution", text=f"{val} px", icon=icon
+                )
                 op.dimension = "Y"
                 op.value = val
 
@@ -248,7 +256,9 @@ class RECOM_MT_adaptive_threshold(Menu):
         thresholds = [0.0050, 0.0100, 0.0150, 0.0250, 0.0500, 0.1000]
         for val in thresholds:
             icon = "DOT" if f"{val:.4f}" == current else "BLANK1"
-            op = layout.operator("recom.set_adaptive_threshold", text=f"{val:.4f}", icon=icon)
+            op = layout.operator(
+                "recom.set_adaptive_threshold", text=f"{val:.4f}", icon=icon
+            )
             op.value = val
 
 
@@ -289,7 +299,9 @@ class RECOM_MT_adaptive_min_samples(Menu):
         for val in values:
             icon = "DOT" if val == current else "BLANK1"
 
-            op = layout.operator("recom.set_adaptive_min_samples", text=str(val), icon=icon)
+            op = layout.operator(
+                "recom.set_adaptive_min_samples", text=str(val), icon=icon
+            )
             op.value = val
 
 
@@ -353,8 +365,10 @@ class RECOM_MT_cycles_render_devices(Menu):
 
     def draw(self, context):
         layout = self.layout
-        layout.operator("recom.cycles_device_ids", text="Show Device IDs", icon="INFO")
+        prefs = get_addon_preferences(context)
         layout.operator("recom.reinitialize_devices", icon="FILE_REFRESH")
+        layout.separator()
+        layout.prop(prefs, "show_device_id")
 
 
 class RECOM_MT_script_options(Menu):
@@ -413,19 +427,32 @@ class RECOM_MT_render_history_item(Menu):
         if not active_item.blend_path or not blend_exists:
             blend_col.enabled = False
 
-        op_open_blend_file = blend_col.operator("recom.open_blend_file", text="Open in Blender", icon="FILE_BLEND")
+        op_open_blend_file = blend_col.operator(
+            "recom.open_blend_file", text="Open in Blender", icon="FILE_BLEND"
+        )
         op_open_blend_file.file_path = active_item.blend_path
-        op_open_in_new_session = blend_col.operator("recom.open_in_new_blender", text="Open in New Instance")
+        op_open_in_new_session = blend_col.operator(
+            "recom.open_in_new_blender", text="Open in New Instance"
+        )
         op_open_in_new_session.file_path = active_item.blend_path
         blend_col.separator()
-        op_load_external_scene = blend_col.operator("recom.select_recent_file", text="Read Blend File", icon="ZOOM_ALL")
-        op_load_external_scene.file_path = active_item.blend_path
+        blend_col.operator(
+            "recom.select_recent_file", text="Read Blend File", icon="ZOOM_ALL"
+        ).file_path = active_item.blend_path
+
         blend_col.separator()
         blend_col.operator(
             "recom.open_output_folder", text="Open Blend File Path", icon="FILE_FOLDER"
         ).folder_path = str(Path(active_item.blend_path).parent)
+
+        blend_col.operator(
+            "recom.open_output_folder", text="Open Script File Path"
+        ).folder_path = active_item.export_path
+
         layout.separator()
-        layout.operator("recom.remove_render_history_item", text="Remove from History", icon="TRASH")
+        layout.operator(
+            "recom.remove_render_history_item", text="Remove from History", icon="TRASH"
+        )
 
 
 # Data for Path Variables Menu
@@ -477,11 +504,15 @@ class RECOM_MT_insert_variable_root(Menu):
         extra_column = 1 if has_custom else 0
         columns = num_sections + extra_column
 
-        flow = layout.grid_flow(columns=columns, even_columns=True, even_rows=False, align=True)
+        flow = layout.grid_flow(
+            columns=columns, even_columns=True, even_rows=False, align=True
+        )
 
         # Draw Path Templates section (Blender 5.0+)
         if show_templates:
-            self.draw_section(flow.column(), "Path Templates", PATH_VARIABLES_DATA["data"])
+            self.draw_section(
+                flow.column(), "Path Templates", PATH_VARIABLES_DATA["data"]
+            )
 
         # Draw Custom Variables section
         if has_custom:

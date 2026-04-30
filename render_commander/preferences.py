@@ -3,29 +3,28 @@
 import logging
 
 import bpy
-from bpy.types import AddonPreferences, PropertyGroup
 from bpy.props import (
-    StringProperty,
     BoolProperty,
     CollectionProperty,
-    IntProperty,
-    PointerProperty,
     EnumProperty,
     FloatProperty,
+    IntProperty,
+    PointerProperty,
+    StringProperty,
 )
+from bpy.types import AddonPreferences, PropertyGroup
 
-from .utils.constants import (
-    MODE_SINGLE,
-    MODE_SEQ,
-    MODE_LIST,
-)
-from .utils.helpers import redraw_ui
 from .cycles_devices import (
     RECOM_PG_DeviceSettings,
     get_device_types_items,
     refresh_cycles_devices,
 )
-
+from .utils.constants import (
+    MODE_LIST,
+    MODE_SEQ,
+    MODE_SINGLE,
+)
+from .utils.helpers import redraw_ui
 
 log = logging.getLogger(__name__)
 
@@ -56,10 +55,10 @@ class RECOM_PG_ScriptEntry(PropertyGroup):
     order: EnumProperty(
         name="Execution Order",
         items=[
-            ('PRE', "Pre-Render", "Run before render"),
-            ('POST', "Post-Render", "Run after render"),
+            ("PRE", "Pre-Render", "Run before render"),
+            ("POST", "Post-Render", "Run after render"),
         ],
-        default='PRE',
+        default="PRE",
         update=lambda self, context: redraw_ui(),
     )
 
@@ -118,6 +117,60 @@ class RECOM_PG_RenderHistoryItem(PropertyGroup):
     file_format: StringProperty(name="File Format", default="")
 
 
+class RECOM_PG_PropertyItem(PropertyGroup):
+    """Single property row for active item display"""
+
+    name: StringProperty(name="Property Name", default="")
+    value: StringProperty(name="Property Value", default="")
+    tooltip: StringProperty(name="Tooltip", default="Script Details")
+
+
+def update_active_render_history_properties(self, context):
+    """Update the active item properties collection when selection changes"""
+    # Validate index bounds
+    if self.active_render_history_index < 0 or not self.render_history:
+        return
+
+    # Check if index is within valid range
+    if self.active_render_history_index >= len(self.render_history):
+        # Reset to valid index or -1 if collection is empty
+        self.active_render_history_index = (
+            len(self.render_history) - 1 if self.render_history else -1
+        )
+        return
+
+    active_item = self.render_history[self.active_render_history_index]
+
+    # Clear existing properties
+    self.active_item_properties.clear()
+
+    # Define which properties to display
+    properties_to_show = [
+        ("Blend Name", active_item.blend_file_name),
+        ("Blend Directory", active_item.blend_dir),
+        ("Render ID", active_item.render_id),
+        ("Date", active_item.date),
+        ("Workers", str(active_item.worker_count)),
+        ("Engine", active_item.render_engine),
+        # ("Render Mode", active_item.launch_mode),
+        ("Frames", active_item.frames),
+        ("Resolution", f"{active_item.resolution_x} x {active_item.resolution_y}"),
+        ("Samples", active_item.samples),
+        ("File Format", active_item.file_format),
+        ("Output Path", active_item.output_path),
+        ("Script Name", active_item.script_filename),
+        ("Script Directory", active_item.export_path),
+    ]
+
+    # Populate the collection
+    for name, value in properties_to_show:
+        if value:  # Only add non-empty values
+            prop_item = self.active_item_properties.add()
+            prop_item.name = name
+            prop_item.value = value
+            prop_item.tooltip = f"{name}: {value}"
+
+
 class RECOM_PG_RecentBlendFile(PropertyGroup):
     path: StringProperty(name="Blend File Path")
 
@@ -125,11 +178,21 @@ class RECOM_PG_RecentBlendFile(PropertyGroup):
 class RECOM_PG_VisiblePanels(PropertyGroup):
     """Visibility settings for addon panels"""
 
-    external_scene: BoolProperty(name="Blend File", default=True, update=lambda self, context: redraw_ui())
-    override_settings: BoolProperty(name="Override Settings", default=True, update=lambda self, context: redraw_ui())
-    preferences: BoolProperty(name="Render Preferences", default=True, update=lambda self, context: redraw_ui())
+    external_scene: BoolProperty(
+        name="Blend File", default=True, update=lambda self, context: redraw_ui()
+    )
+    override_settings: BoolProperty(
+        name="Override Settings", default=True, update=lambda self, context: redraw_ui()
+    )
+    preferences: BoolProperty(
+        name="Render Preferences",
+        default=True,
+        update=lambda self, context: redraw_ui(),
+    )
     ocio: BoolProperty(name="OCIO Environment", default=False)
-    history: BoolProperty(name="Export History", default=True, update=lambda self, context: redraw_ui())
+    history: BoolProperty(
+        name="Export History", default=True, update=lambda self, context: redraw_ui()
+    )
 
 
 class RECOM_PG_OverrideImportSettings(PropertyGroup):
@@ -181,6 +244,8 @@ class RECOM_Preferences(AddonPreferences):
     )
     visible_panels: PointerProperty(type=RECOM_PG_VisiblePanels)
 
+    command_line_preview: StringProperty(name="Preview", default="")
+
     # Ext blend file
     recent_blend_files: CollectionProperty(type=RECOM_PG_RecentBlendFile)
     compact_external_info: BoolProperty(
@@ -191,7 +256,9 @@ class RECOM_Preferences(AddonPreferences):
 
     # Overrides
     custom_variables: CollectionProperty(type=RECOM_PG_CustomVariable)
-    active_custom_variable_index: IntProperty(default=-1, name="Active Custom Variable Index")
+    active_custom_variable_index: IntProperty(
+        default=-1, name="Active Custom Variable Index"
+    )
     use_underscore_separator: BoolProperty(
         name="Use Underscore Separator",
         description="Automatically inserts an underscore between the base path and the added variable",
@@ -201,7 +268,13 @@ class RECOM_Preferences(AddonPreferences):
 
     # Render History
     render_history: CollectionProperty(type=RECOM_PG_RenderHistoryItem)
-    active_render_history_index: IntProperty(default=-1, name="Active Render History Index")
+    active_render_history_index: IntProperty(
+        default=-1,
+        name="Active Render History Index",
+        update=update_active_render_history_properties,
+    )
+    active_item_properties: CollectionProperty(type=RECOM_PG_PropertyItem)
+    item_properties_index: IntProperty(default=-1)
 
     # Cycles Devices
     compute_device_type: EnumProperty(
@@ -212,10 +285,16 @@ class RECOM_Preferences(AddonPreferences):
         update=lambda self, context: redraw_ui(),
     )
     devices: CollectionProperty(type=RECOM_PG_DeviceSettings)
+    show_device_id: BoolProperty(
+        name="Show Device ID",
+        default=False,
+        update=lambda self, context: redraw_ui(),
+    )
     devices_ini: BoolProperty(
         name="Get Devices from Cycles",
         description="Create a local copy of devices",
         default=False,
+        update=lambda self, context: redraw_ui(),
     )
 
     # Parallel Rendering
@@ -233,21 +312,21 @@ class RECOM_Preferences(AddonPreferences):
         name="Frame Mode",
         items=[
             (
-                'SEQUENTIAL',
+                "SEQUENTIAL",
                 "Sequential",
                 "Each device renders the full frame range.\n"
-                "Automatically disables overwriting and enables placeholders.",
+                " * Automatically disables overwriting and enables placeholders.",
             ),
-            ('FRAME_SPLIT', "Split", "Divide frame range among devices"),
+            ("FRAME_SPLIT", "Split", "Divide frame range among devices"),
         ],
-        default='FRAME_SPLIT',
+        default="FRAME_SPLIT",
         description="How frames are distributed across rendering devices",
     )
     parallel_delay: FloatProperty(
         name="Multi-Process Start Delay",
         description="Delay before starting each additional render process to avoid resource conflicts",
         min=0.0,
-        default=3.0,
+        default=1.0,
         step=100.0,
         unit="TIME_ABSOLUTE",
     )
@@ -289,11 +368,6 @@ class RECOM_Preferences(AddonPreferences):
         description="Prevents the terminal window from closing automatically after the render finishes",
         default=True,
     )
-    exit_active_session: BoolProperty(
-        name="Close Blender",
-        description="Exit current Blender instance after export",
-        default=False,
-    )
     auto_save_before_render: BoolProperty(
         name="Auto‑Save Before Render",
         description="Save the current blend file before export, if it has unsaved changes",
@@ -308,7 +382,7 @@ class RECOM_Preferences(AddonPreferences):
         name="Track Render Time",
         description="Show render progress in the console.\n"
         "Displays progress bar, percentage, frame count, and estimated time remaining",
-        default=True,
+        default=False,
     )
 
     # Filename
@@ -329,10 +403,10 @@ class RECOM_Preferences(AddonPreferences):
         name="File Separator",
         description="Separator between output filename and frame numbers.\nUsed when the filename does not contain # characters.",
         items=[
-            ('DOT', "Dot (.)", "Filename.####"),
-            ('UNDERSCORE', "Underscore (_)", "Filename_####"),
+            ("DOT", "Dot (.)", "Filename.####"),
+            ("UNDERSCORE", "Underscore (_)", "Filename_####"),
         ],
-        default='DOT',
+        default="DOT",
     )
     # Script Name
     use_blend_name_in_script: BoolProperty(
@@ -378,11 +452,12 @@ class RECOM_Preferences(AddonPreferences):
         name="Export Folder Target",
         description="Where the exported files will be saved",
         items=[
-            ('SELECT_DIR', "Select Directory", "Folder chosen in the export dialog"),
-            ('BLEND_DIR', "Blend File Path", "Folder next to the .blend file"),
-            ('CUSTOM_PATH', "Custom Path", "User‑defined folder"),
+            ("SELECT_DIR", "Select", "Folder chosen in the export dialog"),
+            ("BLEND_DIR", "Blend Path", "Folder next to the .blend file"),
+            ("CUSTOM_PATH", "Custom", "User‑defined folder"),
         ],
-        default='SELECT_DIR',
+        default="SELECT_DIR",
+        update=lambda self, context: redraw_ui(),
     )
     custom_export_path: StringProperty(
         name="Custom Export Path",
@@ -413,7 +488,7 @@ class RECOM_Preferences(AddonPreferences):
     custom_command_line_args: StringProperty(
         name="Command Line Arguments",
         description="Additional command line arguments to pass to Blender during render",
-        default="-noaudio --log render",
+        default="--log render",
         update=lambda self, context: redraw_ui(),
     )
 
@@ -421,16 +496,20 @@ class RECOM_Preferences(AddonPreferences):
     log_to_file: BoolProperty(
         name="Log to File",
         default=False,
-        description="Save render logs to a file.\n" "Appends: --log-file <filepath>",
+        description="Save render logs to a file.\n * Appends: --log-file <filepath>",
     )
     log_to_file_location: EnumProperty(
         name="Log Directory",
         items=[
-            ('EXECUTION_FILES', "Scripts Path", "Save logs files in render scripts directory"),
-            ('BLEND_PATH', "Blend File Path", "Save logs files next to blend file"),
-            ('CUSTOM_PATH', "Custom Path", "Specify custom log folder location"),
+            (
+                "EXECUTION_FILES",
+                "Scripts Path",
+                "Save logs files in render scripts directory",
+            ),
+            ("BLEND_PATH", "Blend File Path", "Save logs files next to blend file"),
+            ("CUSTOM_PATH", "Custom Path", "Specify custom log folder location"),
         ],
-        default='EXECUTION_FILES',
+        default="EXECUTION_FILES",
     )
     save_to_log_folder: BoolProperty(
         name="Save to Logs Folder",
@@ -448,40 +527,10 @@ class RECOM_Preferences(AddonPreferences):
         default="logs",
     )
 
-    # Debug
-    cmd_debug: BoolProperty(
-        name="Basic Debug Mode",
-        description="Turn debugging on.\n" "Appends: --debug",
-        default=False,
-    )
-    debug_value: IntProperty(
-        name="Debug Value",
-        default=0,
-        min=0,
-        max=3,
-        description="Set specific debug value for debugging purposes (0-3).\n" "Appends: --debug-value <value>",
-    )
-    verbose_level: EnumProperty(
-        name="Verbosity Level",
-        items=[
-            ('0', "None", "No verbosity"),
-            ('1', "Low", "Low verbosity"),
-            ('2', "Medium", "Medium verbosity - default"),
-            ('3', "High", "High verbosity"),
-        ],
-        default='2',
-        description="Set the verbosity level for debug messages.\n" "Appends: --verbose <verbose>",
-    )
-    debug_cycles: BoolProperty(
-        name="Debug Cycles",
-        description="Enable debug messages from Cycles renderer.\n" "Appends: --debug-cycles",
-        default=False,
-    )
-
     # Append Scripts
     append_python_scripts: BoolProperty(
         name="Append Python Scripts",
-        description="Add additional python scripts to run during rendering.\n" "Appends: --python <filepath>",
+        description="Add additional python scripts to run during rendering.\n * Appends: --python <filepath>",
         default=False,
     )
     additional_scripts: CollectionProperty(
@@ -512,16 +561,20 @@ class RECOM_Preferences(AddonPreferences):
         layout.use_property_split = True
         layout.use_property_decorate = False
 
-        col = layout.column()
-
         # Main panels
-        col.label(text="Visible Panels")
+        layout.label(text="Visible Panels")
+        col = layout.column(align=True)
+        col.prop(self.visible_panels, "external_scene", text="Blend File")
+        col.prop(self.visible_panels, "override_settings", text="Override Settings")
+        col.prop(self.visible_panels, "preferences", text="Render Preferences")
+        col.prop(self.visible_panels, "history", text="Export History")
+
         col = col.column(heading="Render Preferences")
         col.prop(self.visible_panels, "ocio")
 
         # Debugging
+        layout.label(text="Debug")
         col = layout.column()
-        col.label(text="Debug")
         col.prop(self, "debug_mode", text="Console Logging")
 
 
@@ -530,6 +583,7 @@ classes = (
     RECOM_PG_OverrideImportSettings,
     RECOM_PG_RecentBlendFile,
     RECOM_PG_RenderHistoryItem,
+    RECOM_PG_PropertyItem,
     RECOM_PG_ScriptEntry,
     RECOM_PG_CustomVariable,
     RECOM_PG_VisiblePanels,

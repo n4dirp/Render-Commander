@@ -4,29 +4,28 @@
 import logging
 
 import bpy
-from bpy.types import Panel, UIList, Menu, Operator
 from bl_ui.utils import PresetPanel
+from bpy.types import Menu, Operator, Panel, UIList
 
+from ..operators.presets import PRESET_REGISTRY
 from ..preferences import get_addon_preferences
 from ..utils.constants import (
-    RECOM_PT_BasePanel,
-    RECOM_PT_SubPanel,
-    RE_EEVEE_NEXT,
-    RE_EEVEE,
-    RE_CYCLES,
-    MODE_SINGLE,
-    MODE_SEQ,
-    MODE_LIST,
     ICON_OPTION,
+    MODE_LIST,
+    MODE_SEQ,
+    MODE_SINGLE,
+    RE_CYCLES,
+    RE_EEVEE,
+    RE_EEVEE_NEXT,
     RESERVED_TOKENS,
+    RCBasePanel,
+    RCSubPanel,
 )
 from ..utils.helpers import (
     get_default_resolution,
     get_render_engine,
     redraw_ui,
 )
-from ..operators.presets import PRESET_REGISTRY
-
 
 log = logging.getLogger(__name__)
 
@@ -36,20 +35,26 @@ OVERRIDE_MAP = {
         "cycles_device": ("Cycles Device", "cycles.device_override", "BLANK1"),
         "cycles_sampling": ("Cycles Sampling", "cycles.sampling_override", "BLANK1"),
         "cycles_denoising": ("Cycles Denoising", "cycles.denoising_override", "BLANK1"),
-        "cycles_performance": ("Cycles Performance", "cycles.performance_override", "BLANK1"),
+        "cycles_performance": (
+            "Cycles Performance",
+            "cycles.performance_override",
+            "BLANK1",
+        ),
         "eevee_all": ("EEVEE Sampling", "eevee_override", "BLANK1"),
         "motion_blur": ("Motion Blur", "motion_blur_override", "BLANK1"),
     },
     "Output": {
         "resolution": ("Resolution", "format_override", "IMAGE_BACKGROUND"),
+        "overscan": ("Overscan", "use_overscan", "FULLSCREEN_ENTER"),
         "frame_range": ("Frame Range", "frame_range_override", "PREVIEW_RANGE"),
         "output_path": ("Output Path", "output_path_override", "FILE_FOLDER"),
         "file_format": ("File Format", "file_format_override", "FILE_IMAGE"),
     },
     "Data": {
+        "custom_api": ("Advanced", "use_data_path_overrides", "SCRIPT"),
         "camera_settings": ("Camera", "cameras_override", "OUTLINER_DATA_CAMERA"),
         "compositor": ("Compositing", "compositor_override", "NODE_COMPOSITING"),
-        "custom_api": ("Advanced", "use_data_path_overrides", "SCRIPT"),
+        "fps_converter": ("FPS Converter", "use_fps_converter", "FILE_REFRESH"),
     },
 }
 
@@ -100,7 +105,9 @@ class RECOM_OT_manage_override(Operator):
     bl_label = "Manage Override"
     bl_options = {"UNDO", "INTERNAL"}
 
-    action: bpy.props.EnumProperty(items=[("ADD", "Add", ""), ("REMOVE", "Remove", "")], default="ADD")
+    action: bpy.props.EnumProperty(
+        items=[("ADD", "Add", ""), ("REMOVE", "Remove", "")], default="ADD"
+    )
     override_id: bpy.props.StringProperty()
 
     def execute(self, context):
@@ -168,7 +175,11 @@ class RECOM_OT_reset_overrides(Operator):
 
                 full_path = f"{current_path}.{pid}" if current_path else pid
 
-                if pid in {"rna_type", "name"} or full_path in IGNORE_PATHS or pid in IGNORE_PATHS:
+                if (
+                    pid in {"rna_type", "name"}
+                    or full_path in IGNORE_PATHS
+                    or pid in IGNORE_PATHS
+                ):
                     continue
 
                 if prop.type == "COLLECTION":
@@ -291,7 +302,7 @@ class RECOM_PT_override_advanced_property_presets(PresetPanel, Panel):
 #################################################
 
 
-class RECOM_PT_scene_override_settings(RECOM_PT_SubPanel, Panel):
+class RECOM_PT_scene_override_settings(RCSubPanel, Panel):
     """Main scene overrides panel"""
 
     bl_label = "Override Settings"
@@ -310,19 +321,19 @@ class RECOM_PT_scene_override_settings(RECOM_PT_SubPanel, Panel):
 
     def draw(self, context):
         layout = self.layout
-
         row = layout.row(align=True)
         row.menu("RECOM_MT_add_override_menu", text="Add Override", icon="ADD")
         row.popover(panel="RECOM_PT_import_overrides_popup", text="", icon="IMPORT")
 
         settings = context.window_manager.recom_render_settings.override_settings
         has_active_overrides = any(
-            is_override_active(settings, prop_path) for _, _, prop_path, _ in iterate_all_overrides()
+            is_override_active(settings, prop_path)
+            for _, _, prop_path, _ in iterate_all_overrides()
         )
 
         sub = row.row(align=True)
         sub.enabled = has_active_overrides
-        sub.operator("recom.remove_all_overrides", text="", icon="PANEL_CLOSE")
+        sub.operator("recom.remove_all_overrides", text="", icon="TRASH")
 
 
 class RECOM_PT_import_overrides_popup(Panel):
@@ -341,32 +352,53 @@ class RECOM_PT_import_overrides_popup(Panel):
         col = layout.column(align=True)
 
         if render_engine == RE_CYCLES:
-            col.prop(prefs.override_import_settings, "import_compute_device", text="Cycles Device")
-            col.prop(prefs.override_import_settings, "import_sampling", text="Cycles Sampling")
-            col.prop(prefs.override_import_settings, "import_performance", text="Cycles Performance")
+            col.prop(
+                prefs.override_import_settings,
+                "import_compute_device",
+                text="Cycles Device",
+            )
+            col.prop(
+                prefs.override_import_settings,
+                "import_sampling",
+                text="Cycles Sampling",
+            )
+            col.prop(
+                prefs.override_import_settings,
+                "import_performance",
+                text="Cycles Performance",
+            )
         elif render_engine in {RE_EEVEE_NEXT, RE_EEVEE}:
-            col.prop(prefs.override_import_settings, "import_eevee_settings", text="EEVEE Sampling")
-        col.prop(prefs.override_import_settings, "import_motion_blur", text="Motion Blur")
+            col.prop(
+                prefs.override_import_settings,
+                "import_eevee_settings",
+                text="EEVEE Sampling",
+            )
+        col.prop(
+            prefs.override_import_settings, "import_motion_blur", text="Motion Blur"
+        )
 
         col.separator(factor=0.5)
         col.prop(prefs.override_import_settings, "import_resolution", text="Resolution")
-        col.prop(prefs.override_import_settings, "import_frame_range", text="Frame Range")
-        col.prop(prefs.override_import_settings, "import_output_path", text="Output Path")
-        col.prop(prefs.override_import_settings, "import_output_format", text="File Format")
+        col.prop(
+            prefs.override_import_settings, "import_frame_range", text="Frame Range"
+        )
+        col.prop(
+            prefs.override_import_settings, "import_output_path", text="Output Path"
+        )
+        col.prop(
+            prefs.override_import_settings, "import_output_format", text="File Format"
+        )
 
         col.separator(factor=0.5)
-        col.prop(prefs.override_import_settings, "import_compositor", text="Compositing")
+        col.prop(
+            prefs.override_import_settings, "import_compositor", text="Compositing"
+        )
 
         col.separator(factor=0.5)
-        layout.operator("recom.import_all_settings", text="Import", icon='IMPORT')
+        layout.operator("recom.import_all_settings", text="Import", icon="IMPORT")
 
 
-class RECOM_PT_cycles_overrides(RECOM_PT_BasePanel, Panel):
-    """
-    Invisible container that ensures these panels only show
-    when the render engine is Cycles.
-    """
-
+class RECOM_PT_cycles_overrides(RCBasePanel, Panel):
     bl_label = "Cycles"
     bl_parent_id = "RECOM_PT_scene_override_settings"
     bl_options = {"HIDE_HEADER"}
@@ -381,7 +413,7 @@ class RECOM_PT_cycles_overrides(RECOM_PT_BasePanel, Panel):
         pass
 
 
-class RECOM_PT_compute_device(RECOM_PT_BasePanel, Panel):
+class RECOM_PT_compute_device(RCBasePanel, Panel):
     bl_label = "Cycles Device"
     bl_parent_id = "RECOM_PT_cycles_overrides"
 
@@ -408,7 +440,7 @@ class RECOM_PT_compute_device(RECOM_PT_BasePanel, Panel):
         row.prop(settings.override_settings.cycles, "device", text="Type", expand=True)
 
 
-class RECOM_PT_samples_settings(RECOM_PT_BasePanel, Panel):
+class RECOM_PT_samples_settings(RCBasePanel, Panel):
     bl_label = "Cycles Sampling"
     bl_parent_id = "RECOM_PT_cycles_overrides"
 
@@ -434,17 +466,28 @@ class RECOM_PT_samples_settings(RECOM_PT_BasePanel, Panel):
         settings = context.window_manager.recom_render_settings
 
         # Mode
-        layout.row().prop(settings.override_settings.cycles, "sampling_mode", expand=True)
+        layout.row().prop(
+            settings.override_settings.cycles, "sampling_mode", expand=True
+        )
 
         if settings.override_settings.cycles.sampling_mode == "FACTOR":
             row = layout.row(align=True)
-            row.prop(settings.override_settings.cycles, "sampling_factor", text="Samples %", slider=True)
+            row.prop(
+                settings.override_settings.cycles,
+                "sampling_factor",
+                text="Samples %",
+                slider=True,
+            )
             row.menu("RECOM_MT_sampling_factor", text="", icon=ICON_OPTION)
         else:
             row = layout.row(heading="Noise Threshold")
-            row.prop(settings.override_settings.cycles, "use_adaptive_sampling", text="")
+            row.prop(
+                settings.override_settings.cycles, "use_adaptive_sampling", text=""
+            )
 
-            use_adaptive_sampling = settings.override_settings.cycles.use_adaptive_sampling
+            use_adaptive_sampling = (
+                settings.override_settings.cycles.use_adaptive_sampling
+            )
 
             sub = row.row(align=True)
             sub.active = use_adaptive_sampling
@@ -462,7 +505,11 @@ class RECOM_PT_samples_settings(RECOM_PT_BasePanel, Panel):
 
             if use_adaptive_sampling:
                 row = col.row(align=True)
-                row.prop(settings.override_settings.cycles, "adaptive_min_samples", text="Min Samples")
+                row.prop(
+                    settings.override_settings.cycles,
+                    "adaptive_min_samples",
+                    text="Min Samples",
+                )
                 row.menu("RECOM_MT_adaptive_min_samples", text="", icon=ICON_OPTION)
 
             row = col.row(align=True)
@@ -470,7 +517,7 @@ class RECOM_PT_samples_settings(RECOM_PT_BasePanel, Panel):
             row.menu("RECOM_MT_time_limit", text="", icon=ICON_OPTION)
 
 
-class RECOM_PT_denoise_settings(RECOM_PT_BasePanel, Panel):
+class RECOM_PT_denoise_settings(RCBasePanel, Panel):
     bl_label = "Cycles Denoising"
     bl_parent_id = "RECOM_PT_cycles_overrides"
 
@@ -511,7 +558,7 @@ class RECOM_PT_denoise_settings(RECOM_PT_BasePanel, Panel):
             col.prop(settings.override_settings.cycles, "denoising_use_gpu")
 
 
-class RECOM_PT_performance_settings(RECOM_PT_BasePanel, Panel):
+class RECOM_PT_performance_settings(RCBasePanel, Panel):
     bl_label = "Cycles Performance"
     bl_parent_id = "RECOM_PT_cycles_overrides"
 
@@ -535,7 +582,7 @@ class RECOM_PT_performance_settings(RECOM_PT_BasePanel, Panel):
         settings = context.window_manager.recom_render_settings
 
         col = layout.column(heading="")
-        col.prop(settings.override_settings.cycles, "use_tiling")
+        col.prop(settings.override_settings.cycles, "use_tiling", text="Tiling")
         row = col.row()
         row.active = settings.override_settings.cycles.use_tiling
         row.prop(settings.override_settings.cycles, "tile_size")
@@ -545,7 +592,7 @@ class RECOM_PT_performance_settings(RECOM_PT_BasePanel, Panel):
         col.prop(settings.override_settings.cycles, "persistent_data")
 
 
-class RECOM_PT_eevee_settings(RECOM_PT_BasePanel, Panel):
+class RECOM_PT_eevee_settings(RCBasePanel, Panel):
     bl_label = "EEVEE Sampling"
     bl_parent_id = "RECOM_PT_scene_override_settings"
     bl_order = 0
@@ -580,7 +627,7 @@ class RECOM_PT_eevee_settings(RECOM_PT_BasePanel, Panel):
         col.prop(settings.override_settings.eevee, "samples", text="Samples")
 
 
-class RECOM_PT_motion_blur_settings(RECOM_PT_BasePanel, Panel):
+class RECOM_PT_motion_blur_settings(RCBasePanel, Panel):
     bl_label = "Motion Blur"
     bl_parent_id = "RECOM_PT_scene_override_settings"
     bl_order = 1
@@ -596,7 +643,9 @@ class RECOM_PT_motion_blur_settings(RECOM_PT_BasePanel, Panel):
 
     def draw_header_preset(self, context):
         layout = self.layout
-        op = layout.operator("recom.manage_override", text="", icon="PANEL_CLOSE", emboss=False)
+        op = layout.operator(
+            "recom.manage_override", text="", icon="PANEL_CLOSE", emboss=False
+        )
         op.action = "REMOVE"
         op.override_id = "motion_blur"
         layout.separator(factor=0.25)
@@ -611,10 +660,15 @@ class RECOM_PT_motion_blur_settings(RECOM_PT_BasePanel, Panel):
         col = layout.column()
         col.active = settings.override_settings.use_motion_blur
         col.prop(settings.override_settings, "motion_blur_position", text="Position")
-        col.prop(settings.override_settings, "motion_blur_shutter", text="Shutter", slider=True)
+        col.prop(
+            settings.override_settings,
+            "motion_blur_shutter",
+            text="Shutter",
+            slider=True,
+        )
 
 
-class RECOM_PT_frame_range_settings(RECOM_PT_BasePanel, Panel):
+class RECOM_PT_frame_range_settings(RCBasePanel, Panel):
     bl_label = "Frame Range"
     bl_parent_id = "RECOM_PT_scene_override_settings"
     bl_order = 2
@@ -626,7 +680,9 @@ class RECOM_PT_frame_range_settings(RECOM_PT_BasePanel, Panel):
 
     def draw_header_preset(self, context):
         layout = self.layout
-        op = layout.operator("recom.manage_override", text="", icon="PANEL_CLOSE", emboss=False)
+        op = layout.operator(
+            "recom.manage_override", text="", icon="PANEL_CLOSE", emboss=False
+        )
         op.action = "REMOVE"
         op.override_id = "frame_range"
         layout.separator(factor=0.25)
@@ -653,7 +709,45 @@ class RECOM_PT_frame_range_settings(RECOM_PT_BasePanel, Panel):
             layout.label(text="No supported in current render mode")
 
 
-class RECOM_PT_resolution_settings(RECOM_PT_BasePanel, Panel):
+class RECOM_PT_fps_converter_settings(RCBasePanel, Panel):
+    bl_label = "FPS Converter"
+    bl_parent_id = "RECOM_PT_scene_override_settings"
+    bl_order = 3
+
+    @classmethod
+    def poll(cls, context):
+        settings = context.window_manager.recom_render_settings.override_settings
+        return settings.use_fps_converter
+
+    def draw_header_preset(self, context):
+        layout = self.layout
+        op = layout.operator(
+            "recom.manage_override", text="", icon="PANEL_CLOSE", emboss=False
+        )
+        op.action = "REMOVE"
+        op.override_id = "fps_converter"
+        layout.separator(factor=0.25)
+
+    def draw(self, context):
+        layout = self.layout
+        layout.use_property_split = True
+        layout.use_property_decorate = False
+
+        settings = context.window_manager.recom_render_settings
+        layout.active = settings.override_settings.use_fps_converter
+
+        col = layout.column()
+        col.prop(settings.override_settings, "target_fps", text="Target")
+        if settings.override_settings.target_fps == "CUSTOM":
+            col.prop(settings.override_settings, "custom_fps", text="Value")
+        col.prop(
+            settings.override_settings,
+            "preserve_motion_blur",
+            text="Preserve Motion Blur",
+        )
+
+
+class RECOM_PT_resolution_settings(RCBasePanel, Panel):
     bl_label = "Resolution"
     bl_parent_id = "RECOM_PT_scene_override_settings"
     bl_order = 1
@@ -667,7 +761,9 @@ class RECOM_PT_resolution_settings(RECOM_PT_BasePanel, Panel):
         layout = self.layout
         row = layout.row(align=True)
         RECOM_PT_resolution_presets.draw_panel_header(row)
-        op = row.operator("recom.manage_override", text="", icon="PANEL_CLOSE", emboss=False)
+        op = row.operator(
+            "recom.manage_override", text="", icon="PANEL_CLOSE", emboss=False
+        )
         op.action = "REMOVE"
         op.override_id = "resolution"
         layout.separator(factor=0.25)
@@ -688,48 +784,55 @@ class RECOM_PT_resolution_settings(RECOM_PT_BasePanel, Panel):
         sub_row = sub.row(align=True)
         sub_row.prop(settings.override_settings, "resolution_mode", text="")
 
-        # Conditional UI Based on Mode
-        col = col.column(align=True)
-        col.active = settings.override_settings.resolution_override
+        if settings.override_settings.resolution_override:
+            # Conditional UI Based on Mode
+            col = col.column(align=True)
+            col.active = settings.override_settings.resolution_override
 
-        if settings.override_settings.resolution_mode == "SET_WIDTH":
-            row = col.row(align=True)
-            row.prop(settings.override_settings, "resolution_x", text="X")
-            row.menu("RECOM_MT_resolution_x", text="", icon=ICON_OPTION)
+            if settings.override_settings.resolution_mode == "SET_WIDTH":
+                row = col.row(align=True)
+                row.prop(settings.override_settings, "resolution_x", text="X")
+                row.menu("RECOM_MT_resolution_x", text="", icon=ICON_OPTION)
 
-            auto_height = settings.override_settings.cached_auto_height
-            settings.override_settings.resolution_preview = auto_height
+                auto_height = settings.override_settings.cached_auto_height
+                settings.override_settings.resolution_preview = auto_height
 
-            row = col.row(align=True)
-            row.enabled = False
-            row.prop(settings.override_settings, "resolution_preview", text="Auto-Y")
-            row.menu("RECOM_MT_resolution_y", text="", icon=ICON_OPTION)
-        elif settings.override_settings.resolution_mode == "SET_HEIGHT":
-            auto_width = settings.override_settings.cached_auto_width
-            settings.override_settings.resolution_preview = auto_width
+                row = col.row(align=True)
+                row.enabled = False
+                row.prop(
+                    settings.override_settings, "resolution_preview", text="Auto-Y"
+                )
+                row.menu("RECOM_MT_resolution_y", text="", icon=ICON_OPTION)
+            elif settings.override_settings.resolution_mode == "SET_HEIGHT":
+                auto_width = settings.override_settings.cached_auto_width
+                settings.override_settings.resolution_preview = auto_width
 
-            row = col.row(align=True)
-            row.enabled = False
-            row.prop(settings.override_settings, "resolution_preview", text="Auto-X")
-            row.menu("RECOM_MT_resolution_x", text="", icon=ICON_OPTION)
+                row = col.row(align=True)
+                row.enabled = False
+                row.prop(
+                    settings.override_settings, "resolution_preview", text="Auto-X"
+                )
+                row.menu("RECOM_MT_resolution_x", text="", icon=ICON_OPTION)
 
-            row = col.row(align=True)
-            row.prop(settings.override_settings, "resolution_y", text="Y")
-            row.menu("RECOM_MT_resolution_y", text="", icon=ICON_OPTION)
-        else:
-            row = col.row(align=True)
-            row.prop(settings.override_settings, "resolution_x", text="X")
-            row.menu("RECOM_MT_resolution_x", text="", icon=ICON_OPTION)
+                row = col.row(align=True)
+                row.prop(settings.override_settings, "resolution_y", text="Y")
+                row.menu("RECOM_MT_resolution_y", text="", icon=ICON_OPTION)
+            else:
+                row = col.row(align=True)
+                row.prop(settings.override_settings, "resolution_x", text="X")
+                row.menu("RECOM_MT_resolution_x", text="", icon=ICON_OPTION)
 
-            row = col.row(align=True)
-            row.prop(settings.override_settings, "resolution_y", text="Y")
-            row.menu("RECOM_MT_resolution_y", text="", icon=ICON_OPTION)
+                row = col.row(align=True)
+                row.prop(settings.override_settings, "resolution_y", text="Y")
+                row.menu("RECOM_MT_resolution_y", text="", icon=ICON_OPTION)
 
         # Scale resolution menu
         col = layout.column()
 
         row = col.row(align=True)
-        row.prop(settings.override_settings, "custom_render_scale", text="%", slider=True)
+        row.prop(
+            settings.override_settings, "custom_render_scale", text="%", slider=True
+        )
         row.menu("RECOM_MT_custom_render_scale", text="", icon=ICON_OPTION)
 
         # Scaled result
@@ -762,19 +865,23 @@ class RECOM_PT_resolution_settings(RECOM_PT_BasePanel, Panel):
             row.label(text=f"Scaled: {scaled_width} x {scaled_height} px")
 
 
-class RECOM_PT_overscan_settings(RECOM_PT_BasePanel, Panel):
+class RECOM_PT_overscan_settings(RCBasePanel, Panel):
     bl_label = "Overscan"
-    bl_parent_id = "RECOM_PT_resolution_settings"
-    bl_options = {"DEFAULT_CLOSED"}
+    bl_parent_id = "RECOM_PT_scene_override_settings"
 
     @classmethod
     def poll(cls, context):
         settings = context.window_manager.recom_render_settings.override_settings
-        return settings.format_override
+        return settings.use_overscan
 
-    def draw_header(self, context):
-        settings = context.window_manager.recom_render_settings
-        self.layout.prop(settings.override_settings, "use_overscan", text="")
+    def draw_header_preset(self, context):
+        layout = self.layout
+        op = layout.operator(
+            "recom.manage_override", text="", icon="PANEL_CLOSE", emboss=False
+        )
+        op.action = "REMOVE"
+        op.override_id = "overscan"  # Changed from using resolution's remove button
+        layout.separator(factor=0.25)
 
     def draw(self, context):
         layout = self.layout
@@ -785,6 +892,8 @@ class RECOM_PT_overscan_settings(RECOM_PT_BasePanel, Panel):
         layout.active = settings.override_settings.use_overscan
 
         col = layout.column()
+        col.use_property_split = True
+        col.use_property_decorate = False
         row = col.row()
         row.prop(settings.override_settings, "overscan_type", text="Type", expand=True)
 
@@ -798,10 +907,12 @@ class RECOM_PT_overscan_settings(RECOM_PT_BasePanel, Panel):
                 col.prop(settings.override_settings, "overscan_width", text="X")
                 col.prop(settings.override_settings, "overscan_height", text="Y")
         else:
-            col.prop(settings.override_settings, "overscan_percent", text="%", slider=True)
+            col.prop(
+                settings.override_settings, "overscan_percent", text="%", slider=True
+            )
 
 
-class RECOM_PT_output_path_settings(RECOM_PT_BasePanel, Panel):
+class RECOM_PT_output_path_settings(RCBasePanel, Panel):
     bl_label = "Output Path"
     bl_parent_id = "RECOM_PT_scene_override_settings"
     bl_order = 3
@@ -815,7 +926,9 @@ class RECOM_PT_output_path_settings(RECOM_PT_BasePanel, Panel):
         layout = self.layout
         row = layout.row(align=True)
         RECOM_PT_output_presets.draw_panel_header(row)
-        op = row.operator("recom.manage_override", text="", icon="PANEL_CLOSE", emboss=False)
+        op = row.operator(
+            "recom.manage_override", text="", icon="PANEL_CLOSE", emboss=False
+        )
         op.action = "REMOVE"
         op.override_id = "output_path"
         layout.separator(factor=0.25)
@@ -830,19 +943,17 @@ class RECOM_PT_output_path_settings(RECOM_PT_BasePanel, Panel):
             settings.override_settings,
             "output_directory",
             text="",
-            icon="FILE_FOLDER",
             placeholder="Directory",
         )
         col.prop(
             settings.override_settings,
             "output_filename",
             text="",
-            icon="FILE",
             placeholder="Filename",
         )
 
 
-class RECOM_PT_insert_variables(RECOM_PT_BasePanel, Panel):
+class RECOM_PT_insert_variables(RCBasePanel, Panel):
     bl_label = "Path Variables"
     bl_parent_id = "RECOM_PT_output_path_settings"
     bl_options = {"DEFAULT_CLOSED"}
@@ -860,11 +971,16 @@ class RECOM_PT_insert_variables(RECOM_PT_BasePanel, Panel):
 
         col = layout.column()
         row = col.row(align=False)
-        row.prop(settings.override_settings, "variable_insert_target", text="Target", expand=True)
-        col.prop(prefs, "use_underscore_separator", text="Add Underscore")
+        row.prop(
+            settings.override_settings,
+            "variable_insert_target",
+            text="Target",
+            expand=True,
+        )
+        col.prop(prefs, "use_underscore_separator", text="Underscore")
 
 
-class RECOM_PT_custom_variables(RECOM_PT_BasePanel, Panel):
+class RECOM_PT_custom_variables(RCBasePanel, Panel):
     bl_label = "Custom Variables"
     bl_parent_id = "RECOM_PT_insert_variables"
     bl_options = {"DEFAULT_CLOSED"}
@@ -902,7 +1018,8 @@ class RECOM_PT_custom_variables(RECOM_PT_BasePanel, Panel):
         add_remove_col.operator("recom.add_custom_variable", text="", icon="ADD")
 
         has_selection = bool(
-            prefs.custom_variables and prefs.active_custom_variable_index < len(prefs.custom_variables)
+            prefs.custom_variables
+            and prefs.active_custom_variable_index < len(prefs.custom_variables)
         )
 
         remove_col = add_remove_col.column(align=True)
@@ -916,8 +1033,12 @@ class RECOM_PT_custom_variables(RECOM_PT_BasePanel, Panel):
         # Move buttons
         move_col = col.column(align=True)
         move_col.active = has_selection and len(prefs.custom_variables) > 1
-        move_col.operator("recom.move_custom_variable", text="", icon="TRIA_UP").direction = 'UP'
-        move_col.operator("recom.move_custom_variable", text="", icon="TRIA_DOWN").direction = 'DOWN'
+        move_col.operator(
+            "recom.move_custom_variable", text="", icon="TRIA_UP"
+        ).direction = "UP"
+        move_col.operator(
+            "recom.move_custom_variable", text="", icon="TRIA_DOWN"
+        ).direction = "DOWN"
 
         # Variable details
         if prefs.active_custom_variable_index >= 0 and has_selection:
@@ -932,7 +1053,18 @@ class RECOM_PT_custom_variables(RECOM_PT_BasePanel, Panel):
 
 
 class RECOM_UL_custom_variables(UIList):
-    def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index, flt_flag):
+    def draw_item(
+        self,
+        context,
+        layout,
+        data,
+        item,
+        icon,
+        active_data,
+        active_propname,
+        index,
+        flt_flag,
+    ):
         split = layout.split(factor=0.6)
         split.prop(item, "name", text="", emboss=False, placeholder="Name", icon="TAG")
         row = split.row(align=True)
@@ -940,7 +1072,7 @@ class RECOM_UL_custom_variables(UIList):
         row.prop(item, "token", text="", emboss=False)
 
 
-class RECOM_PT_output_format_settings(RECOM_PT_BasePanel, Panel):
+class RECOM_PT_output_format_settings(RCBasePanel, Panel):
     bl_label = "File Format"
     bl_parent_id = "RECOM_PT_scene_override_settings"
     bl_order = 4
@@ -952,7 +1084,9 @@ class RECOM_PT_output_format_settings(RECOM_PT_BasePanel, Panel):
 
     def draw_header_preset(self, context):
         layout = self.layout
-        op = layout.operator("recom.manage_override", text="", icon="PANEL_CLOSE", emboss=False)
+        op = layout.operator(
+            "recom.manage_override", text="", icon="PANEL_CLOSE", emboss=False
+        )
         op.action = "REMOVE"
         op.override_id = "file_format"
         layout.separator(factor=0.25)
@@ -974,16 +1108,26 @@ class RECOM_PT_output_format_settings(RECOM_PT_BasePanel, Panel):
             "TIFF",
         ]:
             row = col.row(align=True)
-            row.prop(settings.override_settings, "color_depth", text="Color Depth", expand=True)
+            row.prop(
+                settings.override_settings,
+                "color_depth",
+                text="Color Depth",
+                expand=True,
+            )
 
-        if settings.override_settings.file_format in ["OPEN_EXR", "OPEN_EXR_MULTILAYER"]:
+        if settings.override_settings.file_format in [
+            "OPEN_EXR",
+            "OPEN_EXR_MULTILAYER",
+        ]:
             col.prop(settings.override_settings, "codec", text="Codec")
 
         if settings.override_settings.file_format == "JPEG":
-            col.prop(settings.override_settings, "jpeg_quality", text="Quality", slider=True)
+            col.prop(
+                settings.override_settings, "jpeg_quality", text="Quality", slider=True
+            )
 
 
-class RECOM_PT_camera_settings(RECOM_PT_BasePanel, Panel):
+class RECOM_PT_camera_settings(RCBasePanel, Panel):
     bl_label = "Camera"
     bl_parent_id = "RECOM_PT_scene_override_settings"
     bl_order = 5
@@ -995,7 +1139,9 @@ class RECOM_PT_camera_settings(RECOM_PT_BasePanel, Panel):
 
     def draw_header_preset(self, context):
         layout = self.layout
-        op = layout.operator("recom.manage_override", text="", icon="PANEL_CLOSE", emboss=False)
+        op = layout.operator(
+            "recom.manage_override", text="", icon="PANEL_CLOSE", emboss=False
+        )
         op.action = "REMOVE"
         op.override_id = "camera_settings"
         layout.separator(factor=0.25)
@@ -1007,7 +1153,9 @@ class RECOM_PT_camera_settings(RECOM_PT_BasePanel, Panel):
         settings = context.window_manager.recom_render_settings
 
         col = layout.column(align=True)
-        col.prop(settings.override_settings, "camera_shift_x", text="Shift X", slider=True)
+        col.prop(
+            settings.override_settings, "camera_shift_x", text="Shift X", slider=True
+        )
         col.prop(settings.override_settings, "camera_shift_y", text="Y", slider=True)
 
         row = layout.row(heading="Depth of Field")
@@ -1017,7 +1165,7 @@ class RECOM_PT_camera_settings(RECOM_PT_BasePanel, Panel):
         sub.prop(settings.override_settings, "use_dof", text="", expand=False)
 
 
-class RECOM_PT_compositor_settings(RECOM_PT_BasePanel, Panel):
+class RECOM_PT_compositor_settings(RCBasePanel, Panel):
     bl_label = "Compositing"
     bl_parent_id = "RECOM_PT_scene_override_settings"
     bl_order = 5
@@ -1033,7 +1181,9 @@ class RECOM_PT_compositor_settings(RECOM_PT_BasePanel, Panel):
 
     def draw_header_preset(self, context):
         layout = self.layout
-        op = layout.operator("recom.manage_override", text="", icon="PANEL_CLOSE", emboss=False)
+        op = layout.operator(
+            "recom.manage_override", text="", icon="PANEL_CLOSE", emboss=False
+        )
         op.action = "REMOVE"
         op.override_id = "compositor"
         layout.separator(factor=0.25)
@@ -1053,11 +1203,24 @@ class RECOM_PT_compositor_settings(RECOM_PT_BasePanel, Panel):
         )
         col.separator(factor=0.25)
         row = col.row()
-        row.prop(settings.override_settings, "compositor_device", text="Device", expand=True)
+        row.prop(
+            settings.override_settings, "compositor_device", text="Device", expand=True
+        )
 
 
 class RECOM_UL_data_path_overrides(UIList):
-    def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index, flt_flag):
+    def draw_item(
+        self,
+        context,
+        layout,
+        data,
+        item,
+        icon,
+        active_data,
+        active_propname,
+        index,
+        flt_flag,
+    ):
         layout.prop(item, "name", text="", emboss=False, placeholder="Data Path")
         row = layout.row(align=True)
         if item.prop_type == "BOOL":
@@ -1074,7 +1237,7 @@ class RECOM_UL_data_path_overrides(UIList):
             row.prop(item, "value_color_4", text="")
 
 
-class RECOM_PT_data_path_settings(RECOM_PT_BasePanel, Panel):
+class RECOM_PT_data_path_settings(RCBasePanel, Panel):
     bl_label = "Advanced"
     bl_parent_id = "RECOM_PT_scene_override_settings"
     bl_order = 6
@@ -1090,7 +1253,9 @@ class RECOM_PT_data_path_settings(RECOM_PT_BasePanel, Panel):
         row = layout.row(align=True)
         RECOM_PT_override_advanced_property_presets.draw_panel_header(row)
 
-        op = row.operator("recom.manage_override", text="", icon="PANEL_CLOSE", emboss=False)
+        op = row.operator(
+            "recom.manage_override", text="", icon="PANEL_CLOSE", emboss=False
+        )
         op.action = "REMOVE"
         op.override_id = "custom_api"
 
@@ -1103,7 +1268,13 @@ class RECOM_PT_data_path_settings(RECOM_PT_BasePanel, Panel):
         settings = context.window_manager.recom_render_settings.override_settings
 
         row = layout.row()
-        row.prop(settings, "property_path_input", text="", icon="VIEWZOOM", placeholder="Data Path")
+        row.prop(
+            settings,
+            "property_path_input",
+            text="",
+            icon="VIEWZOOM",
+            placeholder="Data Path",
+        )
 
         col = layout.column()
         row = col.row()
@@ -1123,11 +1294,15 @@ class RECOM_PT_data_path_settings(RECOM_PT_BasePanel, Panel):
         # Controls
         col = row.column()
         add_remove_col = col.column(align=True)
-        add_remove_col.operator("recom.add_advanced_property_override", text="", icon="ADD")
-        add_remove_col.operator("recom.remove_advanced_property_override", text="", icon="REMOVE")
+        add_remove_col.operator(
+            "recom.add_advanced_property_override", text="", icon="ADD"
+        )
+        add_remove_col.operator(
+            "recom.remove_advanced_property_override", text="", icon="REMOVE"
+        )
 
 
-class RECOM_PT_data_path_properties(RECOM_PT_BasePanel, Panel):
+class RECOM_PT_data_path_properties(RCBasePanel, Panel):
     bl_label = "Property Details"
     bl_parent_id = "RECOM_PT_data_path_settings"
     bl_options = {"DEFAULT_CLOSED"}
@@ -1187,6 +1362,7 @@ classes = (
     RECOM_PT_motion_blur_settings,
     # Output
     RECOM_PT_frame_range_settings,
+    RECOM_PT_fps_converter_settings,
     RECOM_PT_resolution_presets,
     RECOM_PT_resolution_settings,
     RECOM_PT_overscan_settings,

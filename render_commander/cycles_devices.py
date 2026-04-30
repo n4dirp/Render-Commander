@@ -185,7 +185,7 @@ def get_devices_for_display(prefs):
     return devices_to_display
 
 
-def draw_devices(layout, prefs, show_id=False):
+def draw_devices(layout, prefs):
     """Draw device list in UI."""
 
     devices_to_draw = get_devices_for_display(prefs)
@@ -201,7 +201,6 @@ def draw_devices(layout, prefs, show_id=False):
         if prev_type is not None and device.type != prev_type:
             layout.separator(factor=0.5)
 
-        device_name = device.id if show_id else format_device_name(device.name)
         col = layout.column(align=True)
 
         if prefs.multiple_backends and prefs.device_parallel and prefs.launch_mode != MODE_SINGLE:
@@ -211,5 +210,11 @@ def draw_devices(layout, prefs, show_id=False):
                 row.active = False
                 row.label(text=device.type)
 
+        if prefs.show_device_id and device.type != 'CPU':
+            device_name = device.id
+        else:
+            device_name = format_device_name(device.name)
+
         col.prop(device, "use", text=device_name, translate=False)
+
         prev_type = device.type

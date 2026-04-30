@@ -77,7 +77,14 @@ def _load_template_script(template_name) -> list[str]:
 
 
 def _generate_base_script(
-    context, prefs, selected_ids, is_animation, frame_start, frame_end, frame_step, start_msg
+    context,
+    prefs,
+    selected_ids,
+    is_animation,
+    frame_start,
+    frame_end,
+    frame_step,
+    start_msg,
 ) -> list[str]:
     """Generate common script parts for both single and parallel rendering."""
     script_lines = []
@@ -104,8 +111,10 @@ def _generate_base_script(
     _apply_data_path_overrides(settings, script_lines)
     _apply_motion_blur_settings(settings, script_lines)
     _apply_frame_settings(prefs, settings, is_animation, frame_start, frame_end, frame_step, script_lines)
+    _apply_fps_converter_settings(settings, script_lines)
     _apply_camera_settings(settings, script_lines)
     _apply_resolution_settings(context, settings, script_lines)
+    _apply_overscan_settings(context, settings, script_lines)
     _apply_output_format_settings(settings, script_lines)
     _apply_compositing_settings(settings, script_lines)
 
@@ -234,6 +243,52 @@ def _apply_frame_settings(prefs, settings, is_animation, frame_start, frame_end,
         script_lines.extend(lines)
 
 
+def _apply_fps_converter_settings(settings, script_lines):
+    """Apply FPS converter / Time Remapping override settings."""
+    fps_conv = settings.override_settings
+    if not fps_conv.use_fps_converter:
+        return
+
+    script_lines.append("# FPS Converter / Time Remapping")
+    script_lines.append('log.info("Applying FPS Converter override")')
+
+    lines = [
+        "original_fps = bpy.context.scene.render.fps",
+    ]
+
+    # Resolve enum vs custom value for the generated script
+    if fps_conv.target_fps == "CUSTOM":
+        lines.append(f"target_fps = {fps_conv.custom_fps}")
+    else:
+        lines.append(f"target_fps = {fps_conv.target_fps}")
+
+    lines.extend(
+        [
+            "multiplier = target_fps / original_fps",
+            "bpy.context.scene.render.frame_map_old = int(original_fps)",
+            "bpy.context.scene.render.frame_map_new = int(target_fps)",
+            "bpy.context.scene.render.fps = int(target_fps)",
+            "bpy.context.scene.frame_start = int(bpy.context.scene.frame_start * multiplier)",
+            "bpy.context.scene.frame_end = int(bpy.context.scene.frame_end * multiplier)",
+            "",
+        ]
+    )
+
+    # Motion blur preservation
+    if fps_conv.preserve_motion_blur:
+        lines.extend(
+            [
+                "# Preserve Motion Blur Absolute Time",
+                "if bpy.context.scene.render.use_motion_blur:",
+                "    old_shutter = bpy.context.scene.render.motion_blur_shutter",
+                "    bpy.context.scene.render.motion_blur_shutter = old_shutter * multiplier",
+                '    log.info(f"Motion blur shutter adjusted: {old_shutter:.3f} -> {bpy.context.scene.render.motion_blur_shutter:.3f}")',
+            ]
+        )
+
+    script_lines.extend(_wrap_in_try(lines, "FPS Converter", True))
+
+
 def _apply_camera_settings(settings, script_lines):
     """Apply camera overrides."""
     if not settings.override_settings.cameras_override:
@@ -332,81 +387,89 @@ def _apply_resolution_settings(context, settings, script_lines):
                 ]
             )
 
-        # Apply overscan settings
-        if settings.override_settings.use_overscan:
-            # Calculate overscan value based on type
-            if settings.override_settings.overscan_type == "PERCENTAGE":
-                lines.extend(
-                    [
-                        "base_res_x = bpy.context.scene.render.resolution_x",
-                        "base_res_y = bpy.context.scene.render.resolution_y",
-                        f"overscan_x = int(base_res_x * {settings.override_settings.overscan_percent} / 100)",
-                        f"overscan_y = int(base_res_y * {settings.override_settings.overscan_percent} / 100)",
-                    ]
-                )
-            else:  # PIXELS
-                if settings.override_settings.overscan_uniform:
-                    lines.append(f"overscan_x = overscan_y = {settings.override_settings.overscan_width}")
-                else:
-                    lines.extend(
-                        [
-                            f"overscan_x = {settings.override_settings.overscan_width}",
-                            f"overscan_y = {settings.override_settings.overscan_height}",
-                        ]
-                    )
-
-            lines.extend(
-                [
-                    "original_resolution = (bpy.context.scene.render.resolution_x, bpy.context.scene.render.resolution_y)",
-                    "",
-                ]
-            )
-
-            # Apply camera shift settings
-            set_camera_shift = settings.override_settings.cameras_override and (
-                settings.override_settings.camera_shift_x != 0.0 or settings.override_settings.camera_shift_y != 0.0
-            )
-
-            if set_camera_shift:
-                lines.extend(
-                    [
-                        "scale_x = original_resolution[0] / max(1, (original_resolution[0] + 2 * overscan_x))",
-                        "scale_y = original_resolution[1] / max(1, (original_resolution[1] + 2 * overscan_y))",
-                    ]
-                )
-
-            # Apply camera shift and lens scaling
-            lines.extend(
-                [
-                    "for obj in bpy.data.objects:",
-                    "    if obj.type == 'CAMERA':",
-                    "        obj.data.lens = obj.data.lens * (original_resolution[0] / max(1, (original_resolution[0] + 2 * overscan_x)))",
-                    "",
-                ]
-            )
-
-            if set_camera_shift:
-                lines.extend(
-                    [
-                        "        obj.data.shift_x *= scale_x",
-                        "        obj.data.shift_y *= scale_y",
-                        "",
-                    ]
-                )
-
-            # Update render resolution
-            lines.extend(
-                [
-                    "bpy.context.scene.render.resolution_x = original_resolution[0] + 2 * overscan_x",
-                    "bpy.context.scene.render.resolution_y = original_resolution[1] + 2 * overscan_y",
-                    "",
-                ]
-            )
-
         script_lines.extend(_wrap_in_try(lines, "Resolution and Format Settings", True))
 
     except Exception as e:
         log.error("Error applying resolution settings: %s", e, exc_info=True)
+
+
+def _apply_overscan_settings(context, settings, script_lines):
+    if not settings.override_settings.use_overscan:
+        return
+
+    script_lines.append("# Overscan Settings")
+    script_lines.append('log.info("Applying Overscan setting")')
+    lines = []
+
+    # Apply overscan settings
+    # Calculate overscan value based on type
+    if settings.override_settings.overscan_type == "PERCENTAGE":
+        lines.extend(
+            [
+                "base_res_x = bpy.context.scene.render.resolution_x",
+                "base_res_y = bpy.context.scene.render.resolution_y",
+                f"overscan_x = int(base_res_x * {settings.override_settings.overscan_percent} / 100)",
+                f"overscan_y = int(base_res_y * {settings.override_settings.overscan_percent} / 100)",
+            ]
+        )
+    else:  # PIXELS
+        if settings.override_settings.overscan_uniform:
+            lines.append(f"overscan_x = overscan_y = {settings.override_settings.overscan_width}")
+        else:
+            lines.extend(
+                [
+                    f"overscan_x = {settings.override_settings.overscan_width}",
+                    f"overscan_y = {settings.override_settings.overscan_height}",
+                ]
+            )
+
+    lines.extend(
+        [
+            "original_resolution = (bpy.context.scene.render.resolution_x, bpy.context.scene.render.resolution_y)",
+            "",
+        ]
+    )
+    # Apply camera shift settings
+    set_camera_shift = settings.override_settings.cameras_override and (
+        settings.override_settings.camera_shift_x != 0.0 or settings.override_settings.camera_shift_y != 0.0
+    )
+
+    if set_camera_shift:
+        lines.extend(
+            [
+                "scale_x = original_resolution[0] / max(1, (original_resolution[0] + 2 * overscan_x))",
+                "scale_y = original_resolution[1] / max(1, (original_resolution[1] + 2 * overscan_y))",
+            ]
+        )
+
+    # Apply camera shift and lens scaling
+    lines.extend(
+        [
+            "for obj in bpy.data.objects:",
+            "    if obj.type == 'CAMERA':",
+            "        obj.data.lens = obj.data.lens * (original_resolution[0] / max(1, (original_resolution[0] + 2 * overscan_x)))",
+            "",
+        ]
+    )
+
+    if set_camera_shift:
+        lines.extend(
+            [
+                "        obj.data.shift_x *= scale_x",
+                "        obj.data.shift_y *= scale_y",
+                "",
+            ]
+        )
+    # Update render resolution
+    lines.extend(
+        [
+            "bpy.context.scene.render.resolution_x = original_resolution[0] + 2 * overscan_x",
+            "bpy.context.scene.render.resolution_y = original_resolution[1] + 2 * overscan_y",
+            "",
+        ]
+    )
+
+    script_lines.extend(lines)
 
 
 def _apply_output_format_settings(settings, script_lines):
@@ -443,7 +506,10 @@ def _apply_output_format_settings(settings, script_lines):
                     f"bpy.context.scene.render.image_settings.color_depth = '{settings.override_settings.color_depth}'"
                 )
 
-            if settings.override_settings.file_format in ["OPEN_EXR", "OPEN_EXR_MULTILAYER"]:
+            if settings.override_settings.file_format in [
+                "OPEN_EXR",
+                "OPEN_EXR_MULTILAYER",
+            ]:
                 lines.append(
                     f"bpy.context.scene.render.image_settings.exr_codec = '{settings.override_settings.codec}'"
                 )
@@ -919,7 +985,7 @@ def _create_process_files(
     # Set OCIO Env
     if prefs.set_ocio and prefs.ocio_path:
         ocio_path = Path(bpy.path.abspath(prefs.ocio_path))
-        if ocio_path.exists() and ocio_path.suffix.lower() == '.ocio':
+        if ocio_path.exists() and ocio_path.suffix.lower() == ".ocio":
             shell_content.append(set_env("OCIO", str(ocio_path), export=True))
         else:
             log.warning('Invalid OCIO path: "%s"', prefs.ocio_path)
@@ -930,7 +996,7 @@ def _create_process_files(
         for entry in prefs.additional_scripts:
             if entry.order == order and entry.script_path:
                 abs_path = Path(bpy.path.abspath(entry.script_path)).resolve()
-                if abs_path.is_file() and abs_path.suffix.lower() == '.py':
+                if abs_path.is_file() and abs_path.suffix.lower() == ".py":
                     shell_content.append(set_env(f"RC_{order}_SCRIPT_{idx}", str(abs_path)))
                     idx += 1
         return idx - 1
@@ -956,19 +1022,6 @@ def _create_process_files(
     if prefs.add_command_line_args and prefs.custom_command_line_args.strip():
         cmd_parts.append(prefs.custom_command_line_args.strip())
 
-    # Blender Render Debugging
-    if prefs.cmd_debug:
-        cmd_parts.append("--debug")
-
-        if prefs.debug_value != 0:
-            cmd_parts.append(f"--debug-value {prefs.debug_value}")
-
-        if prefs.verbose_level != "2":
-            cmd_parts.append(f"--verbose {prefs.verbose_level}")
-
-        if prefs.debug_cycles and get_render_engine(bpy.context) == RE_CYCLES:
-            cmd_parts.append("--debug-cycles")
-
     # Log Redirection
     if prefs.log_to_file:
         log_file_path = str(_get_log_file_path(prefs, blend_file, log_filename, target_dir))
@@ -979,7 +1032,12 @@ def _create_process_files(
     line_continue = " ^" if _IS_WINDOWS else " \\"
     cmd_str = f"{line_continue}\n    ".join(cmd_parts)
 
-    shell_content.extend(["", f'echo "Executing Render: {blend_name} ({settings.render_id} - worker{process_id})"'])
+    shell_content.extend(
+        [
+            "",
+            f'echo "Executing Render: {blend_name} ({settings.render_id} - worker{process_id})"',
+        ]
+    )
     if prefs.log_to_file:
         shell_content.append(f"echo Log written to: {ref_env('RC_LOG')}")
 
@@ -989,12 +1047,12 @@ def _create_process_files(
         delay_display = f"{int(delay_time)}s" if delay_time == int(delay_time) else f"{delay_time}s"
 
         if _IS_WINDOWS:
-            shell_content.append(f'echo [Worker {process_id}] Waiting {delay_display}...')
-            shell_content.append(f'timeout /t {int(delay_time)} /nobreak')
-            shell_content.append(f'echo [Worker {process_id}] Wait complete. Starting render...')
+            shell_content.append(f"echo [Worker {process_id}] Waiting {delay_display}...")
+            shell_content.append(f"timeout /t {int(delay_time)} /nobreak")
+            shell_content.append(f"echo [Worker {process_id}] Wait complete. Starting render...")
         else:
             shell_content.append(f'echo "[Worker {process_id}] Waiting {delay_display}..."')
-            shell_content.append(f'sleep {delay_time}')
+            shell_content.append(f"sleep {delay_time}")
             shell_content.append(f'echo "[Worker {process_id}] Wait complete. Starting render..."')
 
     shell_content.extend(["", cmd_str, ""])

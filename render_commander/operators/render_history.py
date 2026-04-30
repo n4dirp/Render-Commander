@@ -57,6 +57,8 @@ class RECOM_OT_CleanRenderHistory(Operator):
         if removed_count > 0:
             label = "item" if removed_count == 1 else "items"
             self.report({"INFO"}, f"Removed {removed_count} {label}")
+        else:
+            self.report({"INFO"}, "No items to remove")
 
         return {"FINISHED"}
 

@@ -9,7 +9,6 @@ import bpy
 def get_extension_version() -> str:
     """Get extension version as a string from blender_manifest.toml"""
     manifest_path = Path(__file__).parent.parent / "blender_manifest.toml"
-
     if manifest_path.exists():
         try:
             with open(manifest_path, "rb") as f:
@@ -17,7 +16,6 @@ def get_extension_version() -> str:
                 return manifest_data.get("version", "0.0.0")
         except Exception as e:
             print(f"Failed to read extension version: {e}")
-
     return "0.0.0"
 
 
@@ -28,10 +26,10 @@ EXTERNAL_BLEND_FILE_HISTORY_LIMIT = 30
 RENDER_HISTORY_LIMIT = 50
 
 # Render Engines
-RE_CYCLES = 'CYCLES'
-RE_EEVEE = 'BLENDER_EEVEE'
-RE_EEVEE_NEXT = 'BLENDER_EEVEE_NEXT'
-RE_WORKBENCH = 'BLENDER_WORKBENCH'
+RE_CYCLES = "CYCLES"
+RE_EEVEE = "BLENDER_EEVEE"
+RE_EEVEE_NEXT = "BLENDER_EEVEE_NEXT"
+RE_WORKBENCH = "BLENDER_WORKBENCH"
 
 RENDER_ENGINE_MAPPING = {
     RE_CYCLES: "Cycles",
@@ -41,12 +39,12 @@ RENDER_ENGINE_MAPPING = {
 }
 
 # Render Modes
-MODE_SINGLE = 'SINGLE_FRAME'
-MODE_SEQ = 'SEQUENCE'
-MODE_LIST = 'FRAME_LIST'
+MODE_SINGLE = "SINGLE_FRAME"
+MODE_SEQ = "SEQUENCE"
+MODE_LIST = "FRAME_LIST"
 
 # UI
-ICON_OPTION = 'DOWNARROW_HLT'
+ICON_OPTION = "DOWNARROW_HLT"
 
 # Path Templates
 RESERVED_TOKENS = {
@@ -62,18 +60,15 @@ RESERVED_TOKENS = {
 }
 
 
-class RECOM_PT_BasePanel:
+class RCBasePanel:
     """Mix-in to standardize layout metadata across all Render Commander panels"""
 
-    bl_space_type = 'VIEW_3D'
-    bl_region_type = 'UI'
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "UI"
     bl_category = "Render Commander"
 
 
-current_parent = "RECOM_PT_main_panel"  # RECOM_PT_main_panel
-
-
-class RECOM_PT_SubPanel(RECOM_PT_BasePanel):
+class RCSubPanel(RCBasePanel):
     """Mix-in for sub-panels to standardize layout metadata and allow dynamic parent assignment"""
 
-    bl_parent_id = current_parent
+    bl_parent_id = "RECOM_PT_main_panel"

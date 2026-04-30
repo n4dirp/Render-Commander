@@ -3,6 +3,7 @@ Contains operators designed to specifically modify the active render overrides.
 """
 
 import mathutils
+from typing import Any
 
 import bpy
 from bpy.types import Operator
@@ -291,12 +292,12 @@ class RECOM_OT_MoveCustomVariable(Operator):
 
     direction: EnumProperty(
         items=[
-            ('UP', "Up", "Move the selected item up"),
-            ('DOWN', "Down", "Move the selected item down"),
+            ("UP", "Up", "Move the selected item up"),
+            ("DOWN", "Down", "Move the selected item down"),
         ],
         name="Direction",
         description="Direction to move the custom variable",
-        default='UP',
+        default="UP",
     )
 
     def execute(self, context):
@@ -304,10 +305,10 @@ class RECOM_OT_MoveCustomVariable(Operator):
         idx = prefs.active_custom_variable_index
         total = len(prefs.custom_variables)
 
-        if self.direction == 'UP' and idx > 0:
+        if self.direction == "UP" and idx > 0:
             prefs.custom_variables.move(idx, idx - 1)
             prefs.active_custom_variable_index -= 1
-        elif self.direction == 'DOWN' and idx < total - 1:
+        elif self.direction == "DOWN" and idx < total - 1:
             prefs.custom_variables.move(idx, idx + 1)
             prefs.active_custom_variable_index += 1
 
@@ -315,7 +316,7 @@ class RECOM_OT_MoveCustomVariable(Operator):
         return {"FINISHED"}
 
 
-def get_prop_config(val: any) -> tuple[str, dict]:
+def get_prop_config(val: Any) -> tuple[str, dict]:
     """Returns (prop_type, {attr: value}) for an override item."""
     if isinstance(val, bool):
         return "BOOL", {"value_bool": val}

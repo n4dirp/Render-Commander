@@ -1,12 +1,12 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 import logging
-import time
 import os
+import time
 
 import bpy
 
-from . import properties, preferences, utils, operators, panels
+from . import menus, operators, panels, preferences, properties
 
 ADDON_DIR = os.path.dirname(__file__)
 
@@ -61,8 +61,8 @@ def update_logger_from_prefs():
 addon_modules = [
     properties,
     preferences,
-    utils,
     operators,
+    menus,
     panels,
 ]
 
@@ -88,7 +88,9 @@ def unregister():
         try:
             mdl.unregister()
         except Exception as err:
-            log.error("[%s] Failed to unreg module %s: %s", __package__, mdl.__name__, err)
+            log.error(
+                "[%s] Failed to unreg module %s: %s", __package__, mdl.__name__, err
+            )
 
 
 if __name__ == "__main__":

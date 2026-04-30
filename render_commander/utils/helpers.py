@@ -1,17 +1,18 @@
 # ./utils/helpers.py
 
 import json
-import os
-import sys
 import logging
-import subprocess
+import os
 import re
+import subprocess
+import sys
 from pathlib import Path
+from typing import Any, Union
 
 import bpy
 
-from .constants import RESERVED_TOKENS
 from .. import __package__ as base_package
+from .constants import RESERVED_TOKENS
 
 log = logging.getLogger(__name__)
 
@@ -25,7 +26,9 @@ def get_addon_temp_dir() -> Path:
     try:
         return Path(bpy.utils.extension_path_user(base_package, create=True))
     except Exception as e:
-        log.error("Failed to get addon extension directory for '%s': %s", base_package, e)
+        log.error(
+            "Failed to get addon extension directory for '%s': %s", base_package, e
+        )
         raise
 
 
@@ -35,7 +38,11 @@ def replace_variables(prefs, path_template: str) -> str:
         return path_template
 
     try:
-        variables_map = {var.token: var.value for var in prefs.custom_variables if var.token not in RESERVED_TOKENS}
+        variables_map = {
+            var.token: var.value
+            for var in prefs.custom_variables
+            if var.token not in RESERVED_TOKENS
+        }
 
         def replacement_func(match):
             var_name = match.group(1)
@@ -46,12 +53,16 @@ def replace_variables(prefs, path_template: str) -> str:
 
             return variables_map.get(var_name, match.group(0))
 
-        resolved_path_segment = re.sub(r"(?<!\{)\{(\w+)\}(?!\})", replacement_func, path_template)
+        resolved_path_segment = re.sub(
+            r"(?<!\{)\{(\w+)\}(?!\})", replacement_func, path_template
+        )
 
         return resolved_path_segment
 
     except Exception as e:
-        log.error("[replace_variables] Failed to process path: '%s' - %s", path_template, e)
+        log.error(
+            "[replace_variables] Failed to process path: '%s' - %s", path_template, e
+        )
         raise
 
 
@@ -69,7 +80,12 @@ def is_blend_or_backup_file(file_path: str) -> bool:
         file_path = bpy.path.abspath(file_path)
 
     path = Path(file_path)
-    return path.is_file() and path.suffix.lower() in (".blend", ".blend1", ".blend2", ".blend3")
+    return path.is_file() and path.suffix.lower() in (
+        ".blend",
+        ".blend1",
+        ".blend2",
+        ".blend3",
+    )
 
 
 def get_addon_preferences():
@@ -134,7 +150,11 @@ def get_default_resolution(context) -> tuple:
 
     if settings.use_external_blend and settings.external_blend_file_path:
         try:
-            info = json.loads(settings.external_scene_info) if settings.external_scene_info else {}
+            info = (
+                json.loads(settings.external_scene_info)
+                if settings.external_scene_info
+                else {}
+            )
             res_x = info.get("resolution_x", fallback_res_x)
             res_y = info.get("resolution_y", fallback_res_x)
         except (ValueError, TypeError, json.JSONDecodeError) as e:
@@ -189,11 +209,21 @@ def get_render_engine(context) -> str:
     return engine_name
 
 
-def resolve_blender_path(text: str) -> tuple[str, any]:
+def resolve_blender_path(text: str) -> tuple[str, Any]:
     """Normalizes shorthand paths and resolves them to a bpy object/value."""
     if not text.startswith("bpy."):
         # Things that belong directly under bpy.context
-        if text.startswith(("scene.", "view_layer.", "workspace.", "screen.", "window.", "area.", "space_data.")):
+        if text.startswith(
+            (
+                "scene.",
+                "view_layer.",
+                "workspace.",
+                "screen.",
+                "window.",
+                "area.",
+                "space_data.",
+            )
+        ):
             text = "bpy.context." + text
         else:
             text = "bpy.context.scene." + text
@@ -224,3 +254,18 @@ def resolve_blender_path(text: str) -> tuple[str, any]:
         except AttributeError as exc:
             raise ValueError(f"Invalid attribute: {part} in path {text}") from exc
     return text, obj
+
+
+def get_scene_info(settings: Any) -> Union[dict, None]:
+    """Single source of truth for scene info parsing"""
+    if not settings.external_scene_info or not settings.is_scene_info_loaded:
+        return None
+
+    try:
+        info = json.loads(settings.external_scene_info)
+        if info.get("blend_filepath", "") == "No Data":
+            return None
+        return info
+    except json.JSONDecodeError as e:
+        log.error("Failed to decode JSON: %s", e)
+        return None

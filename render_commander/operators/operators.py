@@ -9,10 +9,7 @@ from bpy.props import IntProperty, StringProperty, EnumProperty
 
 from ..preferences import get_addon_preferences
 from ..utils.helpers import redraw_ui
-from ..cycles_devices import (
-    refresh_cycles_devices,
-    draw_devices,
-)
+from ..cycles_devices import refresh_cycles_devices
 
 log = logging.getLogger(__name__)
 
@@ -31,25 +28,6 @@ class RECOM_OT_ReinitializeDevices(Operator):
 
         self.report({"INFO"}, "Device list refreshed successfully")
         return {"FINISHED"}
-
-
-class RECOM_OT_DeviceID(Operator):
-    bl_idname = "recom.cycles_device_ids"
-    bl_label = "Show Device IDs"
-    bl_description = "Displays the unique identifier of the compute devices"
-    bl_options = {"INTERNAL"}
-
-    def execute(self, context):
-        return context.window_manager.invoke_popup(self, width=400)
-
-    def draw(self, context):
-        layout = self.layout
-        prefs = get_addon_preferences(context)
-
-        layout.label(text="Device IDs")
-        label_col = layout.box().column(align=True)
-
-        draw_devices(label_col, prefs, True)
 
 
 class RECOM_OT_RemoveAdditionalScript(Operator):
@@ -250,26 +228,8 @@ class RECOM_OT_ChangeScriptOrder(Operator):
         return {"FINISHED"}
 
 
-class RECOM_OT_open_docs(Operator):
-    bl_idname = "recom.open_docs_custom"
-    bl_label = "Open Blender Docs"
-    bl_description = "Open the Blender command line arguments documentation"
-    bl_options = {"INTERNAL"}
-
-    URL = None
-
-    def execute(self, context):
-        if self.URL is None:
-            major, minor, _ = bpy.app.version
-            self.URL = f"https://docs.blender.org/manual/en/{major}.{minor}/advanced/command_line/arguments.html"
-
-        bpy.ops.wm.url_open(url=self.URL)
-        return {"FINISHED"}
-
-
 classes = (
     RECOM_OT_ReinitializeDevices,
-    RECOM_OT_DeviceID,
     RECOM_OT_RemoveAdditionalScript,
     RECOM_OT_AddAdditionalScript,
     RECOM_OT_ScriptAddItem,
@@ -277,7 +237,6 @@ classes = (
     RECOM_OT_ScriptMoveItem,
     RECOM_OT_ChangeScriptOrder,
     RECOM_OT_OpenScript,
-    RECOM_OT_open_docs,
 )
 
 

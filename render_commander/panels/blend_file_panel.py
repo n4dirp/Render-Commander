@@ -26,9 +26,7 @@ FORMAT_NAME_MAPPING = {
 }
 
 
-def format_timecode(
-    frame_start: int, frame_end: int, fps_real: float, show_hours=False
-) -> str:
+def format_timecode(frame_start: int, frame_end: int, fps_real: float, show_hours=False) -> str:
     """Convert a frame range to a formatted timecode string."""
     # Calculate total duration
     total_frames = max(0, frame_end - frame_start + 1)
@@ -75,7 +73,6 @@ class RECOM_PT_scene_file_panel(RCSubPanel, Panel):
     def draw_header_preset(self, context):
         layout = self.layout
         prefs = get_addon_preferences(context)
-
         layout.emboss = "PULLDOWN_MENU"
         layout.active = bool(prefs.recent_blend_files)
         layout.menu("RECOM_MT_recent_blend_files", text="", icon="COLLAPSEMENU")
@@ -92,38 +89,33 @@ class RECOM_PT_scene_file_panel(RCSubPanel, Panel):
         col = layout.column()
         row = col.row(align=True)
         sub = row.row(align=True)
-        sub.active = not _extraction_state["is_running"]
-        sub.prop(
-            settings, "external_blend_file_path", text="", placeholder="Blend Path"
-        )
+        sub.prop(settings, "external_blend_file_path", text="", placeholder="Blend Path")
         sub.operator("recom.select_external_blend_file", text="", icon="FILE_FOLDER")
 
         # Extract Scene Operator
         sub = row.row(align=True)
         sub.enabled = bool(settings.external_blend_file_path)
 
-        # button_text = "Read Scene"
         icon = "ZOOM_ALL"
         info = get_scene_info(settings) if settings.external_blend_file_path else {}
         if info and settings.external_blend_file_path == info.get("blend_filepath", ""):
-            # button_text = "Refresh"
             icon = "FILE_REFRESH"
 
         sub_extract = sub.row(align=True)
 
         if not settings.is_scene_info_loaded:
             sub_extract.enabled = False
-            # button_text = "Processing"
-            icon = "SORTTIME"
         else:
             # Extract
-            sub_extract.operator(
-                "recom.extract_external_scene_data", text="", icon=icon
-            )
+            sub_extract.operator("recom.extract_external_scene_data", text="", icon=icon)
 
         # Cancel
         if _extraction_state["is_running"]:
-            sub.operator("recom.cancel_extraction", text="", icon="CANCEL")
+            row.operator("recom.cancel_extraction", text="", icon="CANCEL")
+
+            box = layout.box()
+            box.active = False
+            box.label(text="Processing in background.", icon="SORTTIME")
 
         if not settings.external_blend_file_path and get_scene_info(settings):
             return
@@ -159,9 +151,7 @@ class RECOM_PT_scene_file_panel(RCSubPanel, Panel):
         row.label(text=f"{blend_filename}", icon="FILE_BLEND")
         row.menu("RECOM_MT_external_blend_options", text="", icon="DOWNARROW_HLT")
         col.label(text=f"Blender {version_file}", icon="BLANK1")
-        col.label(
-            text=f"Modified: {modified_date_short} | Size: {file_size}", icon="BLANK1"
-        )
+        col.label(text=f"{modified_date_short} | {file_size}", icon="BLANK1")
 
         return col
 
@@ -177,19 +167,15 @@ class RECOM_PT_scene_file_panel(RCSubPanel, Panel):
         viewlayer_names = info.get("viewlayer_names", "")
 
         col = col.column(align=True)
-        col.label(text=f"Scene: {scene_name}", icon="SCENE_DATA")
+        col.label(text=f"{scene_name}", icon="SCENE_DATA")
 
-        layer_list = [
-            name.strip() for name in viewlayer_names.split(", ") if name.strip()
-        ]
+        layer_list = [name.strip() for name in viewlayer_names.split(", ") if name.strip()]
         if layer_list:
             layer_col = col.column(align=True)
 
             if len(layer_list) == 1:
                 # Single layer: combine label and layer name on same line
-                layer_col.label(
-                    text=f"Render Layer: {layer_list[0]}", icon="RENDERLAYERS"
-                )
+                layer_col.label(text=f"{layer_list[0]}", icon="RENDERLAYERS")
             else:
                 # Multiple layers: label on first line, layers below
                 layer_col.label(text="Render Layers: ", icon="RENDERLAYERS")
@@ -199,29 +185,19 @@ class RECOM_PT_scene_file_panel(RCSubPanel, Panel):
 
         # Engine
         render_engine = info.get("render_engine", RE_CYCLES)
-        render_engine_display = RENDER_ENGINE_MAPPING.get(
-            render_engine, render_engine
-        ).replace("_", " ")
+        render_engine_display = RENDER_ENGINE_MAPPING.get(render_engine, render_engine).replace("_", " ")
 
         # Sampling info
         if render_engine == RE_CYCLES:
             samples = info.get("samples", "0")
             adaptive = info.get("use_adaptive_sampling", False)
-            threshold_text = (
-                f" | Threshold: {round(info.get('adaptive_threshold', 0), 4)}"
-                if adaptive
-                else ""
-            )
-            denoising_text = (
-                "Denoising: True" if info.get("use_denoising", False) else ""
-            )
-            compute_device = info.get("device", "")
-            if compute_device == "GPU":
-                compute_device = "GPU"
+            threshold_text = f" ({round(info.get('adaptive_threshold', 0), 4)})" if adaptive else ""
+            denoising_text = "Denoising" if info.get("use_denoising", False) else ""
+            compute_device = info.get("device", "N/A")
 
             col.separator(factor=separator_factor)
             col.label(
-                text=f"Engine: {render_engine_display} | Compute: {compute_device}",
+                text=f"{render_engine_display} ({compute_device})",
                 icon="SCENE",
             )
             col.label(text=f"Samples: {samples}{threshold_text}", icon="BLANK1")
@@ -229,12 +205,10 @@ class RECOM_PT_scene_file_panel(RCSubPanel, Panel):
                 col.label(text=f"{denoising_text}", icon="BLANK1")
         elif render_engine in {RE_EEVEE_NEXT, RE_EEVEE}:
             eevee_samples = info.get("eevee_samples", "0")
-            raytracing_text = (
-                " | Raytracing" if info.get("eevee_use_raytracing", False) else ""
-            )
+            raytracing_text = " | Raytracing" if info.get("eevee_use_raytracing", False) else ""
 
             col.separator(factor=separator_factor)
-            col.label(text=f"Engine: {render_engine_display}", icon="SCENE")
+            col.label(text=f"{render_engine_display}", icon="SCENE")
             col.label(text=f"Samples: {eevee_samples}{raytracing_text}", icon="BLANK1")
 
         # Compositing
@@ -257,16 +231,17 @@ class RECOM_PT_scene_file_panel(RCSubPanel, Panel):
         fps_base = info.get("fps_base", 1)
         fps_real = round(fps / fps_base, 2)
         timecode = format_timecode(frame_start, frame_end, fps_real)
-        motion_text = (
-            "Motion Blur: Enabled" if info.get("use_motion_blur", False) else ""
-        )
+        motion_text = "Motion Blur" if info.get("use_motion_blur", False) else ""
+
+        def format_float(value):
+            if value == int(value):
+                return str(int(value))
+            else:
+                return str(value)
 
         col.separator(factor=separator_factor)
-        col.label(
-            text=f"Frame: {frame_current} ({frame_start}/{frame_end}) | FPS: {fps_real} ",
-            icon="PREVIEW_RANGE",
-        )
-        col.label(text=f"Duration: {timecode}", icon="BLANK1")
+        col.label(text=f"Frame {frame_start}/{frame_end} ({frame_current})", icon="PREVIEW_RANGE")
+        col.label(text=f"{format_float(fps_real)} fps | {timecode}", icon="BLANK1")
         if motion_text:
             col.label(text=f"{motion_text}", icon="BLANK1")
 
@@ -281,13 +256,8 @@ class RECOM_PT_scene_file_panel(RCSubPanel, Panel):
         render_scale_text = f" ({render_scale}%)" if render_scale != 100 else ""
 
         col.separator(factor=separator_factor)
-        col.label(
-            text=f"Resolution: {resolution_x} x {resolution_y} px{render_scale_text}",
-            icon="IMAGE_DATA",
-        )
-        col.label(
-            text=f"File Format: {file_format_text}{color_depth_text}", icon="BLANK1"
-        )
+        col.label(text=f"{resolution_x} x {resolution_y} px{render_scale_text}", icon="IMAGE_DATA")
+        col.label(text=f"{file_format_text}{color_depth_text}", icon="BLANK1")
 
         # Output path
         output_path = info.get("filepath", "")
@@ -298,7 +268,7 @@ class RECOM_PT_scene_file_panel(RCSubPanel, Panel):
             op_folder_row.alignment = "LEFT"
             op_folder_row.operator(
                 "recom.open_blend_output_path",
-                text=f"Output: {output_path}",
+                text=f"{output_path}",
                 icon="FILE_FOLDER",
             ).file_path = frame_path
 
@@ -397,12 +367,8 @@ EXTERNAL_BLEND_INFO_KEY_MAP = {
 
 
 class RECOM_UL_external_blend_info_list(UIList):
-    def draw_item(
-        self, context, layout, data, item, icon, active_data, active_propname, index
-    ):
-        display_key = EXTERNAL_BLEND_INFO_KEY_MAP.get(
-            item.key, item.key.replace("_", " ").title()
-        )
+    def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
+        display_key = EXTERNAL_BLEND_INFO_KEY_MAP.get(item.key, item.key.replace("_", " ").title())
 
         split = layout.split(factor=0.45)
         split.label(text=display_key)

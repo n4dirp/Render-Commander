@@ -4,3 +4,4 @@ __pycache__/
 .ropeproject/
 .zed/
 pyrightconfig.json
+AGENTS.md

@@ -3,25 +3,29 @@
 from pathlib import Path
 
 import bpy
-from bpy.types import Panel, UIList
 from bl_ui.utils import PresetPanel
+from bpy.types import Panel, UIList
 
+from ..operators.background_render import draw_script_filename
+from ..operators.presets import PRESET_REGISTRY
 from ..preferences import get_addon_preferences
 from ..utils.constants import (
-    RCBasePanel,
-    RCSubPanel,
+    # MODE_SEQ,
+    MODE_LIST,
+    MODE_SINGLE,
     RE_CYCLES,
     RE_EEVEE,
     RE_EEVEE_NEXT,
     RE_WORKBENCH,
-    MODE_SINGLE,
-    # MODE_SEQ,
-    MODE_LIST,
+    RCBasePanel,
+    RCSubPanel,
 )
-from ..utils.helpers import get_render_engine
-from ..operators.presets import PRESET_REGISTRY
-from ..cycles_devices import _CYCLES_AVAILABLE, get_devices_for_display, draw_devices
-from ..operators.background_render import draw_script_filename
+from ..utils.cycles_devices import (
+    _CYCLES_AVAILABLE,
+    draw_devices,
+    get_devices_for_display,
+)
+from ..utils.helpers import draw_label_value_box, get_render_engine
 
 CONFIGURABLE_ARGS = {
     "--log-file",
@@ -86,7 +90,7 @@ class RECOM_PT_additional_script_presets(PresetPanel, Panel):
 class RECOM_PT_render_preferences(RCSubPanel, Panel):
     """Main panel for render preferences"""
 
-    bl_label = "Render Preferences"
+    bl_label = "Settings"
     bl_options = {"DEFAULT_CLOSED"}
 
     @classmethod
@@ -258,7 +262,7 @@ class RECOM_PT_device_parallel(RCBasePanel, Panel):
             and prefs.device_parallel
         )
 
-        layout.prop(prefs, "multiple_backends", text="Multi-Backends")
+        layout.prop(prefs, "multiple_backends", text="Multi-Backend")
 
         parallel_col = layout.column()
         parallel_col.active = len(selected_devices) > 1 and prefs.launch_mode != MODE_SINGLE and prefs.device_parallel
@@ -277,13 +281,15 @@ class RECOM_PT_device_parallel(RCBasePanel, Panel):
             col_tl = col_cpu.column()
             col_tl.prop(prefs, "cpu_threads_limit", text="Thread Limit")
 
-        # Calculate instances count
-        enabled_devices = [d for d in devices_to_display if d.use]
-        num_instances = len(enabled_devices)
-        if any(d.type == "CPU" and d.use for d in enabled_devices) and prefs.combine_cpu_with_gpus:
-            num_instances -= 1
-        num_instances = max(num_instances, 1)
-        layout.label(text=f"Render Instances: {num_instances}")
+        if prefs.device_parallel:
+            # Calculate instances count
+            enabled_devices = [d for d in devices_to_display if d.use]
+            num_instances = len(enabled_devices)
+            if any(d.type == "CPU" and d.use for d in enabled_devices) and prefs.combine_cpu_with_gpus:
+                num_instances -= 1
+            num_instances = max(num_instances, 1)
+
+            draw_label_value_box(layout, "Instances", f"{num_instances}")
 
 
 class RECOM_PT_render_instances(RCBasePanel, Panel):
@@ -354,14 +360,18 @@ class RECOM_PT_command_line_arguments(RCBasePanel, Panel):
         row_arg.prop(prefs, "custom_command_line_args", text="")
 
         if found_banned:
-            col = layout.column(align=True)
-            col.label(text="Overlapping arguments detected")
-            col.label(text=f"Remove: {', '.join(found_banned)}")
+            box = layout.box()
+            box.active = False
+            col = box.column(align=True)
+            col.label(text="Overlapping arguments detected.", icon="ERROR")
+            col.label(text=f"Remove: {', '.join(found_banned)}", icon="BLANK1")
 
         if found_config:
-            col = layout.column(align=True)
-            col.label(text="Redundant arguments detected")
-            col.label(text=f"Managed: {', '.join(found_config)}")
+            box = layout.box()
+            box.active = False
+            col = box.column(align=True)
+            col.label(text="Redundant arguments detected.", icon="INFO")
+            col.label(text=f"Managed: {', '.join(found_config)}", icon="BLANK1")
 
 
 class RECOM_PT_additional_scripts(RCBasePanel, Panel):

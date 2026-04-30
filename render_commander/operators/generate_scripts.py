@@ -3,8 +3,8 @@
 import json
 import logging
 import shlex
-import sys
 import stat
+import sys
 from datetime import datetime
 from pathlib import Path
 
@@ -13,21 +13,20 @@ import bpy
 from ..utils.constants import (
     ADDON_VERSION_STR,
     BLENDER_VERSION_STR,
-    MODE_SINGLE,
-    MODE_SEQ,
     MODE_LIST,
+    MODE_SEQ,
+    MODE_SINGLE,
     RE_CYCLES,
-    RE_EEVEE_NEXT,
     RE_EEVEE,
+    RE_EEVEE_NEXT,
 )
 from ..utils.helpers import (
+    calculate_auto_height,
+    calculate_auto_width,
     get_addon_temp_dir,
     get_render_engine,
-    calculate_auto_width,
-    calculate_auto_height,
     open_folder,
 )
-
 
 log = logging.getLogger(__name__)
 
@@ -404,14 +403,24 @@ def _apply_overscan_settings(context, settings, script_lines):
     # Apply overscan settings
     # Calculate overscan value based on type
     if settings.override_settings.overscan_type == "PERCENTAGE":
-        lines.extend(
-            [
-                "base_res_x = bpy.context.scene.render.resolution_x",
-                "base_res_y = bpy.context.scene.render.resolution_y",
-                f"overscan_x = int(base_res_x * {settings.override_settings.overscan_percent} / 100)",
-                f"overscan_y = int(base_res_y * {settings.override_settings.overscan_percent} / 100)",
-            ]
-        )
+        if settings.override_settings.overscan_uniform:
+            lines.extend(
+                [
+                    "base_res_x = bpy.context.scene.render.resolution_x",
+                    "base_res_y = bpy.context.scene.render.resolution_y",
+                    f"overscan_x = int(base_res_x * {settings.override_settings.overscan_percent} / 100)",
+                    f"overscan_y = int(base_res_y * {settings.override_settings.overscan_percent} / 100)",
+                ]
+            )
+        else:
+            lines.extend(
+                [
+                    "base_res_x = bpy.context.scene.render.resolution_x",
+                    "base_res_y = bpy.context.scene.render.resolution_y",
+                    f"overscan_x = int(base_res_x * {settings.override_settings.overscan_percent_width} / 100)",
+                    f"overscan_y = int(base_res_y * {settings.override_settings.overscan_percent_height} / 100)",
+                ]
+            )
     else:  # PIXELS
         if settings.override_settings.overscan_uniform:
             lines.append(f"overscan_x = overscan_y = {settings.override_settings.overscan_width}")

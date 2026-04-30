@@ -8,14 +8,6 @@ from ..preferences import get_addon_preferences
 from ..utils.constants import MODE_LIST, RCBasePanel
 
 
-def _blend_filepath(context):
-    settings = context.window_manager.recom_render_settings
-    if settings.use_external_blend:
-        return bool(settings.external_blend_file_path)
-
-    return bool(bpy.data.filepath)
-
-
 class RECOM_PT_main_panel(RCBasePanel, Panel):
     """Main panel for background rendering controls"""
 
@@ -28,14 +20,11 @@ class RECOM_PT_main_panel(RCBasePanel, Panel):
 
         # Launcher
         row = layout.row(align=True)
-        row.active = _blend_filepath(context)
         text = "Export"  # Generate Scripts
         if prefs.export_output_target == "SELECT_DIR":
             text += "..."
         row.operator("recom.export_render_script", text=text, icon="EXPORT")
-        row.popover(
-            panel="RECOM_PT_panel_visibility_popup", text="", icon="DOWNARROW_HLT"
-        )
+        row.popover(panel="RECOM_PT_panel_visibility_popup", text="", icon="DOWNARROW_HLT")
 
         # Mode
         col = layout.column()
@@ -76,32 +65,25 @@ class RECOM_PT_panel_visibility_popup(Panel):
         folder_row.prop(prefs, "export_scripts_subfolder", text="")
         sub_folder_row = folder_row.row()
         sub_folder_row.active = prefs.export_scripts_subfolder
-        sub_folder_row.prop(
-            prefs, "export_scripts_folder_name", text="", placeholder="Folder Name"
-        )
+        sub_folder_row.prop(prefs, "export_scripts_folder_name", text="", placeholder="Folder Name")
+
+        col.separator()
+        col = layout.column(heading="Scripts Folder", align=True)
+        col.prop(prefs, "auto_open_exported_folder", text="Open in File Explorer")
 
         col.separator()
         col = layout.column(align=True)
         col.label(text="Script Naming")
         draw_script_filename(col, prefs)
 
-        col.separator()
-        col = layout.column(heading="Actions", align=True)
-        col.prop(prefs, "auto_open_exported_folder", text="Open in File Explorer")
-
         # return
 
-        layout.separator(type="LINE")
-
+        col.separator()
         col = layout.column(align=True, heading="Visible Panels")
-        col.prop(prefs.visible_panels, "external_scene", text="Blend File")
-        col.prop(prefs.visible_panels, "override_settings", text="Override Settings")
-        col.prop(prefs.visible_panels, "preferences", text="Render Preferences")
-        col.prop(prefs.visible_panels, "history", text="Export History")
-
-        # Debugging
-        col = layout.column(heading="Debug")
-        col.prop(prefs, "debug_mode", text="Console Logging")
+        col.prop(prefs.visible_panels, "external_scene", text="Blend File", icon="FILE_BLEND")
+        col.prop(prefs.visible_panels, "override_settings", text="Overrides", icon="MODIFIER_DATA")
+        col.prop(prefs.visible_panels, "preferences", text="Settings", icon="SETTINGS")
+        col.prop(prefs.visible_panels, "history", text="History", icon="EXPORT")
 
 
 classes = (

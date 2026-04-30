@@ -20,7 +20,6 @@ import bpy
 from bpy.props import BoolProperty, StringProperty
 from bpy.types import Operator
 
-from ..cycles_devices import get_devices_for_display
 from ..utils.constants import (
     MODE_LIST,
     MODE_SEQ,
@@ -31,6 +30,7 @@ from ..utils.constants import (
     RE_WORKBENCH,
     RENDER_HISTORY_LIMIT,
 )
+from ..utils.cycles_devices import get_devices_for_display
 from ..utils.helpers import (
     calculate_auto_height,
     calculate_auto_width,
@@ -59,9 +59,7 @@ class RenderJobChunk:
     process_index: int
     device_ids: List[str]
     frames: Union[Tuple[int, int, int], List[int]]
-    is_animation_call: (
-        bool  # True uses render(animation=True), False uses render(write_still=...)
-    )
+    is_animation_call: bool  # True uses render(animation=True), False uses render(write_still=...)
     description: str
 
 
@@ -184,11 +182,7 @@ def validate_render_settings(operator, context) -> bool:
         return False
 
     # Save Blend
-    if (
-        not settings.use_external_blend
-        and prefs.auto_save_before_render
-        and bpy.data.is_dirty
-    ):
+    if not settings.use_external_blend and prefs.auto_save_before_render and bpy.data.is_dirty:
         try:
             bpy.ops.wm.save_mainfile(check_existing=True)
             log.info("Auto-saved")
@@ -313,11 +307,11 @@ class RECOM_OT_ExportRenderScript(Operator):
         sub_folder_row.active = prefs.export_scripts_subfolder
         sub_folder_row.prop(prefs, "export_scripts_folder_name", text="")
 
+        col = layout.column(heading="Scripts Folder", align=True)
+        col.prop(prefs, "auto_open_exported_folder", text="Open in File Explorer")
+
         col = layout.column(heading="Script Naming", align=True)
         draw_script_filename(col, prefs)
-
-        col = layout.column(heading="", align=True)
-        col.prop(prefs, "auto_open_exported_folder", text="Open in File Explorer")
 
     def execute(self, context):
         """Main execution method that handles single and parallel rendering."""
@@ -343,9 +337,7 @@ class RECOM_OT_ExportRenderScript(Operator):
 
         # Dispatch based on Engine and Parallelism logic
         if render_engine == RE_CYCLES:
-            self._execute_cycles_export(
-                context, prefs, settings, blend_file, scene, ext_info
-            )
+            self._execute_cycles_export(context, prefs, settings, blend_file, scene, ext_info)
 
         elif render_engine in {RE_EEVEE_NEXT, RE_EEVEE, RE_WORKBENCH}:
             render_iterations = prefs.render_iterations
@@ -353,20 +345,14 @@ class RECOM_OT_ExportRenderScript(Operator):
 
             # Logic Router
             if is_multi_instance and prefs.launch_mode == MODE_LIST:
-                chunks = self._calculate_chunks_list_iterations(
-                    settings, render_iterations
-                )
+                chunks = self._calculate_chunks_list_iterations(settings, render_iterations)
 
             elif is_multi_instance and prefs.launch_mode == MODE_SEQ:
-                chunks = self._calculate_chunks_iterations_parallel(
-                    prefs, settings, scene, render_iterations, ext_info
-                )
+                chunks = self._calculate_chunks_iterations_parallel(prefs, settings, scene, render_iterations, ext_info)
 
             else:
                 # Single Process (Single frame, or List/Seq with multi_instance=False)
-                chunks = self._calculate_chunks_single_process(
-                    prefs, settings, scene, [], ext_info
-                )
+                chunks = self._calculate_chunks_single_process(prefs, settings, scene, [], ext_info)
 
             if not chunks:
                 return {"CANCELLED"}
@@ -374,9 +360,7 @@ class RECOM_OT_ExportRenderScript(Operator):
             # Track workers for logging
             settings.worker_count = len(chunks)
 
-            self._process_render_chunks(
-                context, prefs, settings, blend_file, chunks, ext_info
-            )
+            self._process_render_chunks(context, prefs, settings, blend_file, chunks, ext_info)
         else:
             self.report({"ERROR"}, f"Unsupported render engine: {render_engine}")
             return {"CANCELLED"}
@@ -390,9 +374,7 @@ class RECOM_OT_ExportRenderScript(Operator):
                 f"Saved: {settings.first_worker_info} ({settings.worker_count})",
             )
 
-        folder_name = (
-            prefs.export_scripts_folder_name if prefs.export_scripts_subfolder else ""
-        )
+        folder_name = prefs.export_scripts_folder_name if prefs.export_scripts_subfolder else ""
         target_dir = Path(self.directory) / folder_name
         log.info('Render scripts saved to: "%s"', str(target_dir))
 
@@ -426,9 +408,7 @@ class RECOM_OT_ExportRenderScript(Operator):
 
         return temp_dir
 
-    def _add_to_history(
-        self, context, prefs, settings, scene, render_engine, ext_info: dict
-    ) -> None:
+    def _add_to_history(self, context, prefs, settings, scene, render_engine, ext_info: dict) -> None:
         """Records the current render task details into the addon's persistent history collection."""
 
         history_item = prefs.render_history.add()
@@ -461,9 +441,7 @@ class RECOM_OT_ExportRenderScript(Operator):
         if override_settings.format_override:
             res_mode = override_settings.resolution_mode
             history_item.resolution_x = (
-                override_settings.resolution_x
-                if res_mode in {"SET_WIDTH", "CUSTOM"}
-                else calculate_auto_width(context)
+                override_settings.resolution_x if res_mode in {"SET_WIDTH", "CUSTOM"} else calculate_auto_width(context)
             )
             history_item.resolution_y = (
                 override_settings.resolution_y
@@ -471,16 +449,8 @@ class RECOM_OT_ExportRenderScript(Operator):
                 else calculate_auto_height(context)
             )
         else:
-            history_item.resolution_x = (
-                ext_info.get("resolution_x", 0)
-                if is_external
-                else scene.render.resolution_x
-            )
-            history_item.resolution_y = (
-                ext_info.get("resolution_y", 0)
-                if is_external
-                else scene.render.resolution_y
-            )
+            history_item.resolution_x = ext_info.get("resolution_x", 0) if is_external else scene.render.resolution_x
+            history_item.resolution_y = ext_info.get("resolution_y", 0) if is_external else scene.render.resolution_y
 
         # Samples
         if render_engine == RE_CYCLES:
@@ -491,18 +461,14 @@ class RECOM_OT_ExportRenderScript(Operator):
                     else str(override_settings.cycles.samples)
                 )
             else:
-                history_item.samples = str(
-                    ext_info.get("samples", 0) if is_external else scene.cycles.samples
-                )
+                history_item.samples = str(ext_info.get("samples", 0) if is_external else scene.cycles.samples)
 
         elif is_eevee:
             if override_settings.eevee_override:
                 history_item.samples = str(override_settings.eevee.samples)
             else:
                 history_item.samples = str(
-                    ext_info.get("eevee_samples", 0)
-                    if is_external
-                    else scene.eevee.taa_render_samples
+                    ext_info.get("eevee_samples", 0) if is_external else scene.eevee.taa_render_samples
                 )
 
         # Frames
@@ -510,9 +476,7 @@ class RECOM_OT_ExportRenderScript(Operator):
             frames = format_frame_range(parse_frame_string(settings.frame_list))
         elif prefs.launch_mode == MODE_SEQ:
             if override_settings.frame_range_override:
-                frames = (
-                    f"{override_settings.frame_start}-{override_settings.frame_end}"
-                )
+                frames = f"{override_settings.frame_start}-{override_settings.frame_end}"
             else:
                 frames = (
                     f"{ext_info.get('frame_start', 0)}-{ext_info.get('frame_end', 0)}"
@@ -523,11 +487,7 @@ class RECOM_OT_ExportRenderScript(Operator):
             if override_settings.frame_range_override:
                 frames = str(override_settings.frame_current)
             else:
-                frames = (
-                    str(ext_info.get("frame_current", 0))
-                    if is_external
-                    else str(scene.frame_current)
-                )
+                frames = str(ext_info.get("frame_current", 0)) if is_external else str(scene.frame_current)
 
         history_item.frames = frames
 
@@ -540,9 +500,7 @@ class RECOM_OT_ExportRenderScript(Operator):
             else scene.render.image_settings.file_format
         )
         prop = scene.render.image_settings.bl_rna.properties["file_format"]
-        history_item.file_format = (
-            prop.enum_items[fmt_id].name if fmt_id in prop.enum_items else fmt_id
-        )
+        history_item.file_format = prop.enum_items[fmt_id].name if fmt_id in prop.enum_items else fmt_id
 
         # Metadata and Export Path
         history_item.render_engine = render_engine
@@ -562,19 +520,13 @@ class RECOM_OT_ExportRenderScript(Operator):
         if len(prefs.render_history) > RENDER_HISTORY_LIMIT:
             prefs.render_history.remove(RENDER_HISTORY_LIMIT)
 
-    def _execute_cycles_export(
-        self, context, prefs, settings, blend_file, scene, ext_info: dict
-    ) -> set[str]:
+    def _execute_cycles_export(self, context, prefs, settings, blend_file, scene, ext_info: dict) -> set[str]:
         """Generate export scripts for Cycles engine, handling device selection and splitting."""
 
         if not prefs.manage_cycles_devices:
-            chunks = self._calculate_chunks_single_process(
-                prefs, settings, scene, [], ext_info
-            )
+            chunks = self._calculate_chunks_single_process(prefs, settings, scene, [], ext_info)
             settings.worker_count = len(chunks)
-            return self._process_render_chunks(
-                context, prefs, settings, blend_file, chunks, ext_info
-            )
+            return self._process_render_chunks(context, prefs, settings, blend_file, chunks, ext_info)
 
         devices_to_display = get_devices_for_display(prefs)
         selected_devices = [d for d in devices_to_display if d.use]
@@ -585,9 +537,7 @@ class RECOM_OT_ExportRenderScript(Operator):
             prefs.launch_mode == MODE_LIST and prefs.device_parallel
         ):
             selected_devices = [
-                d
-                for d in devices_to_display
-                if d.use and (not prefs.combine_cpu_with_gpus or d.type != "CPU")
+                d for d in devices_to_display if d.use and (not prefs.combine_cpu_with_gpus or d.type != "CPU")
             ]
 
         # Handle fallback to CPU if no backend/devices
@@ -603,39 +553,25 @@ class RECOM_OT_ExportRenderScript(Operator):
             cycles_device = settings.override_settings.cycles.device
         else:
             cycles_device = (
-                str(ext_info.get("device", "CPU"))
-                if settings.use_external_blend
-                else str(scene.cycles.device)
+                str(ext_info.get("device", "CPU")) if settings.use_external_blend else str(scene.cycles.device)
             )
 
         # Determine Workload Strategy
         chunks = []
 
         # Condition: GPU Parallel (Sequence or List)
-        if (
-            cycles_device == "GPU"
-            and len(selected_devices) > 1
-            and prefs.device_parallel
-        ):
+        if cycles_device == "GPU" and len(selected_devices) > 1 and prefs.device_parallel:
             if prefs.launch_mode == MODE_SEQ:
-                chunks = self._calculate_chunks_sequence_parallel(
-                    prefs, settings, scene, selected_devices, ext_info
-                )
+                chunks = self._calculate_chunks_sequence_parallel(prefs, settings, scene, selected_devices, ext_info)
             elif prefs.launch_mode == MODE_LIST:
-                chunks = self._calculate_chunks_list_parallel(
-                    prefs, settings, selected_devices
-                )
+                chunks = self._calculate_chunks_list_parallel(prefs, settings, selected_devices)
             else:  # MODE_SINGLE, falling back to single process logic
                 selected_ids = [d.id for d in selected_devices]
-                chunks = self._calculate_chunks_single_process(
-                    prefs, settings, scene, selected_ids, ext_info
-                )
+                chunks = self._calculate_chunks_single_process(prefs, settings, scene, selected_ids, ext_info)
         else:
             # CPU or Single GPU or Single Process Mode
             selected_ids = [d.id for d in selected_devices]
-            chunks = self._calculate_chunks_single_process(
-                prefs, settings, scene, selected_ids, ext_info
-            )
+            chunks = self._calculate_chunks_single_process(prefs, settings, scene, selected_ids, ext_info)
 
         if not chunks:
             return {"CANCELLED"}
@@ -643,9 +579,7 @@ class RECOM_OT_ExportRenderScript(Operator):
         # Execute Unified
         # Track workers for logging
         settings.worker_count = len(chunks)
-        return self._process_render_chunks(
-            context, prefs, settings, blend_file, chunks, ext_info
-        )
+        return self._process_render_chunks(context, prefs, settings, blend_file, chunks, ext_info)
 
     # Workload Calculators
 
@@ -658,9 +592,7 @@ class RECOM_OT_ExportRenderScript(Operator):
         """
 
         try:
-            frame_start, frame_end, frame_step = self._get_frame_settings(
-                prefs, settings, scene, True, ext_info
-            )
+            frame_start, frame_end, frame_step = self._get_frame_settings(prefs, settings, scene, True, ext_info)
         except ValueError as e:
             self.report({"WARNING"}, str(e))
             log.error("%s", str(e))
@@ -711,9 +643,7 @@ class RECOM_OT_ExportRenderScript(Operator):
 
         return chunks
 
-    def _calculate_chunks_list_iterations(
-        self, settings, process_count: int
-    ) -> List[RenderJobChunk]:
+    def _calculate_chunks_list_iterations(self, settings, process_count: int) -> List[RenderJobChunk]:
         """Split a frame list across multiple processes (Iterations)."""
         frames = parse_frame_string(settings.frame_list)
         if not frames:
@@ -759,9 +689,7 @@ class RECOM_OT_ExportRenderScript(Operator):
 
         if prefs.launch_mode == MODE_LIST:
             frames = parse_frame_string(settings.frame_list)
-            is_animation = (
-                False  # List mode processes frames individually in the script
-            )
+            is_animation = False  # List mode processes frames individually in the script
             desc_frames = format_frame_range(frames)
         else:
             is_not_still = prefs.launch_mode != MODE_SINGLE
@@ -777,11 +705,7 @@ class RECOM_OT_ExportRenderScript(Operator):
 
             frames = (frame_start, frame_end, frame_step)
             is_animation = prefs.launch_mode == MODE_SEQ
-            desc_frames = (
-                f"{frame_start}"
-                if frame_start == frame_end
-                else f"{frame_start}-{frame_end}"
-            )
+            desc_frames = f"{frame_start}" if frame_start == frame_end else f"{frame_start}-{frame_end}"
 
         return [
             RenderJobChunk(
@@ -799,9 +723,7 @@ class RECOM_OT_ExportRenderScript(Operator):
         """Split a frame sequence across available devices."""
 
         try:
-            frame_start, frame_end, frame_step = self._get_frame_settings(
-                prefs, settings, scene, True, ext_info
-            )
+            frame_start, frame_end, frame_step = self._get_frame_settings(prefs, settings, scene, True, ext_info)
         except ValueError as e:
             self.report({"INFO"}, str(e))
             log.error(str(e))
@@ -850,9 +772,7 @@ class RECOM_OT_ExportRenderScript(Operator):
 
         return chunks
 
-    def _calculate_chunks_list_parallel(
-        self, prefs, settings, selected_devices
-    ) -> List[RenderJobChunk]:
+    def _calculate_chunks_list_parallel(self, prefs, settings, selected_devices) -> List[RenderJobChunk]:
         """Split a list of frames across available devices."""
         frames = parse_frame_string(settings.frame_list)
         if not frames:
@@ -887,9 +807,7 @@ class RECOM_OT_ExportRenderScript(Operator):
         """Helper to combine CPU with GPU if preference is set."""
         if prefs.combine_cpu_with_gpus:
             devices_to_display = get_devices_for_display(prefs)
-            cpu_device = next(
-                (d for d in devices_to_display if d.use and d.type == "CPU"), None
-            )
+            cpu_device = next((d for d in devices_to_display if d.use and d.type == "CPU"), None)
             if cpu_device:
                 return [primary_device.id, cpu_device.id]
         return [primary_device.id]
@@ -920,9 +838,7 @@ class RECOM_OT_ExportRenderScript(Operator):
     ) -> set[str]:
         """Generate scripts for all chunks."""
 
-        folder_name = (
-            prefs.export_scripts_folder_name if prefs.export_scripts_subfolder else ""
-        )
+        folder_name = prefs.export_scripts_folder_name if prefs.export_scripts_subfolder else ""
         target_dir = Path(self.directory) / folder_name
 
         if not target_dir.exists():
@@ -933,9 +849,7 @@ class RECOM_OT_ExportRenderScript(Operator):
         generated_script_paths = []
         for chunk in chunks:
             # Generate the Python Content
-            script_lines = self._generate_chunk_python_script(
-                context, prefs, settings, context.scene, chunk, ext_info
-            )
+            script_lines = self._generate_chunk_python_script(context, prefs, settings, context.scene, chunk, ext_info)
 
             # Identifiers
             process_id = chunk.process_index
@@ -1015,12 +929,8 @@ class RECOM_OT_ExportRenderScript(Operator):
                 )
 
         # CPU Threads limit
-        if (any(d.type == "CPU" and d.use for d in prefs.devices)) and (
-            prefs.cpu_threads_limit != 0
-        ):
-            script_lines.append(
-                f"bpy.context.scene.cycles.threads = {prefs.cpu_threads_limit}"
-            )
+        if (any(d.type == "CPU" and d.use for d in prefs.devices)) and (prefs.cpu_threads_limit != 0):
+            script_lines.append(f"bpy.context.scene.cycles.threads = {prefs.cpu_threads_limit}")
 
         # Output Path & Render Call Logic
 
@@ -1032,17 +942,13 @@ class RECOM_OT_ExportRenderScript(Operator):
             base_name_no_templates = re.sub(r"\{[^}]*\}", "", out_path)
 
             if "#" in base_name_no_templates and prefs.launch_mode == MODE_SINGLE:
-                script_lines.append(
-                    f'bpy.context.scene.render.filepath = r"{out_path}"'
-                )
+                script_lines.append(f'bpy.context.scene.render.filepath = r"{out_path}"')
                 script_lines.append(
                     f"bpy.context.scene.render.filepath = bpy.context.scene.render.frame_path(frame={frame})"
                 )
             else:
                 # Add frame to render filename
-                script_lines.append(
-                    f'bpy.context.scene.render.filepath = r"{out_path}"'
-                )
+                script_lines.append(f'bpy.context.scene.render.filepath = r"{out_path}"')
 
             script_lines.append("")
 
@@ -1061,26 +967,19 @@ class RECOM_OT_ExportRenderScript(Operator):
             add_render_cmd(f_start, True, False, ext_info)
         elif isinstance(chunk.frames, tuple):
             # Mode: Single Frame (tuple used in single process fallback)
-            write_s = (
-                prefs.write_still or settings.override_settings.output_path_override
-            )
+            write_s = prefs.write_still or settings.override_settings.output_path_override
             add_render_cmd(f_start, False, write_s, ext_info)
         else:
             # Mode: List (list of frames)
             out_path = self._resolve_output_path(prefs, settings, scene, ext_info)
 
-            is_contiguous = len(chunk.frames) > 1 and (
-                chunk.frames[-1] - chunk.frames[0] == len(chunk.frames) - 1
-            )
+            is_contiguous = len(chunk.frames) > 1 and (chunk.frames[-1] - chunk.frames[0] == len(chunk.frames) - 1)
 
             if is_contiguous:
                 frames_str = f"frames_to_render = range({chunk.frames[0]}, {chunk.frames[-1] + 1})"
             else:
                 str_frames = [str(f) for f in chunk.frames]
-                line_chunks = [
-                    ", ".join(str_frames[i : i + 15])
-                    for i in range(0, len(str_frames), 15)
-                ]
+                line_chunks = [", ".join(str_frames[i : i + 15]) for i in range(0, len(str_frames), 15)]
 
                 wrapped_frames = ",\n    ".join(line_chunks)
                 frames_str = f"frames_to_render = [\n    {wrapped_frames}\n]"
@@ -1132,11 +1031,7 @@ class RECOM_OT_ExportRenderScript(Operator):
                 dir_path = settings.override_settings.output_directory or "/tmp/"
                 file_name = settings.override_settings.output_filename
             else:
-                base_path = (
-                    ext_info.get("filepath", "//")
-                    if settings.use_external_blend
-                    else scene.render.filepath
-                )
+                base_path = ext_info.get("filepath", "//") if settings.use_external_blend else scene.render.filepath
                 last_slash = max(base_path.rfind("/"), base_path.rfind("\\"))
                 if last_slash == -1:
                     dir_path, file_name = "", base_path
@@ -1178,9 +1073,7 @@ class RECOM_OT_ExportRenderScript(Operator):
 
         return output_path
 
-    def _get_frame_settings(
-        self, prefs, settings, scene, is_animation, ext_info: dict
-    ) -> Tuple[int, int, int]:
+    def _get_frame_settings(self, prefs, settings, scene, is_animation, ext_info: dict) -> Tuple[int, int, int]:
         """
         Retrieves valid frame range parameters (start, end, step) based on the
         current launch mode and availability of external scene metadata.
@@ -1216,9 +1109,7 @@ class RECOM_OT_ExportRenderScript(Operator):
                 return (val, val, 1)
 
             if is_animation:
-                return check(
-                    prefs, scene.frame_start, scene.frame_end, scene.frame_step
-                )
+                return check(prefs, scene.frame_start, scene.frame_end, scene.frame_step)
             return (scene.frame_current,) * 2 + (1,)
 
         except Exception as exc:

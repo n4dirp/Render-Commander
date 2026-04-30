@@ -4,21 +4,21 @@ import logging
 
 import bpy
 from bpy.props import (
-    StringProperty,
     BoolProperty,
-    PointerProperty,
-    IntProperty,
+    CollectionProperty,
     EnumProperty,
     FloatProperty,
     FloatVectorProperty,
-    CollectionProperty,
+    IntProperty,
+    PointerProperty,
+    StringProperty,
 )
 from bpy.types import PropertyGroup
 
 from ..utils.helpers import (
-    redraw_ui,
-    calculate_auto_width,
     calculate_auto_height,
+    calculate_auto_width,
+    redraw_ui,
     resolve_blender_path,
 )
 
@@ -114,7 +114,11 @@ class RECOM_PG_CyclesRenderOverrides(PropertyGroup):
     sampling_mode: EnumProperty(
         name="Mode",
         items=[
-            ("FACTOR", "Factor", "Multiply the scene's current sampling settings by a factor"),
+            (
+                "FACTOR",
+                "Factor",
+                "Multiply the scene's current sampling settings by a factor",
+            ),
             ("CUSTOM", "Custom", "Set absolute sampling values manually"),
         ],
         default="FACTOR",
@@ -475,6 +479,24 @@ class RECOM_PG_OverrideSettings(PropertyGroup):
         description="Apply the same pixel value to both width and height",
         default=True,
     )
+    overscan_percent_width: FloatProperty(
+        name="Overscan % X",
+        description="Percentage to add to the left and right sides",
+        min=0.0,
+        soft_max=30.0,
+        default=5.0,
+        precision=0,
+        subtype="PERCENTAGE",
+    )
+    overscan_percent_height: FloatProperty(
+        name="Overscan % Y",
+        description="Percentage to add to the top and bottom sides",
+        min=0.0,
+        soft_max=30.0,
+        default=5.0,
+        precision=0,
+        subtype="PERCENTAGE",
+    )
     overscan_width: IntProperty(
         name="Width Overscan",
         description="Extra pixels added to the left and right sides",
@@ -504,7 +526,11 @@ class RECOM_PG_OverrideSettings(PropertyGroup):
     use_dof: EnumProperty(
         name="",
         items=[
-            ("DISABLED", "Disabled", "Disable depth of field on all cameras in the scene"),
+            (
+                "DISABLED",
+                "Disabled",
+                "Disable depth of field on all cameras in the scene",
+            ),
             ("ENABLED", "Enabled", "Use depth of field on all cameras in the scene"),
         ],
         default="DISABLED",
@@ -617,7 +643,11 @@ class RECOM_PG_OverrideSettings(PropertyGroup):
     variable_insert_target: EnumProperty(
         name="Insert Into",
         items=[
-            ("DIRECTORY", "Directory", "Insert variable into the output directory path string"),
+            (
+                "DIRECTORY",
+                "Directory",
+                "Insert variable into the output directory path string",
+            ),
             ("FILENAME", "Filename", "Insert variable into the output filename string"),
         ],
         default="FILENAME",

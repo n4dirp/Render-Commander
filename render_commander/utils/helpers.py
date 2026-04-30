@@ -21,14 +21,18 @@ _IS_MACOS = sys.platform == "darwin"
 _IS_LINUX = sys.platform.startswith("linux")
 
 
+def get_addon_preferences(context=None):
+    """Get addon preferences from Blender context."""
+    ctx = context or bpy.context
+    return ctx.preferences.addons[base_package].preferences
+
+
 def get_addon_temp_dir() -> Path:
     """Get the temporary directory for addon-specific files."""
     try:
         return Path(bpy.utils.extension_path_user(base_package, create=True))
     except Exception as e:
-        log.error(
-            "Failed to get addon extension directory for '%s': %s", base_package, e
-        )
+        log.error("Failed to get addon extension directory for '%s': %s", base_package, e)
         raise
 
 
@@ -38,11 +42,7 @@ def replace_variables(prefs, path_template: str) -> str:
         return path_template
 
     try:
-        variables_map = {
-            var.token: var.value
-            for var in prefs.custom_variables
-            if var.token not in RESERVED_TOKENS
-        }
+        variables_map = {var.token: var.value for var in prefs.custom_variables if var.token not in RESERVED_TOKENS}
 
         def replacement_func(match):
             var_name = match.group(1)
@@ -53,16 +53,12 @@ def replace_variables(prefs, path_template: str) -> str:
 
             return variables_map.get(var_name, match.group(0))
 
-        resolved_path_segment = re.sub(
-            r"(?<!\{)\{(\w+)\}(?!\})", replacement_func, path_template
-        )
+        resolved_path_segment = re.sub(r"(?<!\{)\{(\w+)\}(?!\})", replacement_func, path_template)
 
         return resolved_path_segment
 
     except Exception as e:
-        log.error(
-            "[replace_variables] Failed to process path: '%s' - %s", path_template, e
-        )
+        log.error("[replace_variables] Failed to process path: '%s' - %s", path_template, e)
         raise
 
 
@@ -86,11 +82,6 @@ def is_blend_or_backup_file(file_path: str) -> bool:
         ".blend2",
         ".blend3",
     )
-
-
-def get_addon_preferences():
-    """Get addon preferences from Blender context."""
-    return bpy.context.preferences.addons[base_package].preferences
 
 
 def open_folder(folder_path: str) -> bool:
@@ -150,11 +141,7 @@ def get_default_resolution(context) -> tuple:
 
     if settings.use_external_blend and settings.external_blend_file_path:
         try:
-            info = (
-                json.loads(settings.external_scene_info)
-                if settings.external_scene_info
-                else {}
-            )
+            info = json.loads(settings.external_scene_info) if settings.external_scene_info else {}
             res_x = info.get("resolution_x", fallback_res_x)
             res_y = info.get("resolution_y", fallback_res_x)
         except (ValueError, TypeError, json.JSONDecodeError) as e:
@@ -269,3 +256,22 @@ def get_scene_info(settings: Any) -> Union[dict, None]:
     except json.JSONDecodeError as e:
         log.error("Failed to decode JSON: %s", e)
         return None
+
+
+def draw_label_value_box(layout, label: str, value: str = "", factor: float = 0.4, active: bool = False) -> object:
+    """Draw a split box with a right-aligned label and left-aligned value."""
+    box = layout.box()
+    box.active = active
+    split = box.split(factor=factor)
+
+    row_label = split.row(align=True)
+    row_value = split.row(align=True)
+
+    if value:
+        row_value.alignment = "LEFT"
+        row_label.alignment = "RIGHT"
+
+    row_label.label(text=label)
+    row_value.label(text=str(value))
+
+    return box

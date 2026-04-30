@@ -14,15 +14,15 @@ from bpy.props import (
 )
 from bpy.types import AddonPreferences, PropertyGroup
 
-from .cycles_devices import (
-    RECOM_PG_DeviceSettings,
-    get_device_types_items,
-    refresh_cycles_devices,
-)
 from .utils.constants import (
     MODE_LIST,
     MODE_SEQ,
     MODE_SINGLE,
+)
+from .utils.cycles_devices import (
+    RECOM_PG_DeviceSettings,
+    get_device_types_items,
+    refresh_cycles_devices,
 )
 from .utils.helpers import redraw_ui
 
@@ -134,9 +134,7 @@ def update_active_render_history_properties(self, context):
     # Check if index is within valid range
     if self.active_render_history_index >= len(self.render_history):
         # Reset to valid index or -1 if collection is empty
-        self.active_render_history_index = (
-            len(self.render_history) - 1 if self.render_history else -1
-        )
+        self.active_render_history_index = len(self.render_history) - 1 if self.render_history else -1
         return
 
     active_item = self.render_history[self.active_render_history_index]
@@ -178,21 +176,15 @@ class RECOM_PG_RecentBlendFile(PropertyGroup):
 class RECOM_PG_VisiblePanels(PropertyGroup):
     """Visibility settings for addon panels"""
 
-    external_scene: BoolProperty(
-        name="Blend File", default=True, update=lambda self, context: redraw_ui()
-    )
-    override_settings: BoolProperty(
-        name="Override Settings", default=True, update=lambda self, context: redraw_ui()
-    )
+    external_scene: BoolProperty(name="Blend File", default=True, update=lambda self, context: redraw_ui())
+    override_settings: BoolProperty(name="Override Settings", default=True, update=lambda self, context: redraw_ui())
     preferences: BoolProperty(
         name="Render Preferences",
         default=True,
         update=lambda self, context: redraw_ui(),
     )
     ocio: BoolProperty(name="OCIO Environment", default=False)
-    history: BoolProperty(
-        name="Export History", default=True, update=lambda self, context: redraw_ui()
-    )
+    history: BoolProperty(name="Export History", default=True, update=lambda self, context: redraw_ui())
 
 
 class RECOM_PG_OverrideImportSettings(PropertyGroup):
@@ -256,9 +248,7 @@ class RECOM_Preferences(AddonPreferences):
 
     # Overrides
     custom_variables: CollectionProperty(type=RECOM_PG_CustomVariable)
-    active_custom_variable_index: IntProperty(
-        default=-1, name="Active Custom Variable Index"
-    )
+    active_custom_variable_index: IntProperty(default=-1, name="Active Custom Variable Index")
     use_underscore_separator: BoolProperty(
         name="Use Underscore Separator",
         description="Automatically inserts an underscore between the base path and the added variable",
@@ -397,11 +387,13 @@ class RECOM_Preferences(AddonPreferences):
         min=1,
         soft_min=3,
         soft_max=6,
-        description="Number of digits used to pad frame numbers in output filenames.\nUsed when the filename does not contain # characters.",
+        description="Number of digits used to pad frame numbers in output filenames.\n"
+        " * Used when the filename does not contain # characters",
     )
     filename_separator: EnumProperty(
         name="File Separator",
-        description="Separator between output filename and frame numbers.\nUsed when the filename does not contain # characters.",
+        description="Separator between output filename and frame numbers.\n"
+        " * Used when the filename does not contain # characters",
         items=[
             ("DOT", "Dot (.)", "Filename.####"),
             ("UNDERSCORE", "Underscore (_)", "Filename_####"),

@@ -82,7 +82,7 @@ class RECOM_MT_external_blend_options(Menu):
             icon="FILE_REFRESH",
         )
         layout.separator()
-        layout.prop(prefs, "compact_external_info", text="Compact Scene Info")
+        layout.prop(prefs, "show_scene_info_list", text="Show List")
 
 
 class RECOM_MT_script_options(Menu):
@@ -147,7 +147,7 @@ class RECOM_MT_render_history_item(Menu):
         op_open_in_new_session.file_path = active_item.blend_path
         blend_col.separator()
         blend_col.operator(
-            "recom.select_recent_file", text="Read Blend File", icon="ZOOM_ALL"
+            "recom.select_recent_file", text="Read Scene", icon="ZOOM_ALL"
         ).file_path = active_item.blend_path
 
         blend_col.separator()

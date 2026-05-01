@@ -18,9 +18,9 @@ import bpy
 from bpy.props import BoolProperty, EnumProperty, StringProperty
 from bpy.types import Operator
 
-from ..preferences import get_addon_preferences
 from ..utils.constants import EXTERNAL_BLEND_FILE_HISTORY_LIMIT
 from ..utils.helpers import (
+    get_addon_preferences,
     get_addon_temp_dir,
     is_blend_or_backup_file,
     open_folder,

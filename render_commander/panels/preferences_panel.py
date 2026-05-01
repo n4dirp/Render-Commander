@@ -8,9 +8,7 @@ from bpy.types import Panel, UIList
 
 from ..operators.background_render import draw_script_filename
 from ..operators.presets import PRESET_REGISTRY
-from ..preferences import get_addon_preferences
 from ..utils.constants import (
-    # MODE_SEQ,
     MODE_LIST,
     MODE_SINGLE,
     RE_CYCLES,
@@ -25,7 +23,11 @@ from ..utils.cycles_devices import (
     draw_devices,
     get_devices_for_display,
 )
-from ..utils.helpers import draw_label_value_box, get_render_engine
+from ..utils.helpers import (
+    draw_label_value_box,
+    get_addon_preferences,
+    get_render_engine,
+)
 
 CONFIGURABLE_ARGS = {
     "--log-file",

@@ -28,12 +28,6 @@ from .utils.helpers import redraw_ui
 
 log = logging.getLogger(__name__)
 
-PACKAGE = __package__
-
-
-def get_addon_preferences(context):
-    return context.preferences.addons[__package__].preferences
-
 
 def on_logging_pref_changed(self, context):
     """Triggered whenever the user checks/unchecks the setting in the UI"""
@@ -247,6 +241,11 @@ class RECOM_Preferences(AddonPreferences):
     )
 
     # Overrides
+    show_path_variables: BoolProperty(
+        name="Show Path Variables",
+        default=False,
+        update=lambda self, context: redraw_ui(),
+    )
     custom_variables: CollectionProperty(type=RECOM_PG_CustomVariable)
     active_custom_variable_index: IntProperty(default=-1, name="Active Custom Variable Index")
     use_underscore_separator: BoolProperty(
@@ -588,7 +587,7 @@ def register():
         bpy.utils.register_class(cls)
 
     try:
-        prefs = get_addon_preferences(bpy.context)
+        prefs = bpy.context.preferences.addons[__package__].preferences
         if prefs and not prefs.devices_ini:
             refresh_cycles_devices(prefs, bpy.context, sync_type=True)
             prefs.devices_ini = True

@@ -7,8 +7,7 @@ from pathlib import Path
 import bpy
 from bpy.types import Menu
 
-from ..preferences import get_addon_preferences
-from ..utils.helpers import get_scene_info
+from ..utils.helpers import get_addon_preferences, get_scene_info
 
 log = logging.getLogger(__name__)
 

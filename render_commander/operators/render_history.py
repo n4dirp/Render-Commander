@@ -5,8 +5,7 @@ import bpy
 from bpy.props import EnumProperty, StringProperty
 from bpy.types import Operator
 
-from ..preferences import get_addon_preferences
-from ..utils.helpers import open_folder, redraw_ui
+from ..utils.helpers import get_addon_preferences, open_folder, redraw_ui
 
 log = logging.getLogger(__name__)
 

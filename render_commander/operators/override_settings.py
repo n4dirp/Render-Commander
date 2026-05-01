@@ -14,8 +14,7 @@ from bpy.props import (
 )
 from bpy.types import Operator
 
-from ..preferences import get_addon_preferences
-from ..utils.helpers import redraw_ui, resolve_blender_path
+from ..utils.helpers import get_addon_preferences, redraw_ui, resolve_blender_path
 
 
 class RECOM_OT_SetResolution(Operator):

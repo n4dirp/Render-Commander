@@ -9,9 +9,8 @@ import logging
 import bpy
 from bpy.types import Operator
 
-from ..preferences import get_addon_preferences
 from ..utils.constants import RE_CYCLES, RE_EEVEE, RE_EEVEE_NEXT
-from ..utils.helpers import get_render_engine
+from ..utils.helpers import get_addon_preferences, get_render_engine
 
 log = logging.getLogger(__name__)
 

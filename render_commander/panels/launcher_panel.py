@@ -4,8 +4,8 @@ import bpy
 from bpy.types import Panel
 
 from ..operators.background_render import draw_script_filename
-from ..preferences import get_addon_preferences
 from ..utils.constants import MODE_LIST, RCBasePanel
+from ..utils.helpers import get_addon_preferences
 
 
 class RECOM_PT_main_panel(RCBasePanel, Panel):

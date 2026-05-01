@@ -7,9 +7,8 @@ import bpy
 from bpy.props import EnumProperty, IntProperty, StringProperty
 from bpy.types import Operator
 
-from ..preferences import get_addon_preferences
 from ..utils.cycles_devices import refresh_cycles_devices
-from ..utils.helpers import redraw_ui
+from ..utils.helpers import get_addon_preferences, redraw_ui
 
 log = logging.getLogger(__name__)
 

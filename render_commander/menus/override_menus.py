@@ -5,7 +5,7 @@ import logging
 import bpy
 from bpy.types import Menu
 
-from ..preferences import get_addon_preferences
+from ..utils.helpers import get_addon_preferences
 
 log = logging.getLogger(__name__)
 

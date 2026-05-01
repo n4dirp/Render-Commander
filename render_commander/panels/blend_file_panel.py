@@ -5,7 +5,6 @@ import bpy
 from bpy.types import Panel, UIList
 
 from ..operators.blend_file import _extraction_state
-from ..preferences import get_addon_preferences
 from ..utils.constants import (
     RE_CYCLES,
     RE_EEVEE,
@@ -13,7 +12,7 @@ from ..utils.constants import (
     RENDER_ENGINE_MAPPING,
     RCSubPanel,
 )
-from ..utils.helpers import get_scene_info
+from ..utils.helpers import get_addon_preferences, get_scene_info
 
 log = logging.getLogger(__name__)
 

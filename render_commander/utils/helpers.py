@@ -21,6 +21,11 @@ _IS_MACOS = sys.platform == "darwin"
 _IS_LINUX = sys.platform.startswith("linux")
 
 
+def get_override_settings(context):
+    """Helper function to retrieve override settings from context."""
+    return context.window_manager.recom_render_settings.override_settings
+
+
 def get_addon_preferences(context=None):
     """Get addon preferences from Blender context."""
     ctx = context or bpy.context

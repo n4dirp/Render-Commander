@@ -1,25 +1,25 @@
 import logging
 
 from . import (
-    background_render,
-    presets,
     blend_file,
-    operators,
-    override_settings,
-    override_import_settings,
-    render_history,
+    export,
+    history,
+    import_settings,
+    override,
+    presets,
+    utils,
 )
 
 log = logging.getLogger(__name__)
 
 operator_modules = [
     presets,
-    background_render,
+    export,
     blend_file,
-    operators,
-    override_settings,
-    override_import_settings,
-    render_history,
+    utils,
+    override,
+    import_settings,
+    history,
 ]
 
 

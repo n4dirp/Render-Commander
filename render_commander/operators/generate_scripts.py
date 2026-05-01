@@ -519,10 +519,14 @@ def _apply_output_format_settings(settings, script_lines):
                 "OPEN_EXR",
                 "OPEN_EXR_MULTILAYER",
             ]:
-                lines.append(
-                    f"bpy.context.scene.render.image_settings.exr_codec = '{settings.override_settings.codec}'"
+                lines.extend(
+                    [
+                        f"bpy.context.scene.render.image_settings.exr_codec = '{settings.override_settings.codec}'",
+                        f"bpy.context.scene.render.image_settings.use_preview = {settings.override_settings.use_preview}",
+                    ]
                 )
-            elif settings.override_settings.file_format == "JPEG":
+
+            if settings.override_settings.file_format == "JPEG":
                 lines.append(
                     f"bpy.context.scene.render.image_settings.quality = {settings.override_settings.jpeg_quality}"
                 )
@@ -841,7 +845,7 @@ def _resolve_script_base_name(
 
     # --- Build parts ---
     if prefs.use_export_date_in_script:
-        _add(parts, datetime.now().strftime("%Y-%m-%d_%H%M%S"))
+        _add(parts, datetime.now().strftime("%m-%d_%H%M%S"))
 
     if prefs.use_blend_name_in_script:
         _add(parts, bpy.path.clean_name(blend_name))

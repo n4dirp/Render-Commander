@@ -620,6 +620,11 @@ class RECOM_PG_OverrideSettings(PropertyGroup):
         default=0,
         description="Bit depth per channel",
     )
+    use_preview: BoolProperty(
+        name="",
+        description="Save a JPG preview in the same directory",
+        default=False,
+    )
 
     # Output Path
     output_path_override: BoolProperty(

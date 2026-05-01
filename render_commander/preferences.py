@@ -234,18 +234,12 @@ class RECOM_Preferences(AddonPreferences):
 
     # Ext blend file
     recent_blend_files: CollectionProperty(type=RECOM_PG_RecentBlendFile)
-    compact_external_info: BoolProperty(
-        name="Compact External Info",
-        default=True,
-        description=("Show external blend scene info in a compact box"),
+    show_scene_info_list: BoolProperty(
+        name="Show List",
+        default=False,
     )
 
     # Overrides
-    show_path_variables: BoolProperty(
-        name="Show Path Variables",
-        default=False,
-        update=lambda self, context: redraw_ui(),
-    )
     custom_variables: CollectionProperty(type=RECOM_PG_CustomVariable)
     active_custom_variable_index: IntProperty(default=-1, name="Active Custom Variable Index")
     use_underscore_separator: BoolProperty(

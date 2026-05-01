@@ -21,6 +21,7 @@ from bpy.types import Operator
 from ..utils.constants import EXTERNAL_BLEND_FILE_HISTORY_LIMIT
 from ..utils.helpers import (
     get_addon_preferences,
+    get_addon_settings,
     get_addon_temp_dir,
     is_blend_or_backup_file,
     open_folder,
@@ -44,7 +45,7 @@ _extraction_state = {
 }
 
 
-def _poll_extraction_timer():
+def _poll_extraction_timer(context):
     """Standalone timer callback. Never references 'self'."""
     # Safety Check: If Blender is shutting down or process is gone, exit immediately.
     if not _extraction_state["is_running"] or _extraction_state["process"] is None:
@@ -55,7 +56,7 @@ def _poll_extraction_timer():
         if _extraction_state["process"].poll() is None:
             return 0.5  # Keep polling
 
-        _finalize_extraction()
+        _finalize_extraction(context)
         return None  # Stop timer
     except Exception as e:
         log.error("Error in extraction timer: %s", e)
@@ -79,7 +80,7 @@ def format_modified_date(timestamp: float) -> str:
         return "Unknown"
 
 
-def _finalize_extraction():
+def _finalize_extraction(context):
     """Reads cache and updates UI. Runs safely outside operator lifecycle."""
     cache_path = _extraction_state["cache_path"]
     info_data = {}
@@ -98,17 +99,15 @@ def _finalize_extraction():
     else:
         info_data = {"error": "Extraction finished but cache file is missing."}
 
-    wm = bpy.data.window_managers[0] if bpy.data.window_managers else None
-    if wm and hasattr(wm, "recom_render_settings"):
-        settings = wm.recom_render_settings
-        settings.external_scene_info = json.dumps(info_data)
-        settings.is_scene_info_loaded = True
+    settings = get_addon_settings(context)
+    settings.external_scene_info = json.dumps(info_data)
+    settings.is_scene_info_loaded = True
 
-        if "error" in info_data:
-            log.error("Extraction error: %s", info_data["error"])
-        else:
-            log.info("Scene info successfully extracted and cached.")
-            redraw_ui()
+    if "error" in info_data:
+        log.error("Extraction error: %s", info_data["error"])
+    else:
+        log.info("Scene info successfully extracted and cached.")
+        redraw_ui()
 
     duration = time.time() - _extraction_state["start_time"]
     log.debug("Extraction process finished in %.2f seconds", duration)
@@ -162,11 +161,11 @@ def generate_cache_key(blend_path_obj: Path, script_path: Path) -> str:
 
 
 class RECOM_OT_ExtractExternalSceneData(Operator):
-    """Read scene information from an external blend file using a background process"""
+    """Read scene data from an external blend file using a background process"""
 
     bl_idname = "recom.extract_external_scene_data"
-    bl_label = "Read Blend File"
-    bl_description = "Read scene information from an external blend file"
+    bl_label = "Read Scene"
+    bl_description = "Read scene data from external file"
     bl_options = {"INTERNAL"}
 
     @classmethod
@@ -177,24 +176,24 @@ class RECOM_OT_ExtractExternalSceneData(Operator):
 
     def execute(self, context):
         prefs = get_addon_preferences(context)
-        settings = context.window_manager.recom_render_settings
+        settings = get_addon_settings(context)
         external_blend_path = bpy.path.abspath(settings.external_blend_file_path)
 
         if not external_blend_path:
-            self.report({"ERROR"}, "External blend file path not set")
+            self.report({"ERROR"}, "No blend file set")
             return {"CANCELLED"}
 
         blend_path_obj = Path(external_blend_path)
         if not blend_path_obj.exists():
-            self.report({"ERROR"}, f"External blend file not found: {external_blend_path}")
+            self.report({"ERROR"}, "Blend file not found")
             return {"CANCELLED"}
 
         if not is_blend_or_backup_file(external_blend_path):
-            self.report({"ERROR"}, "Specified path is not a .blend file")
+            self.report({"ERROR"}, "Not a .blend file")
             return {"CANCELLED"}
 
         if _extraction_state["is_running"]:
-            self.report({"WARNING"}, "Extraction already in progress. Please wait or cancel")
+            self.report({"WARNING"}, "Extraction already in progress")
             return {"CANCELLED"}
 
         # Add to recent files
@@ -204,7 +203,7 @@ class RECOM_OT_ExtractExternalSceneData(Operator):
         # Prepare paths
         script_path = (Path(__file__).parent / "../utils/extract_scene_info.py").resolve()
         if not script_path.is_file():
-            self.report({"ERROR"}, f"Extractor script not found: {script_path}")
+            self.report({"ERROR"}, "Extractor script not found")
             return {"CANCELLED"}
 
         temp_dir = get_addon_temp_dir()
@@ -234,7 +233,7 @@ class RECOM_OT_ExtractExternalSceneData(Operator):
                         settings.is_scene_info_loaded = True
                         log.info('Loaded scene info from cache: "%s"', cache_path.name)
                         redraw_ui()
-                        self.report({"INFO"}, f"Loaded cached scene info for {blend_path_obj.name}")
+                        self.report({"INFO"}, "Cached scene info loaded")
                         return {"FINISHED"}
 
                     log.debug("Cache contains previous error, will re-extract.")
@@ -278,9 +277,9 @@ class RECOM_OT_ExtractExternalSceneData(Operator):
             **kwargs,
         )
 
-        _extraction_state["timer_handle"] = bpy.app.timers.register(_poll_extraction_timer, first_interval=0.5)
+        _extraction_state["timer_handle"] = bpy.app.timers.register(_poll_extraction_timer(context), first_interval=0.5)
 
-        self.report({"INFO"}, "Reading scene in background")
+        self.report({"INFO"}, "Reading scene data…")
         return {"FINISHED"}
 
 
@@ -313,7 +312,7 @@ class RECOM_OT_CancelExtraction(Operator):
                 pass
 
         # Update UI state
-        settings = context.window_manager.recom_render_settings
+        settings = get_addon_settings(context)
         settings.external_scene_info = json.dumps({"error": "Extraction cancelled by user."})
         settings.is_scene_info_loaded = True
         try:
@@ -326,7 +325,7 @@ class RECOM_OT_CancelExtraction(Operator):
         _extraction_state["timer_handle"] = None
         _extraction_state["is_running"] = False
 
-        self.report({"INFO"}, "Extraction cancelled")
+        self.report({"INFO"}, "Extraction canceled")
         return {"FINISHED"}
 
 
@@ -339,11 +338,11 @@ class RECOM_OT_ClearAndReloadSceneInfo(Operator):
     bl_options = {"INTERNAL"}
 
     def execute(self, context):
-        settings = context.window_manager.recom_render_settings
+        settings = get_addon_settings(context)
         external_blend_path = bpy.path.abspath(settings.external_blend_file_path)
 
         if not external_blend_path:
-            self.report({"ERROR"}, "External blend file path not set")
+            self.report({"ERROR"}, "No blend file set")
             return {"CANCELLED"}
 
         # Calculate cache path based on the external blend file
@@ -359,11 +358,11 @@ class RECOM_OT_ClearAndReloadSceneInfo(Operator):
             try:
                 cache_path.unlink(missing_ok=True)
 
-                self.report({"INFO"}, "Cleared scene info cache")
+                self.report({"INFO"}, "Cache cleared")
                 log.info('Cleared scene info cache: "%s"', str(cache_path))
 
             except Exception as e:
-                self.report({"ERROR"}, "Failed to clear cache")
+                self.report({"ERROR"}, "Cache clear failed")
                 log.error('Failed to clear cache: "%s"', e)
 
                 return {"CANCELLED"}
@@ -375,8 +374,8 @@ class RECOM_OT_ClearAndReloadSceneInfo(Operator):
 
 class RECOM_OT_SelectRecentFile(Operator):
     bl_idname = "recom.select_recent_file"
-    bl_label = "Select Recent File"
-    bl_description = "Read Blend File"
+    bl_label = "Read Scene"
+    bl_description = "Read Scene"
     bl_options = {"INTERNAL"}
 
     file_path: StringProperty(name="Blend File Path", subtype="FILE_PATH")
@@ -384,7 +383,7 @@ class RECOM_OT_SelectRecentFile(Operator):
     def execute(self, context):
         external_blend_path = self.file_path
         prefs = get_addon_preferences(context)
-        settings = context.window_manager.recom_render_settings
+        settings = get_addon_settings(context)
 
         # Check if the file exists
         if not Path(external_blend_path).exists():
@@ -395,14 +394,14 @@ class RECOM_OT_SelectRecentFile(Operator):
                     context.preferences.is_dirty = True
                     break
 
-            self.report({"WARNING"}, f"File not found: {external_blend_path}. Removed from recent files.")
+            self.report({"WARNING"}, "File missing, removed from list")
             return {"CANCELLED"}
 
         # Set the file path and proceed with extraction
         settings.external_blend_file_path = external_blend_path
         bpy.ops.recom.extract_external_scene_data()
         settings.use_external_blend = True
-        self.report({"INFO"}, f"Read: {Path(external_blend_path).name}")
+        self.report({"INFO"}, f"Read from {Path(external_blend_path).name}")
         return {"FINISHED"}
 
 
@@ -451,7 +450,7 @@ class RECOM_OT_ClearRecentFiles(Operator):
             label = "item" if removed_count == 1 else "items"
             self.report({"INFO"}, f"Removed {removed_count} {label}")
         else:
-            self.report({"INFO"}, "No items to remove")
+            self.report({"INFO"}, "Nothing to remove")
 
         return {"FINISHED"}
 
@@ -484,7 +483,7 @@ class RECOM_OT_OpenInNewBlender(Operator):
         file_path = self.file_path
         path = Path(file_path)
         if not path.exists() or not path.is_file():
-            self.report({"ERROR"}, f"File not found: {file_path}")
+            self.report({"ERROR"}, "File not found")
             return {"CANCELLED"}
 
         blender_path = bpy.app.binary_path
@@ -497,8 +496,8 @@ class RECOM_OT_OpenInNewBlender(Operator):
             else:
                 subprocess.Popen([blender_path, file_path])
             return {"FINISHED"}
-        except Exception as e:
-            self.report({"ERROR"}, f"Failed to open new Blender instance: {e}")
+        except Exception:
+            self.report({"ERROR"}, "Failed to launch Blender")
             return {"CANCELLED"}
 
 
@@ -516,7 +515,7 @@ class RECOM_OT_OpenBlendDirectory(Operator):
         dir_path = path.parent
 
         if not dir_path.exists():
-            self.report({"ERROR"}, f"Directory not found: {dir_path}")
+            self.report({"ERROR"}, "Directory not found")
             return {"CANCELLED"}
 
         open_folder(str(dir_path))
@@ -538,7 +537,7 @@ class RECOM_OT_OpenBlendOutputPath(Operator):
         frame_path_str = self.file_path  # Absolute Path
 
         if not frame_path_str:
-            self.report({"ERROR"}, "No output path available")
+            self.report({"ERROR"}, "No output path")
             return {"CANCELLED"}
 
         try:
@@ -551,13 +550,13 @@ class RECOM_OT_OpenBlendOutputPath(Operator):
             success = open_folder(folder_path_str)
 
             if not success:
-                self.report({"ERROR"}, "Failed to open or create output folder")
+                self.report({"ERROR"}, "Failed to open output folder")
                 return {"CANCELLED"}
 
             return {"FINISHED"}
 
         except Exception as e:
-            self.report({"ERROR"}, f"Failed to open output path: {str(e)}")
+            self.report({"ERROR"}, "Failed to open output folder")
             log.error("Error opening blend output path: %s", e, exc_info=True)
             return {"CANCELLED"}
 
@@ -579,19 +578,19 @@ class RECOM_OT_SelectExternalBlendFile(Operator):
     )
     read_scene: BoolProperty(
         name="Read Scene",
-        description="Automatically read the scene information",
+        description="Automatically read scene data",
         default=True,
     )
 
     def execute(self, context):
-        settings = context.window_manager.recom_render_settings
+        settings = get_addon_settings(context)
         abs_path = bpy.path.abspath(self.filepath)
         settings.external_blend_file_path = abs_path
 
         log.info('External blend set to: "%s"', abs_path)
 
         if self.read_scene and abs_path:
-            self.report({"INFO"}, "Reading scene in background")
+            self.report({"INFO"}, "Reading scene data…")
             bpy.ops.recom.extract_external_scene_data()
 
         return {"FINISHED"}
@@ -600,6 +599,11 @@ class RECOM_OT_SelectExternalBlendFile(Operator):
         wm = context.window_manager
         wm.fileselect_add(self)
         return {"RUNNING_MODAL"}
+
+    def draw(self, context):
+        layout = self.layout
+
+        layout.prop(self, "read_scene")
 
 
 classes = (

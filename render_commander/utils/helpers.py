@@ -21,9 +21,14 @@ _IS_MACOS = sys.platform == "darwin"
 _IS_LINUX = sys.platform.startswith("linux")
 
 
+def get_addon_settings(context):
+    """Helper function to retrieve override settings from context."""
+    return context.window_manager.recom_render_settings
+
+
 def get_override_settings(context):
     """Helper function to retrieve override settings from context."""
-    return context.window_manager.recom_render_settings.override_settings
+    return get_addon_settings(context).override_settings
 
 
 def get_addon_preferences(context=None):

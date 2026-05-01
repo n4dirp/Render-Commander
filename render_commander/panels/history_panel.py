@@ -4,7 +4,6 @@ import bpy
 from bpy.types import Panel, UIList
 
 from ..utils.constants import (
-    ICON_OPTION,
     RCBasePanel,
     RCSubPanel,
 )
@@ -40,16 +39,21 @@ class RECOM_PT_render_history_panel(RCSubPanel, Panel):
             item_dyntip_propname="tooltip_display",
         )
 
-        col = row.column(align=True)  # Changed from 'menu_column'
+        col = row.column(align=True)
         col.enabled = len(prefs.render_history) > 0
         col.operator("recom.clean_render_history", text="", icon="TRASH")
         col.separator()
-        col.menu("RECOM_MT_render_history_item", text="", icon=ICON_OPTION)
+        col.menu("RECOM_MT_render_history_item", text="", icon="DOWNARROW_HLT")
 
 
 class RECOM_UL_render_history(UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
-        layout.label(text=item.script_filename)
+        row = layout.row(align=True)
+        row.label(text=item.blend_file_name)
+        sub = row.row(align=True)
+        sub.active = False
+        sub.alignment = "RIGHT"
+        sub.label(text=item.render_id)
 
     def filter_items(self, context, data, propname):
         search_text = self.filter_name.lower().strip() if self.filter_name else ""

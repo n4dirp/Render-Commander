@@ -114,7 +114,7 @@ class RECOM_PT_scene_file_panel(RCSubPanel, Panel):
 
             box = layout.box()
             box.active = False
-            box.label(text="Processing in background.", icon="SORTTIME")
+            box.label(text="Reading scene data…", icon="SORTTIME")
 
         if not settings.external_blend_file_path and get_scene_info(settings):
             return
@@ -130,7 +130,7 @@ class RECOM_PT_scene_file_panel(RCSubPanel, Panel):
         if info:
             prefs = get_addon_preferences(context)
 
-            if prefs.compact_external_info:
+            if not prefs.show_scene_info_list:
                 self._draw_scene_info(layout.box(), info)
             else:
                 self._draw_scene_info_ui_list(context, layout.box(), info)

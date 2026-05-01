@@ -94,6 +94,7 @@ class RECOM_PG_CyclesRenderOverrides(PropertyGroup):
 
     device_override: BoolProperty(
         name="Override Compute Device",
+        description="Override the compute device used for Cycles rendering",
         default=False,
     )
     device: EnumProperty(
@@ -109,6 +110,7 @@ class RECOM_PG_CyclesRenderOverrides(PropertyGroup):
     # Sampling
     sampling_override: BoolProperty(
         name="Override Sampling",
+        description="Override Cycles sampling settings",
         default=False,
     )
     sampling_mode: EnumProperty(
@@ -182,6 +184,7 @@ class RECOM_PG_CyclesRenderOverrides(PropertyGroup):
     # Denoise
     denoising_override: BoolProperty(
         name="Override Denoising",
+        description="Override Cycles denoising settings",
         default=False,
     )
     use_denoising: BoolProperty(
@@ -237,6 +240,7 @@ class RECOM_PG_CyclesRenderOverrides(PropertyGroup):
     # Performance
     performance_override: BoolProperty(
         name="Override Performance",
+        description="Override Cycles performance settings",
         default=False,
     )
     use_tiling: BoolProperty(
@@ -303,6 +307,7 @@ class RECOM_PG_OverrideSettings(PropertyGroup):
     # EEVEE Render
     eevee_override: BoolProperty(
         name="Override EEVEE Render",
+        description="Override EEVEE render sampling settings",
         default=False,
     )
     eevee: PointerProperty(type=RECOM_PG_EEVEERenderOverrides)
@@ -310,6 +315,7 @@ class RECOM_PG_OverrideSettings(PropertyGroup):
     # Frame Range
     frame_range_override: BoolProperty(
         name="Override Frame Range",
+        description="Override the animation frame range",
         default=False,
     )
     frame_current: IntProperty(
@@ -354,6 +360,7 @@ class RECOM_PG_OverrideSettings(PropertyGroup):
     # Resolution
     format_override: BoolProperty(
         name="Override Format",
+        description="Override resolution and render scale settings",
         default=False,
     )
     resolution_override: BoolProperty(
@@ -561,6 +568,7 @@ class RECOM_PG_OverrideSettings(PropertyGroup):
     # File Format
     file_format_override: BoolProperty(
         name="Override Output File Format",
+        description="Override the output image file format",
         default=False,
     )
     file_format: EnumProperty(
@@ -629,6 +637,7 @@ class RECOM_PG_OverrideSettings(PropertyGroup):
     # Output Path
     output_path_override: BoolProperty(
         name="Override Output Path",
+        description="Override the output directory and filename",
         default=False,
     )
     output_directory: StringProperty(
@@ -657,10 +666,16 @@ class RECOM_PG_OverrideSettings(PropertyGroup):
         ],
         default="FILENAME",
     )
+    show_path_variables: BoolProperty(
+        name="Show Path Variables",
+        default=False,
+        update=lambda self, context: redraw_ui(),
+    )
 
     # Motion Blur
     motion_blur_override: BoolProperty(
         name="Override Motion Blur",
+        description="Override motion blur settings",
         default=False,
     )
     use_motion_blur: BoolProperty(
@@ -687,6 +702,7 @@ class RECOM_PG_OverrideSettings(PropertyGroup):
     # Compositor
     compositor_override: BoolProperty(
         name="Override Compositor Settings",
+        description="Override compositor settings",
         default=False,
     )
     use_compositor: BoolProperty(

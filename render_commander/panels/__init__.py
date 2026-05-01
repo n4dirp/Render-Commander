@@ -1,11 +1,11 @@
 import logging
 
 from . import (
-    launcher_panel,
     blend_file_panel,
-    override_settings_panel,
-    preferences_panel,
     history_panel,
+    launcher_panel,
+    override_panel,
+    settings_panel,
 )
 
 log = logging.getLogger(__name__)
@@ -13,8 +13,8 @@ log = logging.getLogger(__name__)
 ui_modules = [
     launcher_panel,
     blend_file_panel,
-    override_settings_panel,
-    preferences_panel,
+    override_panel,
+    settings_panel,
     history_panel,
 ]
 

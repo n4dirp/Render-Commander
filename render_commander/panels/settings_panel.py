@@ -6,7 +6,7 @@ import bpy
 from bl_ui.utils import PresetPanel
 from bpy.types import Panel, UIList
 
-from ..operators.background_render import draw_script_filename
+from ..operators.export import draw_script_filename
 from ..operators.presets import PRESET_REGISTRY
 from ..utils.constants import (
     MODE_LIST,

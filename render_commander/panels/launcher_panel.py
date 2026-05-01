@@ -3,7 +3,7 @@
 import bpy
 from bpy.types import Panel
 
-from ..operators.background_render import draw_script_filename
+from ..operators.export import draw_script_filename
 from ..utils.constants import MODE_LIST, RCBasePanel
 from ..utils.helpers import get_addon_preferences
 
@@ -59,24 +59,23 @@ class RECOM_PT_panel_visibility_popup(Panel):
         if prefs.export_output_target == "CUSTOM_PATH":
             col.prop(prefs, "custom_export_path", text="", placeholder="Path")
 
-        col = layout.column()
-        col.label(text="Add Subfolder")
-        folder_row = col.row(heading="", align=True)
-        folder_row.prop(prefs, "export_scripts_subfolder", text="")
-        sub_folder_row = folder_row.row()
-        sub_folder_row.active = prefs.export_scripts_subfolder
-        sub_folder_row.prop(prefs, "export_scripts_folder_name", text="", placeholder="Folder Name")
+        if prefs.export_output_target != "SELECT_DIR":
+            col = layout.column()
+            col.label(text="Add Subfolder")
+            folder_row = col.row(heading="", align=True)
+            folder_row.prop(prefs, "export_scripts_subfolder", text="")
+            sub_folder_row = folder_row.row()
+            sub_folder_row.active = prefs.export_scripts_subfolder
+            sub_folder_row.prop(prefs, "export_scripts_folder_name", text="", placeholder="Folder Name")
 
-        col.separator()
-        col = layout.column(heading="Scripts Folder", align=True)
-        col.prop(prefs, "auto_open_exported_folder", text="Open in File Explorer")
+            col.separator()
+            col = layout.column(heading="Scripts Folder", align=True)
+            col.prop(prefs, "auto_open_exported_folder", text="Open in File Explorer")
 
-        col.separator()
-        col = layout.column(align=True)
-        col.label(text="Script Naming")
-        draw_script_filename(col, prefs)
-
-        # return
+            col.separator()
+            col = layout.column(align=True)
+            col.label(text="Script Naming")
+            draw_script_filename(col, prefs)
 
         col.separator()
         col = layout.column(align=True, heading="Visible Panels")

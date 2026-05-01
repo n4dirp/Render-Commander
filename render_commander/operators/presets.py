@@ -6,24 +6,24 @@ from bl_operators.presets import AddPresetBase
 from bpy.types import Operator
 
 from .. import __package__ as base_package
+from ..utils.helpers import get_addon_preferences, get_override_settings
 
 log = logging.getLogger(__name__)
 
 BASE_NAME = base_package.split(".")[-1]
-
+PRESET_BASE_PATH = "recom"
 PRESET_REGISTRY = {
     # Overrides
-    "overrides_main": "recom/overrides_main",
-    "resolution": "recom/resolution",
-    "cycles_samples": "recom/cycles_samples",
-    "output_path": "recom/output_path",
-    "custom_variables": "recom/custom_variables",
-    "advanced_props": "recom/advanced_props",
+    "overrides_main": f"{PRESET_BASE_PATH}/overrides_main",
+    "resolution": f"{PRESET_BASE_PATH}/resolution",
+    "cycles_samples": f"{PRESET_BASE_PATH}/cycles_samples",
+    "output_path": f"{PRESET_BASE_PATH}/output_path",
+    "custom_variables": f"{PRESET_BASE_PATH}/custom_variables",
+    "advanced_props": f"{PRESET_BASE_PATH}/advanced_props",
     # Preferences
-    "render_prefs": "recom/render_prefs",
-    "cmd_args": "recom/cmd_args",
-    "ocio": "recom/ocio",
-    "scripts": "recom/scripts",
+    "render_prefs": f"{PRESET_BASE_PATH}/render_prefs",
+    "cmd_args": f"{PRESET_BASE_PATH}/cmd_args",
+    "scripts": f"{PRESET_BASE_PATH}/scripts",
 }
 
 PROP_TYPE_ATTR_MAP = {
@@ -34,6 +34,12 @@ PROP_TYPE_ATTR_MAP = {
     "VECTOR_3": "value_vector_3",
     "COLOR_4": "value_color_4",
 }
+ADDON_ID_DEFINE = (
+    "addon_id = next((ext.module for ext in "
+    f"bpy.context.preferences.addons "
+    f"if ext.module.endswith('{BASE_NAME}')), "
+    f"'{BASE_NAME}')"
+)
 
 
 def _save_data_path_overrides_preset(context, name, preset_subdir):
@@ -46,14 +52,14 @@ def _save_data_path_overrides_preset(context, name, preset_subdir):
     if not filepath.exists():
         return
 
-    settings = context.window_manager.recom_render_settings.override_settings
+    override_settings = get_override_settings(context)
     lines = [
         "\n# Custom API Overrides Collection",
-        "settings.override_settings.data_path_overrides.clear()",
+        "override_settings.data_path_overrides.clear()",
     ]
 
-    for item in settings.data_path_overrides:
-        lines.append("item = settings.override_settings.data_path_overrides.add()")
+    for item in override_settings.data_path_overrides:
+        lines.append("item = override_settings.data_path_overrides.add()")
         lines.append(f"item.name = {repr(item.name)}")
         lines.append(f"item.data_path = {repr(item.data_path)}")
         lines.append(f"item.prop_type = {repr(item.prop_type)}")
@@ -65,7 +71,7 @@ def _save_data_path_overrides_preset(context, name, preset_subdir):
                 val = list(val)
             lines.append(f"item.{attr} = {repr(val)}")
 
-    lines.append(f"settings.override_settings.active_data_path_index = {settings.active_data_path_index}")
+    lines.append(f"override_settings.active_data_path_index = {override_settings.active_data_path_index}")
 
     try:
         with filepath.open("a", encoding="utf-8") as f:
@@ -81,83 +87,83 @@ class RECOM_OT_overrides_preset(AddPresetBase, Operator):
     bl_label = "Add Overrides Preset"
     bl_description = "Add or remove a preset"
     preset_menu = "RECOM_PT_overrides_presets"
-    preset_defines = ["settings = bpy.context.window_manager.recom_render_settings"]
+    preset_defines = ["override_settings = bpy.context.window_manager.recom_render_settings.override_settings"]
     preset_values = [
         # Cycles Sampling Overrides
-        "settings.override_settings.cycles.sampling_override",
-        "settings.override_settings.cycles.sampling_mode",
-        "settings.override_settings.cycles.sampling_factor",
-        "settings.override_settings.cycles.samples",
-        "settings.override_settings.cycles.adaptive_min_samples",
-        "settings.override_settings.cycles.time_limit",
-        "settings.override_settings.cycles.use_adaptive_sampling",
-        "settings.override_settings.cycles.adaptive_threshold",
+        "override_settings.cycles.sampling_override",
+        "override_settings.cycles.sampling_mode",
+        "override_settings.cycles.sampling_factor",
+        "override_settings.cycles.samples",
+        "override_settings.cycles.adaptive_min_samples",
+        "override_settings.cycles.time_limit",
+        "override_settings.cycles.use_adaptive_sampling",
+        "override_settings.cycles.adaptive_threshold",
         # Cycles Denoising Settings
-        "settings.override_settings.cycles.denoising_override",
-        "settings.override_settings.cycles.use_denoising",
-        "settings.override_settings.cycles.denoiser",
-        "settings.override_settings.cycles.denoising_input_passes",
-        "settings.override_settings.cycles.denoising_prefilter",
-        "settings.override_settings.cycles.denoising_quality",
-        "settings.override_settings.cycles.denoising_use_gpu",
+        "override_settings.cycles.denoising_override",
+        "override_settings.cycles.use_denoising",
+        "override_settings.cycles.denoiser",
+        "override_settings.cycles.denoising_input_passes",
+        "override_settings.cycles.denoising_prefilter",
+        "override_settings.cycles.denoising_quality",
+        "override_settings.cycles.denoising_use_gpu",
         # Cycles Performance
-        "settings.override_settings.cycles.device_override",
-        "settings.override_settings.cycles.device",
-        "settings.override_settings.cycles.performance_override",
-        "settings.override_settings.cycles.use_tiling",
-        "settings.override_settings.cycles.tile_size",
-        "settings.override_settings.cycles.use_spatial_splits",
-        "settings.override_settings.cycles.use_compact_bvh",
-        "settings.override_settings.cycles.persistent_data",
+        "override_settings.cycles.device_override",
+        "override_settings.cycles.device",
+        "override_settings.cycles.performance_override",
+        "override_settings.cycles.use_tiling",
+        "override_settings.cycles.tile_size",
+        "override_settings.cycles.use_spatial_splits",
+        "override_settings.cycles.use_compact_bvh",
+        "override_settings.cycles.persistent_data",
         # EEVEE
-        "settings.override_settings.eevee_override",
-        "settings.override_settings.eevee.samples",
+        "override_settings.eevee_override",
+        "override_settings.eevee.samples",
         # Frame Range Settings
-        "settings.override_settings.frame_range_override",
-        "settings.override_settings.frame_current",
-        "settings.override_settings.frame_start",
-        "settings.override_settings.frame_end",
-        "settings.override_settings.frame_step",
+        "override_settings.frame_range_override",
+        "override_settings.frame_current",
+        "override_settings.frame_start",
+        "override_settings.frame_end",
+        "override_settings.frame_step",
         # Output Path and Format
-        "settings.override_settings.output_path_override",
-        "settings.override_settings.output_directory",
-        "settings.override_settings.output_filename",
+        "override_settings.output_path_override",
+        "override_settings.output_directory",
+        "override_settings.output_filename",
         # File Format Settings
-        "settings.override_settings.file_format_override",
-        "settings.override_settings.file_format",
-        "settings.override_settings.color_depth",
-        "settings.override_settings.codec",
-        "settings.override_settings.jpeg_quality",
+        "override_settings.file_format_override",
+        "override_settings.file_format",
+        "override_settings.color_depth",
+        "override_settings.codec",
+        "override_settings.jpeg_quality",
         # Resolution Settings
-        "settings.override_settings.format_override",
-        "settings.override_settings.resolution_override",
-        "settings.override_settings.resolution_mode",
-        "settings.override_settings.resolution_x",
-        "settings.override_settings.resolution_y",
-        "settings.override_settings.custom_render_scale",
+        "override_settings.format_override",
+        "override_settings.resolution_override",
+        "override_settings.resolution_mode",
+        "override_settings.resolution_x",
+        "override_settings.resolution_y",
+        "override_settings.custom_render_scale",
         # Overscan Settings
-        "settings.override_settings.use_overscan",
-        "settings.override_settings.overscan_type",
-        "settings.override_settings.overscan_percent",
-        "settings.override_settings.overscan_width",
+        "override_settings.use_overscan",
+        "override_settings.overscan_type",
+        "override_settings.overscan_percent",
+        "override_settings.overscan_width",
         # Motion Blur
-        "settings.override_settings.motion_blur_override",
-        "settings.override_settings.use_motion_blur",
-        "settings.override_settings.motion_blur_position",
-        "settings.override_settings.motion_blur_shutter",
+        "override_settings.motion_blur_override",
+        "override_settings.use_motion_blur",
+        "override_settings.motion_blur_position",
+        "override_settings.motion_blur_shutter",
         # Compositor Settings
-        "settings.override_settings.compositor_override",
-        "settings.override_settings.use_compositor",
-        "settings.override_settings.compositor_disable_output_files",
-        "settings.override_settings.compositor_device",
+        "override_settings.compositor_override",
+        "override_settings.use_compositor",
+        "override_settings.compositor_disable_output_files",
+        "override_settings.compositor_device",
         # Camera Settings
-        "settings.override_settings.cameras_override",
-        "settings.override_settings.override_dof",
-        "settings.override_settings.use_dof",
-        "settings.override_settings.camera_shift_x",
-        "settings.override_settings.camera_shift_y",
+        "override_settings.cameras_override",
+        "override_settings.override_dof",
+        "override_settings.use_dof",
+        "override_settings.camera_shift_x",
+        "override_settings.camera_shift_y",
         # Data
-        "settings.override_settings.use_data_path_overrides",
+        "override_settings.use_data_path_overrides",
     ]
     preset_subdir = PRESET_REGISTRY["overrides_main"]
 
@@ -176,17 +182,17 @@ class RECOM_OT_resolution_preset(AddPresetBase, Operator):
     bl_label = "Add Resolution Preset"
     bl_description = "Add or remove a preset"
     preset_menu = "RECOM_PT_resolution_presets"
-    preset_defines = ["settings = bpy.context.window_manager.recom_render_settings"]
+    preset_defines = ["override_settings = bpy.context.window_manager.recom_render_settings.override_settings"]
     preset_values = [
-        "settings.override_settings.resolution_override",
-        "settings.override_settings.resolution_mode",
-        "settings.override_settings.resolution_x",
-        "settings.override_settings.resolution_y",
-        "settings.override_settings.custom_render_scale",
-        "settings.override_settings.use_overscan",
-        "settings.override_settings.overscan_type",
-        "settings.override_settings.overscan_percent",
-        "settings.override_settings.overscan_width",
+        "override_settings.resolution_override",
+        "override_settings.resolution_mode",
+        "override_settings.resolution_x",
+        "override_settings.resolution_y",
+        "override_settings.custom_render_scale",
+        "override_settings.use_overscan",
+        "override_settings.overscan_type",
+        "override_settings.overscan_percent",
+        "override_settings.overscan_width",
     ]
     preset_subdir = PRESET_REGISTRY["resolution"]
 
@@ -196,10 +202,10 @@ class RECOM_OT_output_preset(AddPresetBase, Operator):
     bl_label = "Add Output Path Preset"
     bl_description = "Add or remove a preset"
     preset_menu = "RECOM_PT_output_presets"
-    preset_defines = ["settings = bpy.context.window_manager.recom_render_settings"]
+    preset_defines = ["override_settings = bpy.context.window_manager.recom_render_settings.override_settings"]
     preset_values = [
-        "settings.override_settings.output_directory",
-        "settings.override_settings.output_filename",
+        "override_settings.output_directory",
+        "override_settings.output_filename",
     ]
     preset_subdir = PRESET_REGISTRY["output_path"]
 
@@ -209,21 +215,21 @@ class RECOM_OT_samples_preset(AddPresetBase, Operator):
     bl_label = "Add Samples Preset"
     bl_description = "Add or remove a preset"
     preset_menu = "RECOM_PT_samples_presets"
-    preset_defines = ["settings = bpy.context.window_manager.recom_render_settings"]
+    preset_defines = ["cycles = bpy.context.window_manager.recom_render_settings.override_settings.cycles"]
     preset_values = [
-        "settings.override_settings.cycles.sampling_mode",
-        "settings.override_settings.cycles.sampling_factor",
-        "settings.override_settings.cycles.use_adaptive_sampling",
-        "settings.override_settings.cycles.adaptive_threshold",
-        "settings.override_settings.cycles.samples",
-        "settings.override_settings.cycles.adaptive_min_samples",
-        "settings.override_settings.cycles.time_limit",
-        "settings.override_settings.cycles.use_denoising",
-        "settings.override_settings.cycles.denoiser",
-        "settings.override_settings.cycles.denoising_input_passes",
-        "settings.override_settings.cycles.denoising_prefilter",
-        "settings.override_settings.cycles.denoising_quality",
-        "settings.override_settings.cycles.denoising_use_gpu",
+        "cycles.sampling_mode",
+        "cycles.sampling_factor",
+        "cycles.use_adaptive_sampling",
+        "cycles.adaptive_threshold",
+        "cycles.samples",
+        "cycles.adaptive_min_samples",
+        "cycles.time_limit",
+        "cycles.use_denoising",
+        "cycles.denoiser",
+        "cycles.denoising_input_passes",
+        "cycles.denoising_prefilter",
+        "cycles.denoising_quality",
+        "cycles.denoising_use_gpu",
     ]
     preset_subdir = PRESET_REGISTRY["cycles_samples"]
 
@@ -233,10 +239,10 @@ class RECOM_OT_override_advanced_properties_preset(AddPresetBase, Operator):
     bl_label = "Add Property Overrides Preset"
     bl_description = "Add or remove a preset"
     preset_menu = "RECOM_PT_override_advanced_property_presets"
-    preset_defines = ["settings = bpy.context.window_manager.recom_render_settings"]
+    preset_defines = ["override_settings = bpy.context.window_manager.recom_render_settings.override_settings"]
     preset_values = [
-        "settings.override_settings.use_data_path_overrides",
-        "settings.override_settings.data_path_overrides",
+        "override_settings.use_data_path_overrides",
+        "override_settings.data_path_overrides",
     ]
     preset_subdir = PRESET_REGISTRY["advanced_props"]
 
@@ -256,71 +262,68 @@ class RECOM_OT_render_preferences_preset(AddPresetBase, Operator):
     bl_description = "Add or remove a preset"
     preset_menu = "RECOM_PT_render_preferences_presets"
     preset_defines = [
-        f"addon_id = next((ext.module for ext in bpy.context.preferences.addons if ext.module.endswith('{BASE_NAME}')), '{BASE_NAME}')",
-        "settings = bpy.context.preferences.addons[addon_id].preferences",
+        f"addon_id = {ADDON_ID_DEFINE}",
+        "prefs = bpy.context.preferences.addons[addon_id].preferences",
     ]
     preset_values = [
-        "settings.auto_save_before_render",
-        "settings.write_still",
-        "settings.track_render_time",
-        "settings.keep_terminal_open",
+        "prefs.auto_save_before_render",
+        "prefs.write_still",
+        "prefs.track_render_time",
+        "prefs.keep_terminal_open",
         # Filename
-        "settings.default_render_filename",
-        "settings.filename_separator",
-        "settings.frame_length_digits",
+        "prefs.default_render_filename",
+        "prefs.filename_separator",
+        "prefs.frame_length_digits",
         # Log to file
-        "settings.log_to_file",
-        "settings.log_to_file_location",
-        "settings.save_to_log_folder",
-        "settings.log_custom_path",
+        "prefs.log_to_file",
+        "prefs.log_to_file_location",
+        "prefs.save_to_log_folder",
+        "prefs.log_custom_path",
         # Command Line Args
-        "settings.add_command_line_args",
-        "settings.custom_command_line_args",
+        "prefs.add_command_line_args",
+        "prefs.custom_command_line_args",
         # OCIO
-        "settings.set_ocio",
-        "settings.ocio_path",
+        "prefs.set_ocio",
+        "prefs.ocio_path",
         # Scripts
-        "settings.append_python_scripts",
-        "settings.additional_scripts",
+        "prefs.append_python_scripts",
+        "prefs.additional_scripts",
         # Cycles
-        "settings.compute_device_type",
-        "settings.devices",
-        "settings.manage_cycles_devices",
+        "prefs.compute_device_type",
+        "prefs.devices",
+        "prefs.manage_cycles_devices",
         # Parallel Device
-        "settings.device_parallel",
-        "settings.frame_allocation",
-        "settings.multiple_backends",
-        "settings.combine_cpu_with_gpus",
-        "settings.cpu_threads_limit",
+        "prefs.device_parallel",
+        "prefs.frame_allocation",
+        "prefs.multiple_backends",
+        "prefs.combine_cpu_with_gpus",
+        "prefs.cpu_threads_limit",
         # Multi-Process
-        "settings.multi_instance",
-        "settings.render_iterations",
+        "prefs.multi_instance",
+        "prefs.render_iterations",
         # Export Scripts
-        "settings.auto_open_exported_folder",
-        "settings.export_output_target",
-        "settings.custom_export_path",
-        "settings.export_scripts_subfolder",
-        "settings.export_scripts_folder_name",
+        "prefs.auto_open_exported_folder",
+        "prefs.export_output_target",
+        "prefs.custom_export_path",
+        "prefs.export_scripts_subfolder",
+        "prefs.export_scripts_folder_name",
         # Script Name
-        "settings.use_blend_name_in_script",
-        "settings.use_render_type_in_script",
-        "settings.use_export_date_in_script",
-        "settings.use_frame_range_in_script",
-        "settings.custom_script_tag",
-        "settings.custom_script_text",
+        "prefs.use_blend_name_in_script",
+        "prefs.use_render_type_in_script",
+        "prefs.use_export_date_in_script",
+        "prefs.use_frame_range_in_script",
+        "prefs.custom_script_tag",
+        "prefs.custom_script_text",
     ]
     preset_subdir = PRESET_REGISTRY["render_prefs"]
 
     def execute(self, context):
-        # Get current settings
-        settings = bpy.context.preferences.addons[base_package].preferences
+        prefs = get_addon_preferences(context)
 
-        # If manage_cycles_devices is False, exclude device-related settings
-        if not settings.manage_cycles_devices:
-            # Create filtered list excluding device settings
+        if not prefs.manage_cycles_devices:
             exclude_if_disabled = [
-                "settings.compute_device_type",
-                "settings.devices",
+                "prefs.compute_device_type",
+                "prefs.devices",
             ]
             self.preset_values = [val for val in self.preset_values if val not in exclude_if_disabled]
 
@@ -333,24 +336,11 @@ class RECOM_OT_additional_script_preset(AddPresetBase, Operator):
     bl_description = "Add or remove a preset"
     preset_menu = "RECOM_PT_additional_script_presets"
     preset_defines = [
-        f"addon_id = next((ext.module for ext in bpy.context.preferences.addons if ext.module.endswith('{BASE_NAME}')), '{BASE_NAME}')",
-        "settings = bpy.context.preferences.addons[addon_id].preferences",
+        f"addon_id = {ADDON_ID_DEFINE}",
+        "prefs = bpy.context.preferences.addons[addon_id].preferences",
     ]
-    preset_values = ["settings.additional_scripts"]
+    preset_values = ["prefs.additional_scripts"]
     preset_subdir = PRESET_REGISTRY["scripts"]
-
-
-class RECOM_OT_ocio_preset(AddPresetBase, Operator):
-    bl_idname = "recom.ocio_preset_add"
-    bl_label = "Add OCIO Preset"
-    bl_description = "Add or remove a preset"
-    preset_menu = "RECOM_PT_ocio_presets"
-    preset_defines = [
-        f"addon_id = next((ext.module for ext in bpy.context.preferences.addons if ext.module.endswith('{BASE_NAME}')), '{BASE_NAME}')",
-        "settings = bpy.context.preferences.addons[addon_id].preferences",
-    ]
-    preset_values = ["settings.ocio_path"]
-    preset_subdir = PRESET_REGISTRY["ocio"]
 
 
 class RECOM_OT_command_line_arguments_preset(AddPresetBase, Operator):
@@ -359,10 +349,10 @@ class RECOM_OT_command_line_arguments_preset(AddPresetBase, Operator):
     bl_description = "Add or remove a preset"
     preset_menu = "RECOM_PT_command_line_arguments_presets"
     preset_defines = [
-        f"addon_id = next((ext.module for ext in bpy.context.preferences.addons if ext.module.endswith('{BASE_NAME}')), '{BASE_NAME}')",
-        "settings = bpy.context.preferences.addons[addon_id].preferences",
+        f"addon_id = {ADDON_ID_DEFINE}",
+        "prefs = bpy.context.preferences.addons[addon_id].preferences",
     ]
-    preset_values = ["settings.custom_command_line_args"]
+    preset_values = ["prefs.custom_command_line_args"]
     preset_subdir = PRESET_REGISTRY["cmd_args"]
 
 
@@ -371,12 +361,11 @@ class RECOM_OT_custom_variables_preset(AddPresetBase, Operator):
     bl_label = "Add Custom Variables Preset"
     bl_description = "Add or remove a preset"
     preset_menu = "RECOM_PT_custom_variables_presets"
-
     preset_defines = [
-        f"addon_id = next((ext.module for ext in bpy.context.preferences.addons if ext.module.endswith('{BASE_NAME}')), '{BASE_NAME}')",
-        "settings = bpy.context.preferences.addons[addon_id].preferences",
+        f"addon_id = {ADDON_ID_DEFINE}",
+        "prefs = bpy.context.preferences.addons[addon_id].preferences",
     ]
-    preset_values = ["settings.custom_variables"]
+    preset_values = ["prefs.custom_variables"]
     preset_subdir = PRESET_REGISTRY["custom_variables"]
 
 
@@ -389,7 +378,6 @@ classes = (
     RECOM_OT_override_advanced_properties_preset,
     RECOM_OT_render_preferences_preset,
     RECOM_OT_additional_script_preset,
-    RECOM_OT_ocio_preset,
     RECOM_OT_command_line_arguments_preset,
 )
 

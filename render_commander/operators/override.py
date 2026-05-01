@@ -14,7 +14,12 @@ from bpy.props import (
 )
 from bpy.types import Operator
 
-from ..utils.helpers import get_addon_preferences, redraw_ui, resolve_blender_path
+from ..utils.helpers import (
+    get_addon_preferences,
+    get_override_settings,
+    redraw_ui,
+    resolve_blender_path,
+)
 
 
 class RECOM_OT_SetResolution(Operator):
@@ -39,7 +44,7 @@ class RECOM_OT_SetResolution(Operator):
     )
 
     def execute(self, context):
-        settings = context.window_manager.recom_render_settings
+        override_settings = get_override_settings(context)
 
         # Map dimension to property name
         property_map = {
@@ -49,7 +54,7 @@ class RECOM_OT_SetResolution(Operator):
 
         prop_name = property_map.get(self.dimension)
         if prop_name:
-            setattr(settings.override_settings, prop_name, self.value)
+            setattr(override_settings, prop_name, self.value)
 
         return {"FINISHED"}
 
@@ -63,13 +68,13 @@ class RECOM_OT_SwapResolution(Operator):
     bl_options = {"INTERNAL"}
 
     def execute(self, context):
-        rs = context.window_manager.recom_render_settings.override_settings
+        override_settings = get_override_settings(context)
 
-        x = rs.resolution_x
-        y = rs.resolution_y
+        x = override_settings.resolution_x
+        y = override_settings.resolution_y
 
-        rs.resolution_x = y
-        rs.resolution_y = x
+        override_settings.resolution_x = y
+        override_settings.resolution_y = x
 
         return {"FINISHED"}
 
@@ -84,8 +89,8 @@ class RECOM_OT_set_custom_render_scale(Operator):
     value: FloatProperty()
 
     def execute(self, context):
-        settings = context.window_manager.recom_render_settings
-        settings.override_settings.custom_render_scale = self.value
+        override_settings = get_override_settings(context)
+        override_settings.custom_render_scale = self.value
         return {"FINISHED"}
 
 
@@ -98,8 +103,8 @@ class RECOM_OT_SetAdaptiveThreshold(Operator):
     value: FloatProperty()
 
     def execute(self, context):
-        settings = context.window_manager.recom_render_settings
-        settings.override_settings.cycles.adaptive_threshold = self.value
+        override_settings = get_override_settings(context)
+        override_settings.cycles.adaptive_threshold = self.value
         return {"FINISHED"}
 
 
@@ -111,7 +116,8 @@ class RECOM_OT_set_sampling_factor(Operator):
     value: FloatProperty()
 
     def execute(self, context):
-        context.window_manager.recom_render_settings.override_settings.cycles.sampling_factor = self.value
+        override_settings = get_override_settings(context)
+        override_settings.cycles.sampling_factor = self.value
         return {"FINISHED"}
 
 
@@ -124,8 +130,8 @@ class RECOM_OT_SetSamples(Operator):
     value: IntProperty()
 
     def execute(self, context):
-        settings = context.window_manager.recom_render_settings
-        settings.override_settings.cycles.samples = self.value
+        override_settings = get_override_settings(context)
+        override_settings.cycles.samples = self.value
         return {"FINISHED"}
 
 
@@ -138,8 +144,8 @@ class RECOM_OT_SetAdaptiveMinSamples(Operator):
     value: IntProperty()
 
     def execute(self, context):
-        settings = context.window_manager.recom_render_settings
-        settings.override_settings.cycles.adaptive_min_samples = self.value
+        override_settings = get_override_settings(context)
+        override_settings.cycles.adaptive_min_samples = self.value
         return {"FINISHED"}
 
 
@@ -152,8 +158,8 @@ class RECOM_OT_SetTimeLimit(Operator):
     value: FloatProperty()
 
     def execute(self, context):
-        settings = context.window_manager.recom_render_settings
-        settings.override_settings.cycles.time_limit = self.value
+        override_settings = get_override_settings(context)
+        override_settings.cycles.time_limit = self.value
         return {"FINISHED"}
 
 
@@ -166,8 +172,8 @@ class RECOM_OT_SetTileSize(Operator):
     value: IntProperty()
 
     def execute(self, context):
-        settings = context.window_manager.recom_render_settings
-        settings.override_settings.cycles.tile_size = self.value
+        override_settings = get_override_settings(context)
+        override_settings.cycles.tile_size = self.value
         return {"FINISHED"}
 
 
@@ -180,8 +186,8 @@ class RECOM_OT_SetEEVEESamples(Operator):
     value: IntProperty()
 
     def execute(self, context):
-        settings = context.window_manager.recom_render_settings
-        settings.override_settings.eevee.samples = self.value
+        override_settings = get_override_settings(context)
+        override_settings.eevee.samples = self.value
         return {"FINISHED"}
 
 
@@ -204,25 +210,25 @@ class RECOM_OT_InsertVariable(Operator):
     def execute(self, context):
         """Inserts selected variable into the specified path component"""
 
-        settings = context.window_manager.recom_render_settings
+        override_settings = get_override_settings(context)
         prefs = get_addon_preferences(context)
         separator = "_" if prefs.use_underscore_separator else ""
 
-        if settings.override_settings.variable_insert_target == "DIRECTORY":
-            current_dir = settings.override_settings.output_directory
+        if override_settings.variable_insert_target == "DIRECTORY":
+            current_dir = override_settings.output_directory
             # Add separator only if the current path is not empty and does not end with '/'
             if current_dir and not current_dir.endswith(("/", "//", "\\")) and current_dir != "":
-                settings.override_settings.output_directory = f"{current_dir}{separator}{self.variable}"
+                override_settings.output_directory = f"{current_dir}{separator}{self.variable}"
             else:
-                settings.override_settings.output_directory = f"{current_dir}{self.variable}"
+                override_settings.output_directory = f"{current_dir}{self.variable}"
 
         else:
-            current_file = settings.override_settings.output_filename
+            current_file = override_settings.output_filename
             # Add separator only if the current path is not empty and does not end with '/'
             if current_file and not current_file.endswith(("/", "//", "\\", ".")) and current_file != "":
-                settings.override_settings.output_filename = f"{current_file}{separator}{self.variable}"
+                override_settings.output_filename = f"{current_file}{separator}{self.variable}"
             else:
-                settings.override_settings.output_filename = f"{current_file}{self.variable}"
+                override_settings.output_filename = f"{current_file}{self.variable}"
 
         return {"FINISHED"}
 
@@ -238,7 +244,6 @@ class RECOM_OT_AddCustomVariable(Operator):
 
     def execute(self, context):
         prefs = get_addon_preferences(context)
-
         existing = prefs.custom_variables
 
         base_name = "name"
@@ -347,8 +352,8 @@ class RECOM_OT_add_advanced_property_override(Operator):
     bl_options = {"UNDO", "INTERNAL"}
 
     def execute(self, context):
-        settings = context.window_manager.recom_render_settings.override_settings
-        path = settings.property_path_input.strip()
+        override_settings = get_override_settings(context)
+        path = override_settings.property_path_input.strip()
 
         if not path:
             cb = context.window_manager.clipboard
@@ -377,7 +382,7 @@ class RECOM_OT_add_advanced_property_override(Operator):
             self.report({"ERROR"}, f"Failed to evaluate path: {e}")
             return {"CANCELLED"}
 
-        item = settings.data_path_overrides.add()
+        item = override_settings.data_path_overrides.add()
         item.name = normalized_path.rsplit(".", 1)[-1].replace("_", " ").title()
         item.data_path = normalized_path
 
@@ -393,8 +398,8 @@ class RECOM_OT_add_advanced_property_override(Operator):
             else:
                 setattr(item, attr, value)
 
-        settings.active_data_path_index = len(settings.data_path_overrides) - 1
-        settings.property_path_input = ""
+        override_settings.active_data_path_index = len(override_settings.data_path_overrides) - 1
+        override_settings.property_path_input = ""
 
         return {"FINISHED"}
 
@@ -407,14 +412,14 @@ class RECOM_OT_remove_advanced_property_override(Operator):
 
     @classmethod
     def poll(cls, context):
-        settings = context.window_manager.recom_render_settings.override_settings
-        return len(settings.data_path_overrides) > 0
+        override_settings = get_override_settings(context)
+        return len(override_settings.data_path_overrides) > 0
 
     def execute(self, context):
-        settings = context.window_manager.recom_render_settings.override_settings
-        idx = settings.active_data_path_index
-        settings.data_path_overrides.remove(idx)
-        settings.active_data_path_index = max(0, idx - 1)
+        override_settings = get_override_settings(context)
+        idx = override_settings.active_data_path_index
+        override_settings.data_path_overrides.remove(idx)
+        override_settings.active_data_path_index = max(0, idx - 1)
         return {"FINISHED"}
 
 

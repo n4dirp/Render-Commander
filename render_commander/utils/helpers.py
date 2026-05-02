@@ -34,7 +34,12 @@ def get_override_settings(context):
 def get_addon_preferences(context=None):
     """Get addon preferences from Blender context."""
     ctx = context or bpy.context
-    return ctx.preferences.addons[base_package].preferences
+
+    addon = ctx.preferences.addons.get(base_package)
+    if addon is None:
+        return None
+
+    return addon.preferences
 
 
 def get_addon_temp_dir() -> Path:
@@ -145,7 +150,7 @@ def open_folder(folder_path: str) -> bool:
 
 def get_default_resolution(context) -> tuple:
     """Get the default resolution from scene or external info."""
-    settings = context.window_manager.recom_render_settings
+    settings = get_addon_settings(context)
     fallback_res_x = 1
     fallback_res_y = 1
 
@@ -165,19 +170,19 @@ def get_default_resolution(context) -> tuple:
 
 def calculate_auto_width(context) -> int:
     """Calculate auto width based on height and aspect ratio."""
-    settings = context.window_manager.recom_render_settings
+    override_settings = get_override_settings(context)
     default_res = get_default_resolution(context)
     aspect_ratio = default_res[0] / default_res[1] if default_res[1] > 0 else 1.0
-    height = settings.override_settings.resolution_y
+    height = override_settings.resolution_y
     return int(height * aspect_ratio)
 
 
 def calculate_auto_height(context) -> int:
     """Calculate auto height based on width and aspect ratio."""
-    settings = context.window_manager.recom_render_settings
+    override_settings = get_override_settings(context)
     default_res = get_default_resolution(context)
     aspect_ratio = default_res[0] / default_res[1] if default_res[1] > 0 else 1.0
-    width = settings.override_settings.resolution_x
+    width = override_settings.resolution_x
     return int(width / aspect_ratio)
 
 
@@ -191,7 +196,7 @@ def format_to_title_case(input_string: str) -> str:
 
 def get_render_engine(context) -> str:
     """Determine the render engine used by the current or external scene."""
-    settings = context.window_manager.recom_render_settings
+    settings = get_addon_settings(context)
 
     if settings.use_external_blend and settings.external_blend_file_path:
         try:

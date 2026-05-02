@@ -45,7 +45,7 @@ _extraction_state = {
 }
 
 
-def _poll_extraction_timer(context):
+def _poll_extraction_timer():
     """Standalone timer callback. Never references 'self'."""
     # Safety Check: If Blender is shutting down or process is gone, exit immediately.
     if not _extraction_state["is_running"] or _extraction_state["process"] is None:
@@ -56,7 +56,7 @@ def _poll_extraction_timer(context):
         if _extraction_state["process"].poll() is None:
             return 0.5  # Keep polling
 
-        _finalize_extraction(context)
+        _finalize_extraction()
         return None  # Stop timer
     except Exception as e:
         log.error("Error in extraction timer: %s", e)
@@ -80,7 +80,7 @@ def format_modified_date(timestamp: float) -> str:
         return "Unknown"
 
 
-def _finalize_extraction(context):
+def _finalize_extraction():
     """Reads cache and updates UI. Runs safely outside operator lifecycle."""
     cache_path = _extraction_state["cache_path"]
     info_data = {}
@@ -99,7 +99,7 @@ def _finalize_extraction(context):
     else:
         info_data = {"error": "Extraction finished but cache file is missing."}
 
-    settings = get_addon_settings(context)
+    settings = get_addon_settings(bpy.context)
     settings.external_scene_info = json.dumps(info_data)
     settings.is_scene_info_loaded = True
 
@@ -277,7 +277,7 @@ class RECOM_OT_ExtractExternalSceneData(Operator):
             **kwargs,
         )
 
-        _extraction_state["timer_handle"] = bpy.app.timers.register(_poll_extraction_timer(context), first_interval=0.5)
+        _extraction_state["timer_handle"] = bpy.app.timers.register(_poll_extraction_timer, first_interval=0.5)
 
         self.report({"INFO"}, "Reading scene data…")
         return {"FINISHED"}

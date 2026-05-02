@@ -35,14 +35,12 @@ class RECOM_PT_render_history_panel(RCSubPanel, Panel):
             "render_history",
             prefs,
             "active_render_history_index",
-            rows=4,
+            rows=1,
             item_dyntip_propname="tooltip_display",
         )
 
         col = row.column(align=True)
-        col.enabled = len(prefs.render_history) > 0
-        col.operator("recom.clean_render_history", text="", icon="TRASH")
-        col.separator()
+        col.active = len(prefs.render_history) > 0
         col.menu("RECOM_MT_render_history_item", text="", icon="DOWNARROW_HLT")
 
 

@@ -546,18 +546,11 @@ class RECOM_Preferences(AddonPreferences):
         layout.use_property_split = True
         layout.use_property_decorate = False
 
-        # Main panels
         layout.label(text="Visible Panels")
         col = layout.column(align=True)
-        col.prop(self.visible_panels, "external_scene", text="Blend File")
-        col.prop(self.visible_panels, "override_settings", text="Override Settings")
-        col.prop(self.visible_panels, "preferences", text="Render Preferences")
-        col.prop(self.visible_panels, "history", text="Export History")
-
-        col = col.column(heading="Render Preferences")
+        col = col.column(heading="Settings")
         col.prop(self.visible_panels, "ocio")
 
-        # Debugging
         layout.label(text="Debug")
         col = layout.column()
         col.prop(self, "debug_mode", text="Console Logging")

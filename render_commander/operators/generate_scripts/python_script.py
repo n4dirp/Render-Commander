@@ -132,7 +132,7 @@ def _apply_frame_settings(
 
     if prefs.launch_mode != MODE_LIST:
         script_lines.append("# Frame Settings")
-        if override_settings.override_settings.frame_range_override:
+        if override_settings.frame_range_override:
             script_lines.append('log.info(f"Applying Frame Range override")')
         script_lines.extend(lines)
 

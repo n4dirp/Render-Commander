@@ -14,7 +14,7 @@ class RECOM_OT_CleanRenderHistory(Operator):
     """Open a popup to delete render history entries."""
 
     bl_idname = "recom.clean_render_history"
-    bl_label = "Clean History List"
+    bl_label = "Clear History List"
     bl_options = {"INTERNAL"}
 
     remove_type: EnumProperty(

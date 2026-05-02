@@ -245,7 +245,7 @@ class RECOM_MT_add_override_menu(Menu):
 
             if group_items_to_draw:
                 if items_drawn_total > 0:
-                    layout.separator()
+                    layout.separator(factor=1.5)
 
                 for oid, label, icon in group_items_to_draw:
                     op = layout.operator("recom.manage_override", text=label, icon=icon)

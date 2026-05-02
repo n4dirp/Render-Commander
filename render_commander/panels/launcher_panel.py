@@ -5,7 +5,7 @@ from bpy.types import Panel
 
 from ..operators.export import draw_script_filename
 from ..utils.constants import MODE_LIST, RCBasePanel
-from ..utils.helpers import get_addon_preferences
+from ..utils.helpers import get_addon_preferences, get_addon_settings
 
 
 class RECOM_PT_main_panel(RCBasePanel, Panel):
@@ -15,7 +15,7 @@ class RECOM_PT_main_panel(RCBasePanel, Panel):
 
     def draw(self, context):
         layout = self.layout
-        settings = context.window_manager.recom_render_settings
+        settings = get_addon_settings(context)
         prefs = get_addon_preferences(context)
 
         # Launcher

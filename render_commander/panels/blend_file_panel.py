@@ -12,7 +12,7 @@ from ..utils.constants import (
     RENDER_ENGINE_MAPPING,
     RCSubPanel,
 )
-from ..utils.helpers import get_addon_preferences, get_scene_info
+from ..utils.helpers import get_addon_preferences, get_addon_settings, get_scene_info
 
 log = logging.getLogger(__name__)
 
@@ -66,7 +66,7 @@ class RECOM_PT_scene_file_panel(RCSubPanel, Panel):
         return prefs.visible_panels.external_scene
 
     def draw_header(self, context):
-        settings = context.window_manager.recom_render_settings
+        settings = get_addon_settings(context)
         self.layout.prop(settings, "use_external_blend", text="")
 
     def draw_header_preset(self, context):
@@ -82,7 +82,7 @@ class RECOM_PT_scene_file_panel(RCSubPanel, Panel):
         layout.use_property_split = True
         layout.use_property_decorate = False
 
-        settings = context.window_manager.recom_render_settings
+        settings = get_addon_settings(context)
         layout.active = settings.use_external_blend
 
         col = layout.column()
@@ -304,7 +304,7 @@ class RECOM_PT_scene_file_panel(RCSubPanel, Panel):
             "recom_external_scene_info_items",
             wm,
             "recom_external_scene_info_active",
-            rows=6,
+            rows=4,
             item_dyntip_propname="tooltip_display",
         )
 

@@ -108,7 +108,7 @@ def validate_render_settings(operator, context) -> bool:
             return False
 
         if not settings.external_scene_info or settings.external_scene_info == "{}":
-            msg = "Scene metadata not loaded. Use 'Read Scene'."
+            msg = "Scene metadata not loaded"
             operator.report({"WARNING"}, msg)
             log.error("%s", msg)
             return False

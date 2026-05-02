@@ -5,7 +5,7 @@ import logging
 import bpy
 from bpy.types import Menu
 
-from ..utils.helpers import get_addon_preferences
+from ..utils.helpers import get_addon_preferences, get_override_settings
 
 log = logging.getLogger(__name__)
 
@@ -16,8 +16,8 @@ class RECOM_MT_sampling_factor(Menu):
     def draw(self, context):
         layout = self.layout
 
-        settings = context.window_manager.recom_render_settings
-        current_value = f"{settings.override_settings.cycles.sampling_factor:.1f}"
+        override_settings = get_override_settings(context)
+        current_value = f"{override_settings.cycles.sampling_factor:.1f}"
 
         layout.label(text="Sampling Factor")
         layout.separator()
@@ -44,17 +44,17 @@ class RECOM_MT_resolution_x(Menu):
     def draw(self, context):
         layout = self.layout
 
-        settings = context.window_manager.recom_render_settings
-        current_x = settings.override_settings.resolution_x
+        override_settings = get_override_settings(context)
+        current_x = override_settings.resolution_x
 
-        if settings.override_settings.resolution_mode == "SET_HEIGHT":
+        if override_settings.resolution_mode == "SET_HEIGHT":
             layout.enabled = False
 
         layout.label(text="Resolution X")
         layout.separator()
 
         swap_row = layout.row()
-        swap_row.active = settings.override_settings.resolution_override
+        swap_row.active = override_settings.resolution_override
         swap_row.operator("recom.swap_resolution", text="Swap X and Y", icon="UV_SYNC_SELECT")
         layout.separator()
 
@@ -83,17 +83,17 @@ class RECOM_MT_resolution_y(Menu):
     def draw(self, context):
         layout = self.layout
 
-        settings = context.window_manager.recom_render_settings
-        current_y = settings.override_settings.resolution_y
+        override_settings = get_override_settings(context)
+        current_y = override_settings.resolution_y
 
-        if settings.override_settings.resolution_mode == "SET_WIDTH":
+        if override_settings.resolution_mode == "SET_WIDTH":
             layout.enabled = False
 
         layout.label(text="Resolution Y")
         layout.separator()
 
         swap_row = layout.row()
-        swap_row.active = settings.override_settings.resolution_override
+        swap_row.active = override_settings.resolution_override
         swap_row.operator("recom.swap_resolution", text="Swap X and Y", icon="UV_SYNC_SELECT")
         layout.separator()
 
@@ -122,8 +122,8 @@ class RECOM_MT_custom_render_scale(Menu):
     def draw(self, context):
         layout = self.layout
 
-        settings = context.window_manager.recom_render_settings
-        current_value = f"{settings.override_settings.custom_render_scale:.2f}"
+        override_settings = get_override_settings(context)
+        current_value = f"{override_settings.custom_render_scale:.2f}"
 
         layout.label(text="Resolution Scale")
         layout.separator()
@@ -153,8 +153,8 @@ class RECOM_MT_adaptive_threshold(Menu):
     def draw(self, context):
         layout = self.layout
 
-        settings = context.window_manager.recom_render_settings
-        current = f"{settings.override_settings.cycles.adaptive_threshold:.4f}"
+        override_settings = get_override_settings(context)
+        current = f"{override_settings.cycles.adaptive_threshold:.4f}"
 
         layout.label(text="Adaptive Threshold")
         layout.separator()
@@ -172,8 +172,8 @@ class RECOM_MT_samples(Menu):
     def draw(self, context):
         layout = self.layout
 
-        settings = context.window_manager.recom_render_settings
-        current = settings.override_settings.cycles.samples
+        override_settings = get_override_settings(context)
+        current = override_settings.cycles.samples
 
         layout.label(text="Samples")
         layout.separator()
@@ -193,8 +193,8 @@ class RECOM_MT_adaptive_min_samples(Menu):
     def draw(self, context):
         layout = self.layout
 
-        settings = context.window_manager.recom_render_settings
-        current = settings.override_settings.cycles.adaptive_min_samples
+        override_settings = get_override_settings(context)
+        current = override_settings.cycles.adaptive_min_samples
 
         layout.label(text="Adaptive Min Samples")
         layout.separator()
@@ -213,8 +213,8 @@ class RECOM_MT_time_limit(Menu):
     def draw(self, context):
         layout = self.layout
 
-        settings = context.window_manager.recom_render_settings
-        current = settings.override_settings.cycles.time_limit
+        override_settings = get_override_settings(context)
+        current = override_settings.cycles.time_limit
 
         layout.label(text="Time Limit")
         layout.separator()
@@ -247,8 +247,8 @@ class RECOM_MT_tile_size(Menu):
     def draw(self, context):
         layout = self.layout
 
-        settings = context.window_manager.recom_render_settings
-        current = settings.override_settings.cycles.tile_size
+        override_settings = get_override_settings(context)
+        current = override_settings.cycles.tile_size
 
         layout.label(text="Tile Size")
         layout.separator()

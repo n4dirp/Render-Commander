@@ -26,6 +26,7 @@ from ..utils.cycles_devices import (
 from ..utils.helpers import (
     draw_label_value_box,
     get_addon_preferences,
+    get_addon_settings,
     get_render_engine,
 )
 
@@ -71,13 +72,6 @@ class RECOM_PT_command_line_arguments_presets(PresetPanel, Panel):
     preset_add_operator = "recom.command_line_arguments_preset_add"
 
 
-class RECOM_PT_ocio_presets(PresetPanel, Panel):
-    bl_label = "OCIO Configuration Presets"
-    preset_subdir = PRESET_REGISTRY["ocio"]
-    preset_operator = "script.execute_preset"
-    preset_add_operator = "recom.ocio_preset_add"
-
-
 class RECOM_PT_additional_script_presets(PresetPanel, Panel):
     bl_label = "Python Scripts Presets"
     preset_subdir = PRESET_REGISTRY["scripts"]
@@ -107,8 +101,9 @@ class RECOM_PT_render_preferences(RCSubPanel, Panel):
         layout = self.layout
         layout.use_property_split = True
         layout.use_property_decorate = False
+
         prefs = get_addon_preferences(context)
-        settings = context.window_manager.recom_render_settings
+        settings = get_addon_settings(context)
 
         root_col = layout.column(align=True)
         root_col.prop(prefs, "keep_terminal_open")
@@ -506,9 +501,6 @@ class RECOM_PT_ocio(RCBasePanel, Panel):
         prefs = get_addon_preferences(context)
         self.layout.prop(prefs, "set_ocio", text="")
 
-    def draw_header_preset(self, context):
-        RECOM_PT_ocio_presets.draw_panel_header(self.layout)
-
     def draw(self, context):
         layout = self.layout
         layout.use_property_split = True
@@ -534,7 +526,6 @@ classes = (
     RECOM_PT_additional_scripts,
     RECOM_UL_script_list,
     RECOM_PT_log_to_file,
-    RECOM_PT_ocio_presets,
     RECOM_PT_ocio,
 )
 

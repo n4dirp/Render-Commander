@@ -1,4 +1,4 @@
-# ./utils/menus.py
+# ./menus/menus.py
 
 import json
 import logging
@@ -7,7 +7,7 @@ from pathlib import Path
 import bpy
 from bpy.types import Menu
 
-from ..utils.helpers import get_addon_preferences, get_scene_info
+from ..utils.helpers import get_addon_preferences, get_addon_settings, get_scene_info
 
 log = logging.getLogger(__name__)
 
@@ -46,7 +46,7 @@ class RECOM_MT_external_blend_options(Menu):
     def draw(self, context):
         layout = self.layout
 
-        settings = context.window_manager.recom_render_settings
+        settings = get_addon_settings(context)
         prefs = get_addon_preferences(context)
 
         file_path = bpy.path.abspath(settings.external_blend_file_path)
@@ -58,11 +58,7 @@ class RECOM_MT_external_blend_options(Menu):
         op_open_in_new_session.file_path = file_path
         layout.separator()
 
-        op_dir = layout.operator(
-            "recom.open_blend_directory",
-            text="Open Blend Folder",
-            icon="FILE_FOLDER",
-        )
+        op_dir = layout.operator("recom.open_blend_directory", text="Open Blend Folder", icon="FILE_FOLDER")
         op_dir.file_path = file_path
 
         try:
@@ -131,34 +127,42 @@ class RECOM_MT_render_history_item(Menu):
         render_history = prefs.render_history
         if not render_history:
             layout.active = False
-            layout.label(text="No recent renders")
+            layout.label(text="No History")
             return
 
-        active_item = render_history[prefs.active_render_history_index]
-        blend_exists = active_item.blend_path and Path(active_item.blend_path).exists()
+        trash_icon = "TRASH"
+        valid_index = prefs.active_render_history_index >= 0 and prefs.active_render_history_index < len(render_history)
+        if valid_index:
+            active_item = render_history[prefs.active_render_history_index]
+            blend_exists = active_item.blend_path and Path(active_item.blend_path).exists()
 
-        blend_col = layout.column(align=True)
-        if not active_item.blend_path or not blend_exists:
-            blend_col.enabled = False
+            blend_col = layout.column(align=True)
+            if not active_item.blend_path or not blend_exists:
+                blend_col.enabled = False
 
-        op_open_blend_file = blend_col.operator("recom.open_blend_file", text="Open in Blender", icon="FILE_BLEND")
-        op_open_blend_file.file_path = active_item.blend_path
-        op_open_in_new_session = blend_col.operator("recom.open_in_new_blender", text="Open in New Instance")
-        op_open_in_new_session.file_path = active_item.blend_path
-        blend_col.separator()
-        blend_col.operator(
-            "recom.select_recent_file", text="Read Scene", icon="ZOOM_ALL"
-        ).file_path = active_item.blend_path
+            op_open_blend_file = blend_col.operator("recom.open_blend_file", text="Open in Blender", icon="FILE_BLEND")
+            op_open_blend_file.file_path = active_item.blend_path
+            op_open_in_new_session = blend_col.operator("recom.open_in_new_blender", text="Open in New Instance")
+            op_open_in_new_session.file_path = active_item.blend_path
+            blend_col.separator()
+            blend_col.operator(
+                "recom.select_recent_file", text="Read Scene", icon="ZOOM_ALL"
+            ).file_path = active_item.blend_path
 
-        blend_col.separator()
-        blend_col.operator("recom.open_output_folder", text="Open Blend Folder", icon="FILE_FOLDER").folder_path = str(
-            Path(active_item.blend_path).parent
-        )
+            blend_col.separator()
+            blend_col.operator(
+                "recom.open_output_folder", text="Open Blend Folder", icon="FILE_FOLDER"
+            ).folder_path = str(Path(active_item.blend_path).parent)
 
-        blend_col.operator("recom.open_output_folder", text="Open Scripts Folder").folder_path = active_item.export_path
+            blend_col.operator(
+                "recom.open_output_folder", text="Open Scripts Folder"
+            ).folder_path = active_item.export_path
 
-        layout.separator()
-        layout.operator("recom.remove_render_history_item", text="Remove from History", icon="TRASH")
+            layout.separator()
+            layout.operator("recom.remove_render_history_item", text="Remove from History", icon="TRASH")
+            trash_icon = "BLANK1"
+
+        layout.operator("recom.clean_render_history", text="Clear History List...", icon=trash_icon)
 
 
 class RECOM_MT_cycles_render_devices(Menu):

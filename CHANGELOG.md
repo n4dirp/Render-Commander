@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on Keep a Changelog,
 and this project adheres to Semantic Versioning.
 
+## [Unreleased]
+
+### Added
+- New **FPS Converter** override option
+
+### Changed
+- Updated UI in the **Blend File** panel and **Export History**
+- Enhanced render history with additional details, now displayed using a `UIList`
+- **Manage Cycles Devices** is now optional for parallel rendering
+- Export options moved to a popup panel for a cleaner workflow
+
 ## [1.2.3] - 2026-04-27
 
 ### Added

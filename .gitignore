@@ -14,3 +14,7 @@ pyproject.toml
 
 # Documentation (optional - remove if you want AGENTS.md tracked)
 AGENTS.md
+
+# Folders
+releases/
+tests/

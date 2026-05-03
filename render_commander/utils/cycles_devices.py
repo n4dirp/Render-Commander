@@ -226,3 +226,25 @@ def draw_devices(layout, prefs):
         col.prop(device, "use", text=device_name, translate=False)
 
         prev_type = device.type
+
+
+def _get_cycles_enabled_devices(context, prefs):
+    """Get devices currently enabled in the Cycles addon preferences."""
+    cycles_prefs = get_cycles_prefs(context)
+    if not cycles_prefs:
+        return []
+
+    enabled = [d for d in getattr(cycles_prefs, "devices", []) if getattr(d, "use", False)]
+
+    if not prefs.multiple_backends:
+        compute_device_type = cycles_prefs.compute_device_type
+        enabled = [d for d in enabled if d.type == compute_device_type]
+
+    return enabled
+
+
+def _get_scene_cycles_device(settings, scene, ext_info):
+    """Get the Cycles device type from scene or external info."""
+    if settings.override_settings.cycles.device_override:
+        return settings.override_settings.cycles.device
+    return str(ext_info.get("device", "CPU")) if settings.use_external_blend else str(scene.cycles.device)

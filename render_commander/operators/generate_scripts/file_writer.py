@@ -9,6 +9,11 @@ from pathlib import Path
 
 import bpy
 
+from ...utils.constants import (
+    MODE_LIST,
+    MODE_SEQ,
+    MODE_SINGLE,
+)
 from ...utils.helpers import get_addon_temp_dir, open_folder
 from . import python_script
 
@@ -95,9 +100,13 @@ def _format_frame_range(frames) -> str:
     return f"{prefix}_unknown"
 
 
-def _resolve_script_base_name(blend_name: str, settings, prefs, frames) -> str:
+def _resolve_script_base_name(
+    blend_name: str,
+    settings,
+    prefs,
+    frames,
+) -> str:
     """Build a safe, readable base filename for generated scripts."""
-    from ...utils.constants import MODE_LIST, MODE_SEQ, MODE_SINGLE
 
     LAUNCH_MODE_MAP = {
         MODE_SINGLE: "Still",
@@ -106,13 +115,15 @@ def _resolve_script_base_name(blend_name: str, settings, prefs, frames) -> str:
     }
 
     def _add(parts, value):
+        """Append non-empty values."""
         if value:
             parts.append(str(value))
 
     parts = []
 
+    # --- Build parts ---
     if prefs.use_export_date_in_script:
-        _add(parts, datetime.now().strftime("%m-%d_%H%M%S"))
+        _add(parts, datetime.now().strftime("%Y-%m-%d_%H%M%S"))
 
     if prefs.use_blend_name_in_script:
         _add(parts, bpy.path.clean_name(blend_name))
@@ -123,6 +134,7 @@ def _resolve_script_base_name(blend_name: str, settings, prefs, frames) -> str:
     if prefs.custom_script_tag and prefs.custom_script_text:
         _add(parts, bpy.path.clean_name(prefs.custom_script_text))
 
+    # Always include render_id (critical identifier)
     render_id = settings.render_id
     _add(parts, render_id)
 
@@ -131,20 +143,23 @@ def _resolve_script_base_name(blend_name: str, settings, prefs, frames) -> str:
 
     base_name = "_".join(parts)
 
+    # Truncation strategy
     if len(base_name) <= SAFE_MAX_LENGTH:
         return base_name
 
+    # Prefer preserving the render_id (and anything after it)
     pivot = base_name.rfind(render_id)
 
     if pivot == -1:
         return _truncate_simple(base_name)
 
     prefix = base_name[:pivot].rstrip("_")
-    suffix = base_name[pivot:]
+    suffix = base_name[pivot:]  # includes render_id + trailing info
 
     available = SAFE_MAX_LENGTH - len(suffix)
 
     if available <= 0:
+        # render_id itself is too long → fallback
         return _truncate_simple(suffix)
 
     truncated_prefix = _truncate_with_ellipsis(prefix, available)

@@ -15,6 +15,7 @@ from ...utils.constants import (
     RE_EEVEE,
     RE_EEVEE_NEXT,
 )
+from ...utils.cycles_devices import get_cycles_prefs
 from ...utils.helpers import (
     calculate_auto_height,
     calculate_auto_width,
@@ -446,11 +447,12 @@ def _apply_compositing_settings(override_settings, script_lines: list[str]) -> N
     script_lines.extend(_wrap_in_try(lines, "Compositor Settings", True))
 
 
-def _apply_cycles_settings(prefs, override_settings, selected_ids, script_lines: list[str]) -> None:
+def _apply_cycles_settings(context, prefs, override_settings, selected_ids, script_lines: list[str]) -> None:
     """Apply Cycles-specific rendering settings."""
     try:
         if not (
             prefs.manage_cycles_devices
+            or prefs.device_parallel
             or override_settings.cycles.device_override
             or override_settings.cycles.sampling_override
             or override_settings.cycles.denoising_override
@@ -467,7 +469,7 @@ def _apply_cycles_settings(prefs, override_settings, selected_ids, script_lines:
             lines.append(f"    bpy.context.scene.cycles.device = '{override_settings.cycles.device}'")
             lines.append("")
 
-        _apply_cycles_device_settings(prefs, selected_ids, lines)
+        _apply_cycles_device_settings(context, prefs, selected_ids, lines)
         _apply_cycles_sampling_settings(override_settings, lines)
         _apply_cycles_denoising_settings(override_settings, lines)
         _apply_cycles_performance_settings(override_settings, lines)
@@ -558,20 +560,26 @@ def _apply_cycles_performance_settings(override_settings, lines: list[str]) -> N
     )
 
 
-def _apply_cycles_device_settings(prefs, selected_ids, lines: list[str]) -> None:
+def _apply_cycles_device_settings(context, prefs, selected_ids, lines: list[str]) -> None:
     """Apply Cycles device settings."""
-    if not prefs.manage_cycles_devices:
+
+    if not (prefs.device_parallel or prefs.manage_cycles_devices):
         return
 
-    if prefs.multiple_backends and prefs.launch_mode != MODE_SINGLE and prefs.device_parallel:
-        devices = getattr(prefs, "devices", [])
-        match = next((d for d in devices if d.id in selected_ids and d.use), None)
-        backend_type = match.type if match else "CPU"
+    if prefs.manage_cycles_devices:
+        cycles_prefs = prefs
     else:
-        backend_type = prefs.compute_device_type
+        cycles_prefs = get_cycles_prefs(context)
+
+    if prefs.multiple_backends and prefs.launch_mode != MODE_SINGLE and prefs.device_parallel:
+        devices = getattr(cycles_prefs, "devices", [])
+        # Get the first enabled device matching selected_ids
+        match = next((d for d in devices if d.id in selected_ids and d.use), None)
+        backend_type = match.type if match else "CPU"  # "CPU" resolves to "NONE" below
+    else:
+        backend_type = cycles_prefs.compute_device_type
 
     cycles_backend = "NONE" if backend_type == "CPU" else backend_type
-
     formatted_ids = json.dumps(list(selected_ids), indent=4).replace("\n", "\n            ")
 
     lines.extend(
@@ -618,56 +626,6 @@ def _apply_eevee_settings(override_settings, script_lines: list[str]) -> None:
     script_lines.extend(lines)
 
 
-def _generate_base_script(
-    context,
-    prefs,
-    selected_ids,
-    is_animation,
-    frame_start,
-    frame_end,
-    frame_step,
-    start_msg,
-) -> list[str]:
-    """Generate common script parts for both single and parallel rendering."""
-    script_lines = []
-
-    override_settings = get_override_settings(context)
-
-    script_lines.extend(
-        [
-            f'"""{ADDON_INFO}"""',
-            "",
-            "import bpy",
-            "",
-        ]
-    )
-
-    _add_logging_formatter(script_lines)
-
-    if start_msg:
-        script_lines.append(f'log.info("{start_msg}")')
-        script_lines.append("")
-
-    _add_render_time_tracking(prefs, script_lines)
-    _apply_data_path_overrides(override_settings, script_lines)
-    _apply_motion_blur_settings(override_settings, script_lines)
-    _apply_frame_settings(prefs, override_settings, is_animation, frame_start, frame_end, frame_step, script_lines)
-    _apply_fps_converter_settings(override_settings, script_lines)
-    _apply_camera_settings(override_settings, script_lines)
-    _apply_resolution_settings(context, override_settings, script_lines)
-    _apply_overscan_settings(context, override_settings, script_lines)
-    _apply_output_format_settings(override_settings, script_lines)
-    _apply_compositing_settings(override_settings, script_lines)
-
-    render_engine = get_render_engine(context)
-    if render_engine == RE_CYCLES:
-        _apply_cycles_settings(prefs, override_settings, selected_ids, script_lines)
-    elif render_engine in {RE_EEVEE_NEXT, RE_EEVEE}:
-        _apply_eevee_settings(override_settings, script_lines)
-
-    return script_lines
-
-
 def _apply_data_path_overrides(override_settings, script_lines: list[str]) -> None:
     """Add data paths overrides."""
     try:
@@ -711,3 +669,53 @@ def _apply_data_path_overrides(override_settings, script_lines: list[str]) -> No
         script_lines.append("")
     except Exception as e:
         log.error("Error applying data path overrides: %s", e, exc_info=True)
+
+
+def _generate_base_script(
+    context,
+    prefs,
+    selected_ids,
+    is_animation,
+    frame_start,
+    frame_end,
+    frame_step,
+    start_msg,
+) -> list[str]:
+    """Generate common script parts for both single and parallel rendering."""
+    script_lines = []
+
+    override_settings = get_override_settings(context)
+
+    script_lines.extend(
+        [
+            f'"""{ADDON_INFO}"""',
+            "",
+            "import bpy",
+            "",
+        ]
+    )
+
+    _add_logging_formatter(script_lines)
+
+    if start_msg:
+        script_lines.append(f'log.info("{start_msg}")')
+        script_lines.append("")
+
+    _add_render_time_tracking(prefs, script_lines)
+    _apply_data_path_overrides(override_settings, script_lines)
+    _apply_motion_blur_settings(override_settings, script_lines)
+    _apply_frame_settings(prefs, override_settings, is_animation, frame_start, frame_end, frame_step, script_lines)
+    _apply_fps_converter_settings(override_settings, script_lines)
+    _apply_camera_settings(override_settings, script_lines)
+    _apply_resolution_settings(context, override_settings, script_lines)
+    _apply_overscan_settings(context, override_settings, script_lines)
+    _apply_output_format_settings(override_settings, script_lines)
+    _apply_compositing_settings(override_settings, script_lines)
+
+    render_engine = get_render_engine(context)
+    if render_engine == RE_CYCLES:
+        _apply_cycles_settings(context, prefs, override_settings, selected_ids, script_lines)
+    elif render_engine in {RE_EEVEE_NEXT, RE_EEVEE}:
+        _apply_eevee_settings(override_settings, script_lines)
+
+    return script_lines

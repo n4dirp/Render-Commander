@@ -3,9 +3,16 @@
 import bpy
 from bpy.types import Panel
 
-from ..operators.export import draw_script_filename
 from ..utils.constants import MODE_LIST, RCBasePanel
 from ..utils.helpers import get_addon_preferences, get_addon_settings
+
+
+def _blend_filepath(context):
+    settings = get_addon_settings(context)
+    if settings.use_external_blend:
+        return bool(settings.external_blend_file_path)
+
+    return bool(bpy.data.filepath)
 
 
 class RECOM_PT_main_panel(RCBasePanel, Panel):
@@ -20,10 +27,12 @@ class RECOM_PT_main_panel(RCBasePanel, Panel):
 
         # Launcher
         row = layout.row(align=True)
-        text = "Export"  # Generate Scripts
+        sub = row.row(align=True)
+        sub.active = _blend_filepath(context)
+        text = "Export"
         if prefs.export_output_target == "SELECT_DIR":
             text += "..."
-        row.operator("recom.export_render_script", text=text, icon="EXPORT")
+        sub.operator("recom.export_render_script", text=text, icon="EXPORT")
         row.popover(panel="RECOM_PT_panel_visibility_popup", text="", icon="DOWNARROW_HLT")
 
         # Mode
@@ -44,6 +53,7 @@ class RECOM_PT_panel_visibility_popup(Panel):
     bl_description = ""
     bl_space_type = "VIEW_3D"
     bl_region_type = "WINDOW"
+    bl_ui_units_x = 11
 
     def draw(self, context):
         layout = self.layout
@@ -60,6 +70,7 @@ class RECOM_PT_panel_visibility_popup(Panel):
             col.prop(prefs, "custom_export_path", text="", placeholder="Path")
 
         if prefs.export_output_target != "SELECT_DIR":
+            col.separator()
             col = layout.column()
             col.label(text="Add Subfolder")
             folder_row = col.row(heading="", align=True)
@@ -69,20 +80,44 @@ class RECOM_PT_panel_visibility_popup(Panel):
             sub_folder_row.prop(prefs, "export_scripts_folder_name", text="", placeholder="Folder Name")
 
             col.separator()
-            col = layout.column(heading="Scripts Folder", align=True)
-            col.prop(prefs, "auto_open_exported_folder", text="Open in File Explorer")
-
-            col.separator()
             col = layout.column(align=True)
             col.label(text="Script Naming")
-            draw_script_filename(col, prefs)
+
+            row = col.row(align=True)
+            row.prop(prefs, "use_export_date_in_script", text="Export Date")
+            row.prop(prefs, "use_blend_name_in_script", text="Blend Name")
+            row = col.row(align=True)
+            row.prop(prefs, "use_render_type_in_script", text="Render Mode")
+            row.prop(prefs, "use_frame_range_in_script", text="Frame Range")
+
+            tag_row = col.row(align=True)
+            tag_row.prop(prefs, "custom_script_tag", text="")
+            tag_input = tag_row.row(align=True)
+            tag_input.enabled = prefs.custom_script_tag
+            tag_input.prop(prefs, "custom_script_text", text="", placeholder="Custom Tag")
+
+            col.separator()
+            col = layout.column(heading="Actions", align=True)
+            col.prop(prefs, "auto_open_exported_folder", text="Open in File Explorer")
 
         col.separator()
-        col = layout.column(align=True, heading="Visible Panels")
-        col.prop(prefs.visible_panels, "external_scene", text="Blend File", icon="FILE_BLEND")
-        col.prop(prefs.visible_panels, "override_settings", text="Overrides", icon="MODIFIER_DATA")
-        col.prop(prefs.visible_panels, "preferences", text="Settings", icon="SETTINGS")
-        col.prop(prefs.visible_panels, "history", text="History", icon="EXPORT")
+        col = layout.column()
+        col.label(text="Visible Panels")
+        row = col.row(align=True)
+        col1 = row.column(align=True)
+        col1.label(text="Blend File", icon="FILE_BLEND")
+        col1.label(text="Overrides", icon="MODIFIER_DATA")
+        col1.label(text="Settings", icon="SETTINGS")
+        col1.label(text="History", icon="EXPORT")
+
+        col2 = row.column(align=True)
+        col2.prop(prefs.visible_panels, "external_scene", text="")
+        col2.prop(prefs.visible_panels, "override_settings", text="")
+        col2.prop(prefs.visible_panels, "preferences", text="")
+        col2.prop(prefs.visible_panels, "history", text="")
+
+        col.separator()
+        layout.operator("recom.open_pref", text="Preferences", icon="PREFERENCES")
 
 
 classes = (

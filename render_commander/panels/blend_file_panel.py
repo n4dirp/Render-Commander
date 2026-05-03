@@ -18,7 +18,7 @@ log = logging.getLogger(__name__)
 
 FORMAT_NAME_MAPPING = {
     "OPEN_EXR": "OpenEXR",
-    "OPEN_EXR_MULTILAYER": "OpenEXR MultiLayer",
+    "OPEN_EXR_MULTILAYER": "Multi-Layer EXR",
     "PNG": "PNG",
     "JPEG": "JPEG",
     "TIFF": "TIFF",
@@ -131,9 +131,9 @@ class RECOM_PT_scene_file_panel(RCSubPanel, Panel):
             prefs = get_addon_preferences(context)
 
             if not prefs.show_scene_info_list:
-                self._draw_scene_info(layout.box(), info)
+                self._draw_scene_info(layout, info)
             else:
-                self._draw_scene_info_ui_list(context, layout.box(), info)
+                self._draw_scene_info_ui_list(context, layout, info)
 
         elif settings.external_blend_file_path and settings.is_scene_info_loaded:
             layout.label(text="Failed to load valid scene information", icon="ERROR")
@@ -145,19 +145,17 @@ class RECOM_PT_scene_file_panel(RCSubPanel, Panel):
         modified_date_short = info.get("modified_date_short", "N/A")
         file_size = info.get("file_size", "N/A")
 
-        col = layout.column(align=True)
+        col = layout.box().column(align=True)
         row = col.row(align=True)
         row.label(text=f"{blend_filename}", icon="FILE_BLEND")
         row.menu("RECOM_MT_external_blend_options", text="", icon="DOWNARROW_HLT")
-        col.label(text=f"Blender {version_file}", icon="BLANK1")
-        col.label(text=f"{modified_date_short} | {file_size}", icon="BLANK1")
-
-        return col
+        col.label(text=f"{version_file} | {modified_date_short} | {file_size}", icon="BLANK1")
 
     def _draw_scene_info(self, layout, info):
         """Compact display mode"""
-        col = self._draw_scene_info_header(layout, info)
-        col.separator(factor=2.0, type="LINE")
+        self._draw_scene_info_header(layout, info)
+
+        col = layout.box().column(align=True)
 
         separator_factor = 1.0
 
@@ -165,22 +163,8 @@ class RECOM_PT_scene_file_panel(RCSubPanel, Panel):
         scene_name = info.get("scene_name", "")
         viewlayer_names = info.get("viewlayer_names", "")
 
-        col = col.column(align=True)
-        col.label(text=f"{scene_name}", icon="SCENE_DATA")
-
-        layer_list = [name.strip() for name in viewlayer_names.split(", ") if name.strip()]
-        if layer_list:
-            layer_col = col.column(align=True)
-
-            if len(layer_list) == 1:
-                # Single layer: combine label and layer name on same line
-                layer_col.label(text=f"{layer_list[0]}", icon="RENDERLAYERS")
-            else:
-                # Multiple layers: label on first line, layers below
-                layer_col.label(text="Render Layers: ", icon="RENDERLAYERS")
-                for name in layer_list:
-                    layer_col.label(text=name, icon="BLANK1")
-                layer_col.scale_y = 0.9
+        row = col.row(align=True)
+        row.label(text=f"{scene_name} | {viewlayer_names}", icon="SCENE_DATA")
 
         # Engine
         render_engine = info.get("render_engine", RE_CYCLES)
@@ -273,8 +257,9 @@ class RECOM_PT_scene_file_panel(RCSubPanel, Panel):
 
     def _draw_scene_info_ui_list(self, context, layout, info):
         """Non-compact display mode using UIList"""
-        col = self._draw_scene_info_header(layout, info)
-        col.separator()
+        self._draw_scene_info_header(layout, info)
+
+        col = layout.column(align=True)
 
         wm = context.window_manager
         items = wm.recom_external_scene_info_items

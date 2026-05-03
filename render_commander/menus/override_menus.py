@@ -5,7 +5,7 @@ import logging
 import bpy
 from bpy.types import Menu
 
-from ..utils.helpers import get_addon_preferences, get_override_settings
+from ..utils.helpers import get_override_settings
 
 log = logging.getLogger(__name__)
 
@@ -262,72 +262,6 @@ class RECOM_MT_tile_size(Menu):
             op.value = val
 
 
-# Data for Path Variables Menu
-PATH_VARIABLES_DATA = {
-    "data": [
-        ("{blend_dir}", "Blend Directory"),
-        ("{blend_name}", "Blend Name"),
-        ("", ""),
-        ("{fps}", "Frame Rate"),
-        ("{resolution_x}", "Resolution X"),
-        ("{resolution_y}", "Resolution Y"),
-        ("", ""),
-        ("{scene_name}", "Scene Name"),
-        ("{camera_name}", "Camera Name"),
-    ],
-}
-
-
-class RECOM_MT_insert_variable_root(Menu):
-    bl_label = "Add Variable Menu"
-    bl_description = "Add a variable to the output file path"
-
-    def draw_section(self, layout, title, variables):
-        col = layout.column(align=True)
-        col.label(text=title)
-        col.separator()
-
-        for token, label in variables:
-            if not token:
-                col.separator()
-                continue
-
-            op = col.operator("recom.insert_variable", text=label)
-            op.variable = token
-
-    def draw(self, context):
-        layout = self.layout
-        prefs = get_addon_preferences(context)
-
-        show_templates = bpy.app.version >= (5, 0)
-        has_custom = bool(prefs.custom_variables)
-
-        if not show_templates and not has_custom:
-            layout.label(text="No variables available", icon="INFO")
-            return
-
-        # Calculate columns based on visible sections only
-        num_sections = 1 if show_templates else 0
-        extra_column = 1 if has_custom else 0
-        columns = num_sections + extra_column
-
-        flow = layout.grid_flow(columns=columns, even_columns=True, even_rows=False, align=True)
-
-        # Draw Path Templates section (Blender 5.0+)
-        if show_templates:
-            self.draw_section(flow.column(), "Path Templates", PATH_VARIABLES_DATA["data"])
-
-        # Draw Custom Variables section
-        if has_custom:
-            col = flow.column(align=True)
-            col.label(text="Custom")
-            col.separator()
-
-            for var in prefs.custom_variables:
-                op = col.operator("recom.insert_variable", text=var.name)
-                op.variable = f"{{{var.token}}}"
-
-
 classes = (
     RECOM_MT_sampling_factor,
     RECOM_MT_resolution_x,
@@ -338,7 +272,6 @@ classes = (
     RECOM_MT_adaptive_min_samples,
     RECOM_MT_time_limit,
     RECOM_MT_tile_size,
-    RECOM_MT_insert_variable_root,
 )
 
 

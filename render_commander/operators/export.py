@@ -29,7 +29,7 @@ from ..utils.constants import (
     RE_WORKBENCH,
     RENDER_HISTORY_LIMIT,
 )
-from ..utils.cycles_devices import get_devices_for_display
+from ..utils.cycles_devices import _get_cycles_enabled_devices, _get_scene_cycles_device, get_devices_for_display
 from ..utils.helpers import (
     calculate_auto_height,
     calculate_auto_width,
@@ -180,20 +180,6 @@ def validate_render_settings(operator, context) -> bool:
     return True
 
 
-def draw_script_filename(layout, prefs):
-    col = layout.column(align=True)
-    col.prop(prefs, "use_export_date_in_script", text="Export Date")
-    col.prop(prefs, "use_blend_name_in_script", text="Blend Name")
-    col.prop(prefs, "use_render_type_in_script", text="Render Mode")
-    col.prop(prefs, "use_frame_range_in_script", text="Frame Range")
-
-    tag_row = col.row(align=True, heading="")
-    tag_row.prop(prefs, "custom_script_tag", text="")
-    tag_input = tag_row.row()
-    tag_input.enabled = prefs.custom_script_tag
-    tag_input.prop(prefs, "custom_script_text", text="", placeholder="Custom Tag")
-
-
 class RECOM_OT_ExportRenderScript(Operator):
     """Main operator for background rendering script generation."""
 
@@ -243,18 +229,26 @@ class RECOM_OT_ExportRenderScript(Operator):
         layout.use_property_decorate = False
         prefs = get_addon_preferences(context)
 
-        col = layout.column(heading="Script Naming", align=True)
-        draw_script_filename(col, prefs)
         col = layout.column()
-
         folder_row = col.row(heading="Add Subfolder")
         folder_row.prop(prefs, "export_scripts_subfolder", text="")
         sub_folder_row = folder_row.row()
         sub_folder_row.active = prefs.export_scripts_subfolder
         sub_folder_row.prop(prefs, "export_scripts_folder_name", text="")
 
-        col = layout.column(heading="Scripts Folder", align=True)
+        col = layout.column(heading="Actions", align=True)
         col.prop(prefs, "auto_open_exported_folder", text="Open in File Explorer")
+
+        col = layout.column(heading="Script Naming", align=True)
+        col.prop(prefs, "use_export_date_in_script", text="Export Date")
+        col.prop(prefs, "use_blend_name_in_script", text="Blend Name")
+        col.prop(prefs, "use_render_type_in_script", text="Render Mode")
+        col.prop(prefs, "use_frame_range_in_script", text="Frame Range")
+        tag_row = col.row(align=True, heading="")
+        tag_row.prop(prefs, "custom_script_tag", text="")
+        tag_input = tag_row.row()
+        tag_input.enabled = prefs.custom_script_tag
+        tag_input.prop(prefs, "custom_script_text", text="", placeholder="Custom Tag")
 
     def execute(self, context):
         """Main execution method that handles single and parallel rendering."""
@@ -309,13 +303,13 @@ class RECOM_OT_ExportRenderScript(Operator):
             return {"CANCELLED"}
 
         if settings.first_worker_info:
-            prefs.render_history[0].script_filename = settings.first_worker_info
+            script_name = settings.first_worker_info
+            prefs.render_history[0].script_filename = script_name
             prefs.render_history[0].worker_count = settings.worker_count
 
-            self.report(
-                {"INFO"},
-                f"Saved: {settings.first_worker_info} ({settings.worker_count})",
-            )
+            self.report({"INFO"}, f"Saved: {script_name} ({settings.worker_count})")
+
+        prefs.active_render_history_index = 0
 
         folder_name = prefs.export_scripts_folder_name if prefs.export_scripts_subfolder else ""
         target_dir = Path(self.directory) / folder_name
@@ -456,6 +450,35 @@ class RECOM_OT_ExportRenderScript(Operator):
             export_path = export_path / prefs.export_scripts_folder_name
         history_item.export_path = str(export_path)
 
+        # Scene Info
+        history_item.scene_name = ext_info.get("scene_name", scene.name) if is_external else scene.name
+        history_item.view_layer_names = (
+            ext_info.get("viewlayer_names", "")
+            if is_external
+            else ", ".join(layer.name for layer in scene.view_layers if layer.use)
+        )
+        vt = ext_info.get("view_transform", "") if is_external else scene.view_settings.view_transform
+        lk = ext_info.get("look", "") if is_external else scene.view_settings.look
+        history_item.color_management = f"{vt} / {lk}" if vt or lk else ""
+
+        # Motion Blur
+        if override_settings.motion_blur_override:
+            history_item.motion_blur = override_settings.use_motion_blur
+        elif is_external:
+            history_item.motion_blur = ext_info.get("use_motion_blur", False)
+        else:
+            history_item.motion_blur = scene.render.use_motion_blur
+
+        # Compositing
+        if override_settings.compositor_override:
+            history_item.compositing = override_settings.use_compositor
+        elif is_external:
+            history_item.compositing = ext_info.get("use_compositor", False)
+        else:
+            history_item.compositing = scene.render.use_compositing and (
+                bool(scene.compositing_node_group) if bpy.app.version >= (5, 0, 0) else scene.use_nodes
+            )
+
         # Manage History List Limits
         item_index = len(prefs.render_history) - 1
         prefs.render_history.move(item_index, 0)
@@ -466,8 +489,25 @@ class RECOM_OT_ExportRenderScript(Operator):
     def _execute_cycles_export(self, context, prefs, settings, blend_file, scene, ext_info: dict) -> set[str]:
         """Generate export scripts for Cycles engine, handling device selection and splitting."""
 
-        if not prefs.manage_cycles_devices:
-            chunks = calculate_chunks_single_process(prefs, settings, scene, [], ext_info)
+        if not prefs.manage_cycles_devices and prefs.device_parallel:
+            selected_devices = _get_cycles_enabled_devices(context, prefs)
+            cycles_device = _get_scene_cycles_device(settings, scene, ext_info)
+
+            if cycles_device == "GPU" and len(selected_devices) > 1:
+                if prefs.launch_mode == MODE_SEQ:
+                    chunks = calculate_chunks_sequence_parallel(prefs, settings, scene, selected_devices, ext_info)
+                elif prefs.launch_mode == MODE_LIST:
+                    chunks = calculate_chunks_list_parallel(prefs, settings, selected_devices)
+                else:
+                    selected_ids = [d.id for d in selected_devices]
+                    chunks = calculate_chunks_single_process(prefs, settings, scene, selected_ids, ext_info)
+            else:
+                selected_ids = [d.id for d in selected_devices]
+                chunks = calculate_chunks_single_process(prefs, settings, scene, selected_ids, ext_info)
+
+            if not chunks:
+                return {"CANCELLED"}
+
             settings.worker_count = len(chunks)
             return self._process_render_chunks(context, prefs, settings, blend_file, chunks, ext_info)
 

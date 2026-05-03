@@ -122,11 +122,11 @@ def calculate_chunks_sequence_parallel(prefs, settings, scene, selected_devices,
             count = frames_per_device + (1 if i < remainder else 0)
             current_end = current_start + (count - 1) * frame_step
             chunk_frames = (current_start, current_end, frame_step)
-            desc = f"Process[#{i}] | Split: [{current_start}-{current_end}]"
+            desc = f"Worker[#{i}] | Split: [{current_start}-{current_end}]"
             current_start = current_end + frame_step
         else:
             chunk_frames = (frame_start, frame_end, frame_step)
-            desc = f"Process[#{i}] | FullRange: [{frame_start}-{frame_end}]"
+            desc = f"Worker[#{i}] | FullRange: [{frame_start}-{frame_end}]"
 
         chunks.append(RenderJobChunk(i, device_ids, chunk_frames, True, desc))
 
@@ -157,7 +157,7 @@ def calculate_chunks_list_parallel(prefs, settings, selected_devices) -> List[Re
         current_idx = end_idx
 
         if subset:
-            desc = f"Process[#{i}] | Frame: {format_frame_range(subset)}"
+            desc = f"Worker[#{i}] | Frame: {format_frame_range(subset)}"
             chunks.append(RenderJobChunk(i, device_ids, subset, False, desc))
 
     return chunks
@@ -190,12 +190,12 @@ def calculate_chunks_iterations_parallel(
             count = frames_per_process + (1 if i < remainder else 0)
             current_end = current_start + (count - 1) * frame_step
             chunk_frames = (current_start, current_end, frame_step)
-            desc = f"Process[#{i}] | Split:[{current_start}-{current_end}]"
+            desc = f"Worker[#{i}] | Split:[{current_start}-{current_end}]"
             chunks.append(RenderJobChunk(i, device_ids, chunk_frames, True, desc))
             current_start = current_end + frame_step
         else:
             chunk_frames = (frame_start, frame_end, frame_step)
-            desc = f"Process[#{i}] | FullRange:[{frame_start}-{frame_end}]"
+            desc = f"Worker[#{i}] | FullRange:[{frame_start}-{frame_end}]"
             chunks.append(RenderJobChunk(i, device_ids, chunk_frames, True, desc))
 
     return chunks
@@ -227,7 +227,7 @@ def calculate_chunks_list_iterations(settings, process_count: int) -> List[Rende
         current_idx = end_idx
 
         if subset:
-            desc = f"Process[#{i}] | Frame: {format_frame_range(subset)}"
+            desc = f"Worker[#{i}] | Frame: {format_frame_range(subset)}"
             chunks.append(RenderJobChunk(i, device_ids, subset, False, desc))
 
     return chunks

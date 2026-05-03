@@ -154,10 +154,6 @@ class RECOM_MT_render_history_item(Menu):
                 "recom.open_output_folder", text="Open Blend Folder", icon="FILE_FOLDER"
             ).folder_path = str(Path(active_item.blend_path).parent)
 
-            blend_col.operator(
-                "recom.open_output_folder", text="Open Scripts Folder"
-            ).folder_path = active_item.export_path
-
             layout.separator()
             layout.operator("recom.remove_render_history_item", text="Remove from History", icon="TRASH")
             trash_icon = "BLANK1"

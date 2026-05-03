@@ -4,7 +4,6 @@ import bpy
 from bpy.types import Panel, UIList
 
 from ..utils.constants import (
-    RCBasePanel,
     RCSubPanel,
 )
 from ..utils.helpers import get_addon_preferences
@@ -35,13 +34,34 @@ class RECOM_PT_render_history_panel(RCSubPanel, Panel):
             "render_history",
             prefs,
             "active_render_history_index",
-            rows=1,
+            rows=3,
             item_dyntip_propname="tooltip_display",
         )
 
         col = row.column(align=True)
         col.active = len(prefs.render_history) > 0
         col.menu("RECOM_MT_render_history_item", text="", icon="DOWNARROW_HLT")
+
+        valid_index = (
+            prefs.render_history
+            and prefs.active_render_history_index >= 0
+            and prefs.active_render_history_index < len(prefs.render_history)
+        )
+        if valid_index:
+            active_item = prefs.render_history[prefs.active_render_history_index]
+            col.separator()
+            col.operator("recom.open_output_folder", text="", icon="FILE_FOLDER").folder_path = active_item.export_path
+
+            layout.template_list(
+                "RECOM_UL_active_item_properties",
+                "",
+                prefs,
+                "active_item_properties",
+                prefs,
+                "item_properties_index",  # dummy, not used for this list
+                rows=3,
+                item_dyntip_propname="tooltip",
+            )
 
 
 class RECOM_UL_render_history(UIList):
@@ -84,38 +104,10 @@ class RECOM_UL_active_item_properties(UIList):
         split.label(text=item.value)
 
 
-class RECOM_PT_active_item_properties_panel(RCBasePanel, Panel):
-    bl_label = "Script Details"
-    bl_parent_id = "RECOM_PT_render_history_panel"
-    bl_options = {"DEFAULT_CLOSED"}
-
-    @classmethod
-    def poll(cls, context):
-        prefs = get_addon_preferences(context)
-        return prefs.render_history and prefs.active_render_history_index >= 0 and len(prefs.active_item_properties) > 0
-
-    def draw(self, context):
-        layout = self.layout
-        prefs = get_addon_preferences(context)
-
-        # layout.active = False
-        layout.template_list(
-            "RECOM_UL_active_item_properties",
-            "",
-            prefs,
-            "active_item_properties",
-            prefs,
-            "item_properties_index",  # dummy, not used for this list
-            rows=4,
-            item_dyntip_propname="tooltip",
-        )
-
-
 classes = (
     RECOM_PT_render_history_panel,
     RECOM_UL_render_history,
     RECOM_UL_active_item_properties,
-    RECOM_PT_active_item_properties_panel,
 )
 
 

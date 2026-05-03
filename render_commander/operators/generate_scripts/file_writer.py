@@ -121,20 +121,15 @@ def _resolve_script_base_name(
 
     parts = []
 
-    # --- Build parts ---
     if prefs.use_export_date_in_script:
-        _add(parts, datetime.now().strftime("%Y-%m-%d_%H%M%S"))
-
+        _add(parts, datetime.now().strftime("%m-%d_%H%M%S"))
     if prefs.use_blend_name_in_script:
         _add(parts, bpy.path.clean_name(blend_name))
-
     if prefs.use_render_type_in_script:
         _add(parts, LAUNCH_MODE_MAP.get(prefs.launch_mode))
-
     if prefs.custom_script_tag and prefs.custom_script_text:
         _add(parts, bpy.path.clean_name(prefs.custom_script_text))
 
-    # Always include render_id (critical identifier)
     render_id = settings.render_id
     _add(parts, render_id)
 
@@ -143,23 +138,19 @@ def _resolve_script_base_name(
 
     base_name = "_".join(parts)
 
-    # Truncation strategy
     if len(base_name) <= SAFE_MAX_LENGTH:
         return base_name
 
-    # Prefer preserving the render_id (and anything after it)
     pivot = base_name.rfind(render_id)
 
     if pivot == -1:
         return _truncate_simple(base_name)
 
     prefix = base_name[:pivot].rstrip("_")
-    suffix = base_name[pivot:]  # includes render_id + trailing info
-
+    suffix = base_name[pivot:]
     available = SAFE_MAX_LENGTH - len(suffix)
 
     if available <= 0:
-        # render_id itself is too long → fallback
         return _truncate_simple(suffix)
 
     truncated_prefix = _truncate_with_ellipsis(prefix, available)

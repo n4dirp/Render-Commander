@@ -6,7 +6,6 @@ import bpy
 from bl_ui.utils import PresetPanel
 from bpy.types import Panel, UIList
 
-from ..operators.export import draw_script_filename
 from ..operators.presets import PRESET_REGISTRY
 from ..utils.constants import (
     MODE_LIST,
@@ -113,10 +112,8 @@ class RECOM_PT_render_preferences(RCSubPanel, Panel):
             row.active = False
         row.prop(prefs, "auto_save_before_render", text="Auto Save Blend File")
 
-        sub = root_col.column()
-        if prefs.launch_mode == MODE_SINGLE:
-            sub.active = False
-        sub.prop(prefs, "track_render_time", text="Track Render Time")
+        if prefs.launch_mode != MODE_SINGLE:
+            root_col.prop(prefs, "track_render_time", text="Track Render Time")
 
 
 class RECOM_PT_output_filename(Panel):
@@ -145,35 +142,6 @@ class RECOM_PT_output_filename(Panel):
         row.prop(prefs, "write_still", text="Write Still")
 
 
-class RECOM_PT_export_options(RCBasePanel, Panel):
-    bl_label = "Export Scripts"
-    bl_parent_id = "RECOM_PT_render_preferences"
-    bl_options = {"DEFAULT_CLOSED"}
-
-    def draw(self, context):
-        layout = self.layout
-        layout.use_property_split = True
-        layout.use_property_decorate = False
-        prefs = get_addon_preferences(context)
-
-        col = layout.column()
-        col.prop(prefs, "export_output_target", text="Target")
-        if prefs.export_output_target == "CUSTOM_PATH":
-            col.prop(prefs, "custom_export_path", text="", placeholder="Path")
-
-        folder_row = col.row(heading="Add Subfolder")
-        folder_row.prop(prefs, "export_scripts_subfolder", text="")
-        sub_folder_row = folder_row.row()
-        sub_folder_row.active = prefs.export_scripts_subfolder
-        sub_folder_row.prop(prefs, "export_scripts_folder_name", text="")
-
-        col = layout.column(heading="Script Naming", align=True)
-        draw_script_filename(col, prefs)
-
-        col = layout.column(heading="", align=True)
-        col.prop(prefs, "auto_open_exported_folder", text="Open in File Explorer")
-
-
 class RECOM_PT_device_settings(RCBasePanel, Panel):
     bl_label = "Manage Devices"
     bl_parent_id = "RECOM_PT_render_preferences"
@@ -191,9 +159,6 @@ class RECOM_PT_device_settings(RCBasePanel, Panel):
 
     def draw_header_preset(self, context):
         layout = self.layout
-        prefs = get_addon_preferences(context)
-        if not prefs.manage_cycles_devices:
-            return
         layout.emboss = "PULLDOWN_MENU"
         layout.menu("RECOM_MT_cycles_render_devices", text="", icon="COLLAPSEMENU")
         layout.separator(factor=0.25)
@@ -201,11 +166,7 @@ class RECOM_PT_device_settings(RCBasePanel, Panel):
     def draw(self, context):
         layout = self.layout
         prefs = get_addon_preferences(context)
-        layout.active = get_render_engine(context) == RE_CYCLES
-
-        if not prefs.manage_cycles_devices:
-            layout.label(text="Uses default Cycles settings")
-            return
+        layout.active = get_render_engine(context) == RE_CYCLES and prefs.manage_cycles_devices
 
         col = layout.column()
 
@@ -226,20 +187,18 @@ class RECOM_PT_device_settings(RCBasePanel, Panel):
 
 class RECOM_PT_device_parallel(RCBasePanel, Panel):
     bl_label = "Parallel Rendering"
-    bl_parent_id = "RECOM_PT_device_settings"
+    bl_parent_id = "RECOM_PT_render_preferences"
     bl_options = {"DEFAULT_CLOSED"}
 
     @classmethod
     def poll(cls, context):
         prefs = get_addon_preferences(context)
-        return prefs.manage_cycles_devices
+        return _CYCLES_AVAILABLE and get_render_engine(context) == RE_CYCLES and prefs.launch_mode != MODE_SINGLE
 
     def draw_header(self, context):
         layout = self.layout
         prefs = get_addon_preferences(context)
-        layout.active = (
-            get_render_engine(context) == RE_CYCLES and prefs.manage_cycles_devices and prefs.launch_mode != MODE_SINGLE
-        )
+        layout.active = get_render_engine(context) == RE_CYCLES and prefs.launch_mode != MODE_SINGLE
         layout.prop(prefs, "device_parallel", text="")
 
     def draw(self, context):
@@ -249,20 +208,20 @@ class RECOM_PT_device_parallel(RCBasePanel, Panel):
 
         prefs = get_addon_preferences(context)
 
-        devices_to_display = get_devices_for_display(prefs)
-        selected_devices = [d for d in devices_to_display if d.use]
-
         layout.active = (
-            get_render_engine(context) == RE_CYCLES
-            and prefs.manage_cycles_devices
-            and prefs.launch_mode != MODE_SINGLE
-            and prefs.device_parallel
+            get_render_engine(context) == RE_CYCLES and prefs.launch_mode != MODE_SINGLE and prefs.device_parallel
         )
 
         layout.prop(prefs, "multiple_backends", text="Multi-Backend")
 
         parallel_col = layout.column()
-        parallel_col.active = len(selected_devices) > 1 and prefs.launch_mode != MODE_SINGLE and prefs.device_parallel
+
+        if prefs.manage_cycles_devices:
+            devices_to_display = get_devices_for_display(prefs)
+            selected_devices = [d for d in devices_to_display if d.use]
+            parallel_col.active = (
+                len(selected_devices) > 1 and prefs.launch_mode != MODE_SINGLE and prefs.device_parallel
+            )
 
         row = parallel_col.row()
         row.active = prefs.launch_mode != MODE_LIST
@@ -270,15 +229,16 @@ class RECOM_PT_device_parallel(RCBasePanel, Panel):
 
         parallel_col.prop(prefs, "parallel_delay", text="Start Delay")
 
-        if any(d.type == "CPU" and d.use for d in prefs.devices):
-            parallel_col.separator(factor=0.25)
-            col_cpu = parallel_col.column(heading="")
-            col_cpu.prop(prefs, "combine_cpu_with_gpus", text="Combine CPU & GPU")
+        if prefs.manage_cycles_devices:
+            if any(d.type == "CPU" and d.use for d in prefs.devices):
+                parallel_col.separator(factor=0.25)
+                col_cpu = parallel_col.column(heading="CPU")
+                col_cpu.prop(prefs, "combine_cpu_with_gpus", text="Isolate Job", invert_checkbox=True)
 
-            col_tl = col_cpu.column()
-            col_tl.prop(prefs, "cpu_threads_limit", text="Thread Limit")
+                col_tl = col_cpu.column()
+                col_tl.prop(prefs, "cpu_threads_limit", text="Thread Limit")
 
-        if prefs.device_parallel:
+        if prefs.device_parallel and prefs.manage_cycles_devices:
             # Calculate instances count
             enabled_devices = [d for d in devices_to_display if d.use]
             num_instances = len(enabled_devices)
@@ -290,15 +250,15 @@ class RECOM_PT_device_parallel(RCBasePanel, Panel):
 
 
 class RECOM_PT_render_instances(RCBasePanel, Panel):
-    bl_label = "Render Instances"
+    bl_label = "Multi-Process"
     bl_parent_id = "RECOM_PT_render_preferences"
     bl_options = {"DEFAULT_CLOSED"}
 
     @classmethod
     def poll(cls, context):
-        # prefs = get_addon_preferences(context)
+        prefs = get_addon_preferences(context)
         render_engine = get_render_engine(context)
-        return render_engine in {RE_EEVEE_NEXT, RE_EEVEE, RE_WORKBENCH}
+        return render_engine in {RE_EEVEE_NEXT, RE_EEVEE, RE_WORKBENCH} and prefs.launch_mode != MODE_SINGLE
 
     def draw_header(self, context):
         layout = self.layout
@@ -516,7 +476,6 @@ classes = (
     RECOM_PT_render_preferences_presets,
     RECOM_PT_render_preferences,
     RECOM_PT_output_filename,
-    # RECOM_PT_export_options,
     RECOM_PT_render_instances,
     RECOM_PT_device_settings,
     RECOM_PT_device_parallel,

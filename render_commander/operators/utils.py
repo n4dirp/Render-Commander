@@ -227,6 +227,26 @@ class RECOM_OT_ChangeScriptOrder(Operator):
         return {"FINISHED"}
 
 
+class RECOM_OT_OpenPreferences(Operator):
+    bl_idname = "recom.open_pref"
+    bl_label = "Open Preferences"
+    bl_description = "Open the add-on preferences panel"
+
+    def execute(self, context):
+        bpy.ops.screen.userpref_show()
+        bpy.context.preferences.active_section = "ADDONS"
+
+        wm = context.window_manager
+        wm.addon_search = "Render Commander"
+
+        try:
+            bpy.ops.preferences.addon_expand(module="render_commander")
+        except RuntimeError as e:
+            self.report({"WARNING"}, f"Could not expand addon: {e}")
+
+        return {"FINISHED"}
+
+
 classes = (
     RECOM_OT_ReinitializeDevices,
     RECOM_OT_RemoveAdditionalScript,
@@ -236,6 +256,7 @@ classes = (
     RECOM_OT_ScriptMoveItem,
     RECOM_OT_ChangeScriptOrder,
     RECOM_OT_OpenScript,
+    RECOM_OT_OpenPreferences,
 )
 
 

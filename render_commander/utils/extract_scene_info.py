@@ -38,18 +38,14 @@ def get_render_enabled_cameras_in_frame_range():
     start_frame = scene.frame_start
     end_frame = scene.frame_end
 
-    # Get all timeline markers that have a camera bound to them
     camera_markers = [m for m in scene.timeline_markers if m.camera]
 
-    # If there are no bound camera markers, the scene only uses the main active camera
     if not camera_markers:
         return 1 if scene.camera else 0
 
     active_cameras = set()
     camera_markers.sort(key=lambda m: m.frame)
 
-    # Find which camera is active at the very beginning (start_frame)
-    # This is the last marker positioned BEFORE or ON the start_frame
     active_at_start = None
     for m in camera_markers:
         if m.frame <= start_frame:
@@ -60,11 +56,8 @@ def get_render_enabled_cameras_in_frame_range():
     if active_at_start:
         active_cameras.add(active_at_start.name)
     elif scene.camera and camera_markers[0].frame > start_frame:
-        # Edge case: No markers before start_frame, so Blender uses scene.camera
-        # until the timeline hits the first marker.
         active_cameras.add(scene.camera.name)
 
-    # Add all cameras triggered by markers DURING the frame range
     for m in camera_markers:
         if start_frame < m.frame <= end_frame:
             active_cameras.add(m.camera.name)
@@ -111,46 +104,96 @@ def get_scene_info() -> dict:
             "is_movie_format": render.is_movie_format,
             "file_format": render.image_settings.file_format,
             "color_depth": render.image_settings.color_depth,
-            "exr_codec": render.image_settings.exr_codec,
-            "jpeg_quality": render.image_settings.quality,
-            "use_motion_blur": render.use_motion_blur,
-            "motion_blur_position": render.motion_blur_position,
-            "motion_blur_shutter": render.motion_blur_shutter,
-            "camera_name": scene.camera.name if scene.camera else "No Camera",
-            "camera_lens": scene.camera.data.lens if (scene.camera and hasattr(scene.camera.data, "lens")) else 0,
-            "camera_sensor": scene.camera.data.sensor_width
-            if (scene.camera and hasattr(scene.camera.data, "sensor_width"))
-            else 0,
-            "use_compositor": render.use_compositing
-            and (bool(scene.compositing_node_group) if bpy.app.version >= BLENDER_5_0 else scene.use_nodes),
-            "compositor_device": render.compositor_device,
-            "camera_render_count": get_render_enabled_cameras_in_frame_range(),
         }
 
+        if scene.camera:
+            camera_data = {
+                "camera_name": scene.camera.name,
+            }
+            if hasattr(scene.camera.data, "lens"):
+                camera_data["camera_lens"] = scene.camera.data.lens
+            if hasattr(scene.camera.data, "sensor_width"):
+                camera_data["camera_sensor"] = scene.camera.data.sensor_width
+            data.update(camera_data)
+            data["camera_render_count"] = get_render_enabled_cameras_in_frame_range()
+
+        data["use_motion_blur"] = render.use_motion_blur
+        if render.use_motion_blur:
+            data.update(
+                {
+                    "motion_blur_position": render.motion_blur_position,
+                    "motion_blur_shutter": render.motion_blur_shutter,
+                }
+            )
+
+        if render.image_settings.file_format == "OPEN_EXR":
+            data["exr_codec"] = render.image_settings.exr_codec
+
+        if render.image_settings.file_format == "JPEG":
+            data["jpeg_quality"] = render.image_settings.quality
+
+        use_compositor = render.use_compositing and (
+            bool(scene.compositing_node_group) if bpy.app.version >= BLENDER_5_0 else scene.use_nodes
+        )
+        if use_compositor:
+            data.update(
+                {
+                    "use_compositor": True,
+                    "compositor_device": render.compositor_device,
+                }
+            )
+        elif render.use_compositing:
+            # Compositing is enabled but no nodes active - still report it
+            data["use_compositor"] = False
+
         if scene.render.engine == "CYCLES" and cycles:
+            # Base Cycles settings
             data.update(
                 {
                     "device": cycles.device,
-                    "use_adaptive_sampling": cycles.use_adaptive_sampling,
-                    "adaptive_threshold": round(cycles.adaptive_threshold, 3),
                     "samples": cycles.samples,
-                    "adaptive_min_samples": cycles.adaptive_min_samples,
                     "time_limit": cycles.time_limit,
-                    "use_denoising": cycles.use_denoising,
-                    "denoiser": cycles.denoiser,
-                    "denoising_input_passes": cycles.denoising_input_passes,
-                    "denoising_prefilter": cycles.denoising_prefilter,
-                    "denoising_quality": cycles.denoising_quality,
-                    "use_denoise_gpu": cycles.denoising_use_gpu,
-                    "use_tiling": cycles.use_auto_tile,
-                    "tile_size": cycles.tile_size,
                     "use_spatial_splits": cycles.debug_use_spatial_splits,
                     "use_compact_bvh": cycles.debug_use_compact_bvh,
                     "persistent_data": render.use_persistent_data,
                 }
             )
-        elif scene.render.engine in {'BLENDER_EEVEE_NEXT', 'BLENDER_EEVEE'} and eevee:
-            data.update({"eevee_samples": eevee.taa_render_samples})
+
+            # Only add adaptive sampling settings if adaptive sampling is enabled
+            data["use_adaptive_sampling"] = cycles.use_adaptive_sampling
+            if cycles.use_adaptive_sampling:
+                data.update(
+                    {
+                        "adaptive_threshold": round(cycles.adaptive_threshold, 3),
+                        "adaptive_min_samples": cycles.adaptive_min_samples,
+                    }
+                )
+
+            # Only add denoising settings if denoising is enabled
+            data["use_denoising"] = cycles.use_denoising
+            if cycles.use_denoising:
+                data.update(
+                    {
+                        "denoiser": cycles.denoiser,
+                        "denoising_input_passes": cycles.denoising_input_passes,
+                        "denoising_prefilter": cycles.denoising_prefilter,
+                        "denoising_quality": cycles.denoising_quality,
+                        "use_denoise_gpu": cycles.denoising_use_gpu,
+                    }
+                )
+
+            # Only add tile size if tiling is enabled
+            data["use_tiling"] = cycles.use_auto_tile
+            if cycles.use_auto_tile:
+                data["tile_size"] = cycles.tile_size
+
+        elif scene.render.engine in {"BLENDER_EEVEE_NEXT", "BLENDER_EEVEE"} and eevee:
+            data.update(
+                {
+                    "eevee_samples": eevee.taa_render_samples,
+                    "eevee_use_raytracing": eevee.use_raytracing,
+                }
+            )
 
         return data
     except Exception as e:

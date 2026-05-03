@@ -1,12 +1,14 @@
+# ./utils/cycles_devices.py
+
 import logging
 import unicodedata
 
 import bpy
+from bpy.props import BoolProperty, StringProperty
 from bpy.types import PropertyGroup
-from bpy.props import StringProperty, BoolProperty
 
-from .utils.constants import MODE_SINGLE
-from .utils.helpers import redraw_ui
+from .constants import MODE_SINGLE
+from .helpers import redraw_ui
 
 log = logging.getLogger(__name__)
 log.addHandler(logging.NullHandler())
@@ -63,7 +65,13 @@ def get_device_types_items(self, context):
         return items
 
     seen = set()
-    friendly_names = {"CUDA": "CUDA", "OPTIX": "OptiX", "HIP": "HIP", "METAL": "Metal", "ONEAPI": "oneAPI"}
+    friendly_names = {
+        "CUDA": "CUDA",
+        "OPTIX": "OptiX",
+        "HIP": "HIP",
+        "METAL": "Metal",
+        "ONEAPI": "oneAPI",
+    }
 
     # Dynamically read what devices are currently registered in Cycles
     for dev in getattr(cycles_prefs, "devices", []):
@@ -171,21 +179,21 @@ def get_devices_for_display(prefs):
     devices_to_display = []
 
     if prefs.multiple_backends and prefs.device_parallel and prefs.launch_mode != MODE_SINGLE:
-        devices_to_display.extend([d for d in prefs.devices if d.type == 'CPU'])
-        devices_to_display.extend([d for d in prefs.devices if d.type != 'CPU'])
+        devices_to_display.extend([d for d in prefs.devices if d.type == "CPU"])
+        devices_to_display.extend([d for d in prefs.devices if d.type != "CPU"])
     else:
-        devices_to_display.extend([d for d in prefs.devices if d.type == selected and d.type != 'CPU'])
+        devices_to_display.extend([d for d in prefs.devices if d.type == selected and d.type != "CPU"])
 
-        if selected != 'CPU':
+        if selected != "CPU":
             existing_ids = {d.id for d in devices_to_display}
-            devices_to_display.extend([d for d in prefs.devices if d.type == 'CPU' and d.id not in existing_ids])
+            devices_to_display.extend([d for d in prefs.devices if d.type == "CPU" and d.id not in existing_ids])
         else:
-            devices_to_display = [d for d in prefs.devices if d.type == 'CPU']
+            devices_to_display = [d for d in prefs.devices if d.type == "CPU"]
 
     return devices_to_display
 
 
-def draw_devices(layout, prefs, show_id=False):
+def draw_devices(layout, prefs):
     """Draw device list in UI."""
 
     devices_to_draw = get_devices_for_display(prefs)
@@ -201,7 +209,6 @@ def draw_devices(layout, prefs, show_id=False):
         if prev_type is not None and device.type != prev_type:
             layout.separator(factor=0.5)
 
-        device_name = device.id if show_id else format_device_name(device.name)
         col = layout.column(align=True)
 
         if prefs.multiple_backends and prefs.device_parallel and prefs.launch_mode != MODE_SINGLE:
@@ -211,5 +218,33 @@ def draw_devices(layout, prefs, show_id=False):
                 row.active = False
                 row.label(text=device.type)
 
+        if prefs.show_device_id and device.type != "CPU":
+            device_name = device.id
+        else:
+            device_name = format_device_name(device.name)
+
         col.prop(device, "use", text=device_name, translate=False)
+
         prev_type = device.type
+
+
+def _get_cycles_enabled_devices(context, prefs):
+    """Get devices currently enabled in the Cycles addon preferences."""
+    cycles_prefs = get_cycles_prefs(context)
+    if not cycles_prefs:
+        return []
+
+    enabled = [d for d in getattr(cycles_prefs, "devices", []) if getattr(d, "use", False)]
+
+    if not prefs.multiple_backends:
+        compute_device_type = cycles_prefs.compute_device_type
+        enabled = [d for d in enabled if d.type == compute_device_type]
+
+    return enabled
+
+
+def _get_scene_cycles_device(settings, scene, ext_info):
+    """Get the Cycles device type from scene or external info."""
+    if settings.override_settings.cycles.device_override:
+        return settings.override_settings.cycles.device
+    return str(ext_info.get("device", "CPU")) if settings.use_external_blend else str(scene.cycles.device)

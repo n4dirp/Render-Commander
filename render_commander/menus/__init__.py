@@ -1,14 +1,17 @@
 import logging
 
-from . import menus
+from . import menus, override_menus
 
 log = logging.getLogger(__name__)
 
-utils_modules = [menus]
+menu_modules = [
+    menus,
+    override_menus,
+]
 
 
 def register():
-    for mdl in utils_modules:
+    for mdl in menu_modules:
         try:
             mdl.register()
         except Exception:
@@ -16,7 +19,7 @@ def register():
 
 
 def unregister():
-    for mdl in reversed(utils_modules):
+    for mdl in reversed(menu_modules):
         try:
             mdl.unregister()
         except Exception:

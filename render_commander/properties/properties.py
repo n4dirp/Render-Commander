@@ -5,16 +5,16 @@ import re
 
 import bpy
 from bpy.props import (
-    StringProperty,
     BoolProperty,
-    PointerProperty,
     CollectionProperty,
     IntProperty,
+    PointerProperty,
+    StringProperty,
 )
 from bpy.types import PropertyGroup
 
+from ..utils.helpers import is_blend_or_backup_file, redraw_ui
 from .override_settings import RECOM_PG_OverrideSettings
-from ..utils.helpers import redraw_ui, is_blend_or_backup_file
 
 log = logging.getLogger(__name__)
 

@@ -1,23 +1,45 @@
 # ./utils/helpers.py
 
 import json
-import os
-import sys
 import logging
-import subprocess
+import os
 import re
+import subprocess
+import sys
 from pathlib import Path
+from typing import Any, Union
 
 import bpy
 
-from .constants import RESERVED_TOKENS
 from .. import __package__ as base_package
+from .constants import RESERVED_TOKENS
 
 log = logging.getLogger(__name__)
 
 _IS_WINDOWS = sys.platform == "win32"
 _IS_MACOS = sys.platform == "darwin"
 _IS_LINUX = sys.platform.startswith("linux")
+
+
+def get_addon_settings(context):
+    """Helper function to retrieve override settings from context."""
+    return context.window_manager.recom_render_settings
+
+
+def get_override_settings(context):
+    """Helper function to retrieve override settings from context."""
+    return get_addon_settings(context).override_settings
+
+
+def get_addon_preferences(context=None):
+    """Get addon preferences from Blender context."""
+    ctx = context or bpy.context
+
+    addon = ctx.preferences.addons.get(base_package)
+    if addon is None:
+        return None
+
+    return addon.preferences
 
 
 def get_addon_temp_dir() -> Path:
@@ -69,12 +91,12 @@ def is_blend_or_backup_file(file_path: str) -> bool:
         file_path = bpy.path.abspath(file_path)
 
     path = Path(file_path)
-    return path.is_file() and path.suffix.lower() in (".blend", ".blend1", ".blend2", ".blend3")
-
-
-def get_addon_preferences():
-    """Get addon preferences from Blender context."""
-    return bpy.context.preferences.addons[base_package].preferences
+    return path.is_file() and path.suffix.lower() in (
+        ".blend",
+        ".blend1",
+        ".blend2",
+        ".blend3",
+    )
 
 
 def open_folder(folder_path: str) -> bool:
@@ -128,7 +150,7 @@ def open_folder(folder_path: str) -> bool:
 
 def get_default_resolution(context) -> tuple:
     """Get the default resolution from scene or external info."""
-    settings = context.window_manager.recom_render_settings
+    settings = get_addon_settings(context)
     fallback_res_x = 1
     fallback_res_y = 1
 
@@ -148,19 +170,19 @@ def get_default_resolution(context) -> tuple:
 
 def calculate_auto_width(context) -> int:
     """Calculate auto width based on height and aspect ratio."""
-    settings = context.window_manager.recom_render_settings
+    override_settings = get_override_settings(context)
     default_res = get_default_resolution(context)
     aspect_ratio = default_res[0] / default_res[1] if default_res[1] > 0 else 1.0
-    height = settings.override_settings.resolution_y
+    height = override_settings.resolution_y
     return int(height * aspect_ratio)
 
 
 def calculate_auto_height(context) -> int:
     """Calculate auto height based on width and aspect ratio."""
-    settings = context.window_manager.recom_render_settings
+    override_settings = get_override_settings(context)
     default_res = get_default_resolution(context)
     aspect_ratio = default_res[0] / default_res[1] if default_res[1] > 0 else 1.0
-    width = settings.override_settings.resolution_x
+    width = override_settings.resolution_x
     return int(width / aspect_ratio)
 
 
@@ -174,7 +196,7 @@ def format_to_title_case(input_string: str) -> str:
 
 def get_render_engine(context) -> str:
     """Determine the render engine used by the current or external scene."""
-    settings = context.window_manager.recom_render_settings
+    settings = get_addon_settings(context)
 
     if settings.use_external_blend and settings.external_blend_file_path:
         try:
@@ -189,11 +211,21 @@ def get_render_engine(context) -> str:
     return engine_name
 
 
-def resolve_blender_path(text: str) -> tuple[str, any]:
+def resolve_blender_path(text: str) -> tuple[str, Any]:
     """Normalizes shorthand paths and resolves them to a bpy object/value."""
     if not text.startswith("bpy."):
         # Things that belong directly under bpy.context
-        if text.startswith(("scene.", "view_layer.", "workspace.", "screen.", "window.", "area.", "space_data.")):
+        if text.startswith(
+            (
+                "scene.",
+                "view_layer.",
+                "workspace.",
+                "screen.",
+                "window.",
+                "area.",
+                "space_data.",
+            )
+        ):
             text = "bpy.context." + text
         else:
             text = "bpy.context.scene." + text
@@ -224,3 +256,37 @@ def resolve_blender_path(text: str) -> tuple[str, any]:
         except AttributeError as exc:
             raise ValueError(f"Invalid attribute: {part} in path {text}") from exc
     return text, obj
+
+
+def get_scene_info(settings: Any) -> Union[dict, None]:
+    """Single source of truth for scene info parsing"""
+    if not settings.external_scene_info or not settings.is_scene_info_loaded:
+        return None
+
+    try:
+        info = json.loads(settings.external_scene_info)
+        if info.get("blend_filepath", "") == "No Data":
+            return None
+        return info
+    except json.JSONDecodeError as e:
+        log.error("Failed to decode JSON: %s", e)
+        return None
+
+
+def draw_label_value_box(layout, label: str, value: str = "", factor: float = 0.4, active: bool = False) -> object:
+    """Draw a split box with a right-aligned label and left-aligned value."""
+    box = layout.box()
+    box.active = active
+    split = box.split(factor=factor)
+
+    row_label = split.row(align=True)
+    row_value = split.row(align=True)
+
+    if value:
+        row_value.alignment = "LEFT"
+        row_label.alignment = "RIGHT"
+
+    row_label.label(text=label)
+    row_value.label(text=str(value))
+
+    return box

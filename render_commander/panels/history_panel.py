@@ -4,16 +4,13 @@ import bpy
 from bpy.types import Panel, UIList
 
 from ..utils.constants import (
-    RECOM_PT_BasePanel,
-    RECOM_PT_SubPanel,
-    ICON_OPTION,
-    RENDER_ENGINE_MAPPING,
+    RCSubPanel,
 )
-from ..preferences import get_addon_preferences
+from ..utils.helpers import get_addon_preferences
 
 
-class RECOM_PT_render_history_panel(RECOM_PT_SubPanel, Panel):
-    bl_label = "Export History"
+class RECOM_PT_render_history_panel(RCSubPanel, Panel):
+    bl_label = "History"
     bl_options = {"DEFAULT_CLOSED"}
 
     @classmethod
@@ -37,88 +34,44 @@ class RECOM_PT_render_history_panel(RECOM_PT_SubPanel, Panel):
             "render_history",
             prefs,
             "active_render_history_index",
-            rows=4,
+            rows=3,
             item_dyntip_propname="tooltip_display",
         )
 
-        col = row.column(align=True)  # Changed from 'menu_column'
-        col.enabled = len(prefs.render_history) > 0
-        col.operator("recom.clean_render_history", text="", icon="TRASH")
-        col.separator()
-        col.menu("RECOM_MT_render_history_item", text="", icon=ICON_OPTION)
+        col = row.column(align=True)
+        col.active = len(prefs.render_history) > 0
+        col.menu("RECOM_MT_render_history_item", text="", icon="DOWNARROW_HLT")
 
-
-class RECOM_PT_render_details_panel(RECOM_PT_BasePanel, Panel):
-    bl_label = "Script Details"
-    bl_parent_id = "RECOM_PT_render_history_panel"
-    # bl_options = {"DEFAULT_CLOSED"}
-
-    @classmethod
-    def poll(cls, context):
-        prefs = get_addon_preferences(context)
-        return prefs.render_history and len(prefs.render_history) > 0
-
-    def draw(self, context):
-        layout = self.layout
-        layout.use_property_split = False
-        layout.use_property_decorate = False
-
-        prefs = get_addon_preferences(context)
-
-        if prefs.render_history and len(prefs.render_history) > 0:
+        valid_index = (
+            prefs.render_history
+            and prefs.active_render_history_index >= 0
+            and prefs.active_render_history_index < len(prefs.render_history)
+        )
+        if valid_index:
             active_item = prefs.render_history[prefs.active_render_history_index]
+            col.separator()
+            col.operator("recom.open_output_folder", text="", icon="FILE_FOLDER").folder_path = active_item.export_path
 
-            col = layout.column(align=True)
-            self.draw_kv(col, "Render ID", active_item.render_id)
-            self.draw_kv(col, "Export Date", active_item.date)
-            if active_item.worker_count > 1:
-                self.draw_kv(col, "Workers", active_item.worker_count)
-            self.draw_kv(col, "Script Name", active_item.script_filename)
-            self.draw_kv(col, "Path", active_item.export_path, "recom.open_output_folder")
-
-            col.separator(type="LINE", factor=2.0)
-            self.draw_kv(col, "Blend Name", active_item.blend_file_name)
-            self.draw_kv(col, "Path", active_item.blend_dir, "recom.open_output_folder")
-
-            col.separator(type="LINE", factor=2.0)
-            self.draw_kv(col, "Engine", RENDER_ENGINE_MAPPING.get(active_item.render_engine, active_item.render_engine))
-            self.draw_kv(col, "Samples", active_item.samples)
-            col = layout.column(align=True)
-            self.draw_kv(col, "Resolution", f"{active_item.resolution_x} x {active_item.resolution_y} px")
-            self.draw_kv(col, "Frame", active_item.frames.replace(" - ", "-"))
-            self.draw_kv(col, "Format", active_item.file_format)
-            self.draw_kv(col, "Output Path", active_item.output_path)
-
-    def draw_kv(self, layout, label, value, operator=""):
-        if not (label and value):
-            return
-
-        row = layout.row(align=True)
-        split = row.split(factor=0.4)
-
-        # Label column
-        col = split.column(align=True)
-        col.alignment = "RIGHT"
-        col.label(text=label)
-
-        # Value column
-        col = split.column(align=True)
-        col.alignment = "LEFT"
-
-        if operator:
-            op = col.operator(operator, text=str(value))
-            op.folder_path = value
-        else:
-            col.label(text=str(value))
+            layout.template_list(
+                "RECOM_UL_active_item_properties",
+                "",
+                prefs,
+                "active_item_properties",
+                prefs,
+                "item_properties_index",  # dummy, not used for this list
+                rows=3,
+                item_dyntip_propname="tooltip",
+            )
 
 
 class RECOM_UL_render_history(UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
-        split = layout.split(factor=0.6)
-        split.label(text=item.blend_file_name)
-        row = split.row(align=True)
-        row.active = False
-        row.label(text=item.render_id)
+        row = layout.row(align=True)
+        row.label(text=item.blend_file_name)
+        sub = row.row(align=True)
+        sub.active = False
+        sub.alignment = "RIGHT"
+        sub.label(text=item.render_id)
 
     def filter_items(self, context, data, propname):
         search_text = self.filter_name.lower().strip() if self.filter_name else ""
@@ -144,10 +97,17 @@ class RECOM_UL_render_history(UIList):
         return flt_flags, []
 
 
+class RECOM_UL_active_item_properties(UIList):
+    def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
+        split = layout.split(factor=0.45)
+        split.label(text=item.name)
+        split.label(text=item.value)
+
+
 classes = (
     RECOM_PT_render_history_panel,
     RECOM_UL_render_history,
-    RECOM_PT_render_details_panel,
+    RECOM_UL_active_item_properties,
 )
 
 

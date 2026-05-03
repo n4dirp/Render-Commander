@@ -1,12 +1,11 @@
-from pathlib import Path
 import logging
+from pathlib import Path
 
 import bpy
+from bpy.props import EnumProperty, StringProperty
 from bpy.types import Operator
-from bpy.props import StringProperty, EnumProperty
 
-from ..preferences import get_addon_preferences
-from ..utils.helpers import redraw_ui, open_folder
+from ..utils.helpers import get_addon_preferences, open_folder, redraw_ui
 
 log = logging.getLogger(__name__)
 
@@ -15,7 +14,7 @@ class RECOM_OT_CleanRenderHistory(Operator):
     """Open a popup to delete render history entries."""
 
     bl_idname = "recom.clean_render_history"
-    bl_label = "Clean History List"
+    bl_label = "Clear History List"
     bl_options = {"INTERNAL"}
 
     remove_type: EnumProperty(
@@ -57,6 +56,8 @@ class RECOM_OT_CleanRenderHistory(Operator):
         if removed_count > 0:
             label = "item" if removed_count == 1 else "items"
             self.report({"INFO"}, f"Removed {removed_count} {label}")
+        else:
+            self.report({"INFO"}, "No items to remove")
 
         return {"FINISHED"}
 

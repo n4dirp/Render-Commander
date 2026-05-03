@@ -3,6 +3,7 @@
 import logging
 
 import bpy
+from bl_ui.utils import PresetPanel
 from bpy.props import (
     BoolProperty,
     CollectionProperty,
@@ -12,12 +13,14 @@ from bpy.props import (
     PointerProperty,
     StringProperty,
 )
-from bpy.types import AddonPreferences, PropertyGroup
+from bpy.types import AddonPreferences, Panel, PropertyGroup, UIList
 
+from .operators.presets import PRESET_REGISTRY
 from .utils.constants import (
     MODE_LIST,
     MODE_SEQ,
     MODE_SINGLE,
+    RESERVED_TOKENS,
 )
 from .utils.cycles_devices import (
     RECOM_PG_DeviceSettings,
@@ -110,6 +113,15 @@ class RECOM_PG_RenderHistoryItem(PropertyGroup):
     output_path: StringProperty(name="Output Path", default="")
     file_format: StringProperty(name="File Format", default="")
 
+    # Scene Info
+    scene_name: StringProperty(name="Scene", default="")
+    view_layer_names: StringProperty(name="View Layers", default="")
+    color_management: StringProperty(name="Color Management", default="")
+
+    # Settings
+    motion_blur: BoolProperty(name="Motion Blur", default=False)
+    compositing: BoolProperty(name="Compositing", default=False)
+
 
 class RECOM_PG_PropertyItem(PropertyGroup):
     """Single property row for active item display"""
@@ -142,16 +154,21 @@ def update_active_render_history_properties(self, context):
         ("Blend Directory", active_item.blend_dir),
         ("Render ID", active_item.render_id),
         ("Date", active_item.date),
-        ("Workers", str(active_item.worker_count)),
-        ("Engine", active_item.render_engine),
-        # ("Render Mode", active_item.launch_mode),
+        ("Render Mode", active_item.launch_mode),
         ("Frames", active_item.frames),
-        ("Resolution", f"{active_item.resolution_x} x {active_item.resolution_y}"),
-        ("Samples", active_item.samples),
-        ("File Format", active_item.file_format),
-        ("Output Path", active_item.output_path),
+        ("Workers", str(active_item.worker_count)),
         ("Script Name", active_item.script_filename),
         ("Script Directory", active_item.export_path),
+        ("Engine", active_item.render_engine),
+        ("Scene", active_item.scene_name),
+        ("View Layers", active_item.view_layer_names),
+        ("Resolution", f"{active_item.resolution_x} x {active_item.resolution_y}"),
+        ("Samples", active_item.samples),
+        ("Color Management", active_item.color_management),
+        ("Motion Blur", str(active_item.motion_blur)),
+        ("Compositing", str(active_item.compositing)),
+        ("File Format", active_item.file_format),
+        ("Output Path", active_item.output_path),
     ]
 
     # Populate the collection
@@ -252,12 +269,10 @@ class RECOM_Preferences(AddonPreferences):
     # Render History
     render_history: CollectionProperty(type=RECOM_PG_RenderHistoryItem)
     active_render_history_index: IntProperty(
-        default=-1,
-        name="Active Render History Index",
-        update=update_active_render_history_properties,
+        name="Active Item", default=-1, update=update_active_render_history_properties
     )
     active_item_properties: CollectionProperty(type=RECOM_PG_PropertyItem)
-    item_properties_index: IntProperty(default=-1)
+    item_properties_index: IntProperty(name="Active Item", default=-1)
 
     # Cycles Devices
     compute_device_type: EnumProperty(
@@ -541,19 +556,94 @@ class RECOM_Preferences(AddonPreferences):
         update=lambda self, context: redraw_ui(),
     )
 
+    def draw_custom_variables(self, layout):
+        col = layout.column()
+        row = col.row()
+        show_op = len(self.custom_variables)
+
+        # Variable list
+        list_col = row.column()
+        rows = 4 if show_op else 3
+        list_col.template_list(
+            "RECOM_UL_custom_variables",
+            "",
+            self,
+            "custom_variables",
+            self,
+            "active_custom_variable_index",
+            rows=rows,
+        )
+
+        # Controls
+        col = row.column()
+        add_remove_col = col.column(align=True)
+        add_remove_col.operator("recom.add_custom_variable", text="", icon="ADD")
+        has_selection = bool(self.custom_variables and self.active_custom_variable_index < len(self.custom_variables))
+        remove_col = add_remove_col.column(align=True)
+        remove_col.active = has_selection
+        remove_col.operator("recom.remove_custom_variable", text="", icon="REMOVE")
+        col.separator(factor=0.5)
+
+        if not show_op:
+            return
+
+        # Move buttons
+        move_col = col.column(align=True)
+        move_col.active = has_selection and len(self.custom_variables) > 1
+        move_col.operator("recom.move_custom_variable", text="", icon="TRIA_UP").direction = "UP"
+        move_col.operator("recom.move_custom_variable", text="", icon="TRIA_DOWN").direction = "DOWN"
+
     def draw(self, context):
         layout = self.layout
         layout.use_property_split = True
         layout.use_property_decorate = False
 
-        layout.label(text="Visible Panels")
-        col = layout.column(align=True)
-        col = col.column(heading="Settings")
+        root_col = layout.column(align=True)
+
+        box = root_col.box()
+        box.label(text="Visible Panels")
+        col = box.column(align=True)
+        col = col.column(heading="")
         col.prop(self.visible_panels, "ocio")
 
-        layout.label(text="Debug")
-        col = layout.column()
-        col.prop(self, "debug_mode", text="Console Logging")
+        box = root_col.box()
+        row = box.row(align=True)
+        row.label(text="Path Templates")
+        RECOM_PT_custom_variables_presets.draw_panel_header(row)
+        self.draw_custom_variables(box)
+
+        box = root_col.box()
+        box.label(text="Debug")
+        box.prop(self, "debug_mode", text="Console Logging")
+
+
+class RECOM_PT_custom_variables_presets(PresetPanel, Panel):
+    bl_label = "Custom Variables Presets"
+    preset_subdir = PRESET_REGISTRY["custom_variables"]
+    preset_operator = "script.execute_preset"
+    preset_add_operator = "recom.custom_variables_preset_add"
+
+
+class RECOM_UL_custom_variables(UIList):
+    def draw_item(
+        self,
+        context,
+        layout,
+        data,
+        item,
+        icon,
+        active_data,
+        active_propname,
+        index,
+        flt_flag,
+    ):
+        layout.prop(item, "name", text="", emboss=False, placeholder="Name")
+        row = layout.row(align=True)
+        sub = row.row(align=True)
+        if item.token in RESERVED_TOKENS:
+            sub.alert = True
+        sub.prop(item, "token", text="", emboss=False, placeholder="Token")
+        row.prop(item, "value", text="", emboss=False, placeholder="Value")
 
 
 classes = (
@@ -565,7 +655,9 @@ classes = (
     RECOM_PG_ScriptEntry,
     RECOM_PG_CustomVariable,
     RECOM_PG_VisiblePanels,
+    RECOM_PT_custom_variables_presets,
     RECOM_Preferences,
+    RECOM_UL_custom_variables,
 )
 
 

@@ -15,7 +15,6 @@ from ..utils.constants import (
     RE_CYCLES,
     RE_EEVEE,
     RE_EEVEE_NEXT,
-    RESERVED_TOKENS,
     RCBasePanel,
     RCSubPanel,
 )
@@ -298,13 +297,6 @@ class RECOM_PT_output_presets(PresetPanel, Panel):
     preset_subdir = PRESET_REGISTRY["output_path"]
     preset_operator = "script.execute_preset"
     preset_add_operator = "recom.output_preset_add"
-
-
-class RECOM_PT_custom_variables_presets(PresetPanel, Panel):
-    bl_label = "Custom Variables Presets"
-    preset_subdir = PRESET_REGISTRY["custom_variables"]
-    preset_operator = "script.execute_preset"
-    preset_add_operator = "recom.custom_variables_preset_add"
 
 
 class RECOM_PT_override_advanced_property_presets(PresetPanel, Panel):
@@ -654,7 +646,8 @@ class RECOM_PT_frame_range_settings(RCBasePanel, Panel):
     @classmethod
     def poll(cls, context):
         override_settings = get_override_settings(context)
-        return override_settings.frame_range_override
+        prefs = get_addon_preferences(context)
+        return override_settings.frame_range_override and prefs.launch_mode != MODE_LIST
 
     def draw_header_preset(self, context):
         layout = self.layout
@@ -680,9 +673,6 @@ class RECOM_PT_frame_range_settings(RCBasePanel, Panel):
             col.prop(override_settings, "frame_start", text="Frame Start")
             col.prop(override_settings, "frame_end", text="End")
             col.prop(override_settings, "frame_step", text="Step")
-
-        if prefs.launch_mode == MODE_LIST:
-            layout.label(text="No supported in current render mode")
 
 
 class RECOM_PT_fps_converter_settings(RCBasePanel, Panel):
@@ -901,113 +891,94 @@ class RECOM_PT_output_path_settings(RCBasePanel, Panel):
         layout.use_property_split = True
         layout.use_property_decorate = False
         override_settings = get_override_settings(context)
-        prefs = get_addon_preferences(context)
 
         col = layout.column(align=True)
         col.prop(override_settings, "output_directory", text="", placeholder="Directory")
         row = col.row(align=True)
         row.prop(override_settings, "output_filename", text="", placeholder="Filename")
-        row.prop(override_settings, "show_path_variables", text="", icon="DOWNARROW_HLT")
-
-        if override_settings.show_path_variables:
-            col = layout.box().column()
-            row = col.row(align=False)
-            row.prop(override_settings, "variable_insert_target", text="Target", expand=True)
-            col.prop(prefs, "use_underscore_separator", text="Underscore")
-            col.menu("RECOM_MT_insert_variable_root", text="Insert Variable", icon="ADD")
+        row.popover(panel="RECOM_PT_path_variables", text="", icon="TAG")
 
 
-class RECOM_PT_custom_variables(RCBasePanel, Panel):
-    bl_label = "Custom Variables"
-    bl_parent_id = "RECOM_PT_output_path_settings"
-    bl_options = {"DEFAULT_CLOSED"}
+PATH_VARIABLES_DATA = {
+    "data": [
+        ("{blend_dir}", "Blend Directory"),
+        ("{blend_name}", "Blend Name"),
+        ("", ""),
+        ("{fps}", "Frame Rate"),
+        ("{resolution_x}", "Resolution X"),
+        ("{resolution_y}", "Resolution Y"),
+        ("", ""),
+        ("{scene_name}", "Scene Name"),
+        ("{camera_name}", "Camera Name"),
+    ],
+}
 
-    @classmethod
-    def poll(cls, context):
-        override_settings = get_override_settings(context)
-        return override_settings.show_path_variables
 
-    def draw_header_preset(self, context):
-        RECOM_PT_custom_variables_presets.draw_panel_header(self.layout)
+class RECOM_PT_path_variables(Panel):
+    bl_label = "Path Variables"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "WINDOW"
+    bl_ui_units_x = 12
 
     def draw(self, context):
         layout = self.layout
-        layout.use_property_split = True
-        layout.use_property_decorate = False
-
         prefs = get_addon_preferences(context)
+        override_settings = get_override_settings(context)
+        show_templates = bpy.app.version >= (5, 0)
+        has_custom = bool(prefs.custom_variables)
 
-        col = layout.column()
-        row = col.row()
-        show_op = len(prefs.custom_variables)
-
-        # Variable list
-        list_col = row.column()
-        rows = 4 if show_op else 3
-        list_col.template_list(
-            "RECOM_UL_custom_variables",
-            "",
-            prefs,
-            "custom_variables",
-            prefs,
-            "active_custom_variable_index",
-            rows=rows,
-        )
-
-        # Controls
-        col = row.column()
-        add_remove_col = col.column(align=True)
-        add_remove_col.operator("recom.add_custom_variable", text="", icon="ADD")
-
-        has_selection = bool(
-            prefs.custom_variables and prefs.active_custom_variable_index < len(prefs.custom_variables)
-        )
-
-        remove_col = add_remove_col.column(align=True)
-        remove_col.active = has_selection
-        remove_col.operator("recom.remove_custom_variable", text="", icon="REMOVE")
-        col.separator(factor=0.5)
-
-        if not show_op:
+        if not show_templates and not has_custom:
+            layout.label(text="No variables available", icon="INFO")
             return
 
-        # Move buttons
-        move_col = col.column(align=True)
-        move_col.active = has_selection and len(prefs.custom_variables) > 1
-        move_col.operator("recom.move_custom_variable", text="", icon="TRIA_UP").direction = "UP"
-        move_col.operator("recom.move_custom_variable", text="", icon="TRIA_DOWN").direction = "DOWN"
+        # Calculate columns based on visible sections only
+        num_sections = 1 if show_templates else 0
+        extra_column = 1 if has_custom else 0
+        columns = num_sections + extra_column
+        flow = layout.grid_flow(columns=columns, even_columns=True, even_rows=False, align=True)
 
-        # Variable details
-        if prefs.active_custom_variable_index >= 0 and has_selection:
-            active_var = prefs.custom_variables[prefs.active_custom_variable_index]
-            col = layout.column(align=True)
-            col.prop(active_var, "name", text="Name")
-            row = col.row(align=True)
-            if active_var.token in RESERVED_TOKENS:
-                row.alert = True
-            row.prop(active_var, "token", text="Token")
-            col.prop(active_var, "value", text="Value")
+        # Draw Path Templates section (Blender 5.0+)
+        if show_templates:
+            self.draw_section(context, flow.column(), "Path Templates", PATH_VARIABLES_DATA["data"])
 
+        # Draw Custom Variables section
+        if has_custom:
+            col = flow.column(align=True)
+            col.label(text="Custom")
+            for var in prefs.custom_variables:
+                op = col.operator("recom.insert_variable", text=var.name)
+                op.variable = f"{{{var.token}}}"
 
-class RECOM_UL_custom_variables(UIList):
-    def draw_item(
-        self,
-        context,
-        layout,
-        data,
-        item,
-        icon,
-        active_data,
-        active_propname,
-        index,
-        flt_flag,
-    ):
-        split = layout.split(factor=0.6)
-        split.prop(item, "name", text="", emboss=False, placeholder="Name")
-        row = split.row(align=True)
-        row.alignment = "RIGHT"
-        row.active = False
-        row.prop(item, "token", text="", emboss=False)
+        layout.separator(factor=0.5)
+        col = layout.column()
+        col.label(text="Target")
+        col.row().prop(override_settings, "variable_insert_target", expand=True)
+        col.prop(prefs, "use_underscore_separator", text="Add Underscore")
+
+        return
+
+    def draw_section(self, context, layout, title, variables):
+        col = layout.column(align=True)
+        col.label(text=title)
+        # col.separator()
+
+        for token, label in variables:
+            if not token:
+                # col.separator()
+                continue
+
+            op = col.operator("recom.insert_variable", text=label)
+            op.variable = token
+
+        layout = self.layout
+        prefs = get_addon_preferences(context)
+
+        show_templates = bpy.app.version >= (5, 0)
+        has_custom = bool(prefs.custom_variables)
+
+        if not show_templates and not has_custom:
+            layout.label(text="No variables available", icon="INFO")
+            return
 
 
 class RECOM_PT_output_format_settings(RCBasePanel, Panel):
@@ -1269,10 +1240,8 @@ classes = (
     RECOM_PT_resolution_settings,
     RECOM_PT_overscan_settings,
     RECOM_PT_output_presets,
-    RECOM_PT_custom_variables_presets,
     RECOM_PT_output_path_settings,
-    RECOM_UL_custom_variables,
-    RECOM_PT_custom_variables,
+    RECOM_PT_path_variables,
     RECOM_PT_output_format_settings,
     # Data
     RECOM_PT_camera_settings,

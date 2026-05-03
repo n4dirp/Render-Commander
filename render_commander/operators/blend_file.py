@@ -401,7 +401,7 @@ class RECOM_OT_SelectRecentFile(Operator):
         settings.external_blend_file_path = external_blend_path
         bpy.ops.recom.extract_external_scene_data()
         settings.use_external_blend = True
-        self.report({"INFO"}, f"Read from {Path(external_blend_path).name}")
+        self.report({"INFO"}, f'Read from "{Path(external_blend_path).name}"')
         return {"FINISHED"}
 
 

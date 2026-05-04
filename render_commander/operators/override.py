@@ -356,21 +356,24 @@ class RECOM_OT_add_advanced_property_override(Operator):
         path = override_settings.property_path_input.strip()
 
         if not path:
-            cb = context.window_manager.clipboard
-            if cb:
-                cb_str = cb.strip()
-                valid_prefixes = (
-                    "bpy.",
-                    "scene.",
-                    "render.",
-                    "view_layer.",
-                    "view_layers[",
-                    "eevee.",
-                    "cycles.",
-                    "world.",
-                )
-                if any(cb_str.startswith(p) for p in valid_prefixes):
-                    path = cb_str
+            try:
+                cb = context.window_manager.clipboard
+                if cb:
+                    cb_str = cb.strip()
+                    valid_prefixes = (
+                        "bpy.",
+                        "scene.",
+                        "render.",
+                        "view_layer.",
+                        "view_layers[",
+                        "eevee.",
+                        "cycles.",
+                        "world.",
+                    )
+                    if any(cb_str.startswith(p) for p in valid_prefixes):
+                        path = cb_str
+            except Exception:
+                pass  # Clipboard may be locked or unavailable
 
         if not path:
             self.report({"WARNING"}, "Please enter a valid data path or copy one to clipboard.")

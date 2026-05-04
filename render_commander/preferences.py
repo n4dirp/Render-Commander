@@ -25,7 +25,7 @@ from .utils.constants import (
 from .utils.cycles_devices import (
     RECOM_PG_DeviceSettings,
     get_device_types_items,
-    refresh_cycles_devices,
+    refresh_local_devices,
 )
 from .utils.helpers import redraw_ui
 
@@ -668,7 +668,7 @@ def register():
     try:
         prefs = bpy.context.preferences.addons[__package__].preferences
         if prefs and not prefs.devices_ini:
-            refresh_cycles_devices(prefs, bpy.context, sync_type=True)
+            refresh_local_devices(prefs, bpy.context, sync_type=True)
             prefs.devices_ini = True
     except Exception as e:
         log.warning("Could not initialize Cycles devices: %s", e)

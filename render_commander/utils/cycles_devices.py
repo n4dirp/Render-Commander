@@ -91,7 +91,7 @@ def get_device_types_items(self, context):
 #################################################
 
 
-def refresh_cycles_devices(prefs, context=None, sync_type=True):
+def refresh_local_devices(prefs, context=None, sync_type=True):
     """Refresh the local device list from Cycles."""
     global _DEVICE_ITEMS_CACHE
     _DEVICE_ITEMS_CACHE = None  # Reset the cache so the Enum updates
@@ -174,14 +174,16 @@ def format_device_name(name):
 
 
 def get_devices_for_display(prefs):
-    """Get list of devices for UI display."""
+    """Get list of devices and sort for UI display."""
     selected = prefs.compute_device_type
     devices_to_display = []
 
     if prefs.multiple_backends and prefs.device_parallel and prefs.launch_mode != MODE_SINGLE:
+        # Sort cpu first, then other devices
         devices_to_display.extend([d for d in prefs.devices if d.type == "CPU"])
         devices_to_display.extend([d for d in prefs.devices if d.type != "CPU"])
     else:
+        # Filter by active type
         devices_to_display.extend([d for d in prefs.devices if d.type == selected and d.type != "CPU"])
 
         if selected != "CPU":
@@ -228,23 +230,34 @@ def draw_devices(layout, prefs):
         prev_type = device.type
 
 
-def _get_cycles_enabled_devices(context, prefs):
-    """Get devices currently enabled in the Cycles addon preferences."""
+def get_cycles_active_device_type(context):
+    """Get the active Cycles compute device type from the addon preferences."""
+    cycles_prefs = get_cycles_prefs(context)
+    if not cycles_prefs:
+        return "NONE"
+    return getattr(cycles_prefs, "compute_device_type", "NONE")
+
+
+def get_cycles_enabled_devices(context):
+    """Get all devices currently enabled in the Cycles addon preferences."""
     cycles_prefs = get_cycles_prefs(context)
     if not cycles_prefs:
         return []
+    return [d for d in getattr(cycles_prefs, "devices", []) if getattr(d, "use", False)]
 
-    enabled = [d for d in getattr(cycles_prefs, "devices", []) if getattr(d, "use", False)]
+
+def get_cycles_enabled_devices_by_type(context, device_type):
+    """Get enabled devices filtered by a specific device type."""
+    enabled = get_cycles_enabled_devices(context)
+    return [d for d in enabled if getattr(d, "type", "") == device_type]
+
+
+def _get_cycles_enabled_devices(context, prefs):
+    """Get devices currently enabled in the Cycles addon preferences."""
+    enabled = get_cycles_enabled_devices(context)
 
     if not prefs.multiple_backends:
-        compute_device_type = cycles_prefs.compute_device_type
-        enabled = [d for d in enabled if d.type == compute_device_type]
+        active_type = get_cycles_active_device_type(context)
+        enabled = [d for d in enabled if getattr(d, "type", "") == active_type]
 
     return enabled
-
-
-def _get_scene_cycles_device(settings, scene, ext_info):
-    """Get the Cycles device type from scene or external info."""
-    if settings.override_settings.cycles.device_override:
-        return settings.override_settings.cycles.device
-    return str(ext_info.get("device", "CPU")) if settings.use_external_blend else str(scene.cycles.device)

@@ -5,7 +5,6 @@ coordinates user input, calculates render distribution, and triggers
 the script generation engine to produce final exportable assets.
 """
 
-import json
 import logging
 import random
 import re
@@ -28,8 +27,9 @@ from ..utils.constants import (
     RE_EEVEE_NEXT,
     RE_WORKBENCH,
     RENDER_HISTORY_LIMIT,
+    RENDER_TEMPLATE_PATTERN,
 )
-from ..utils.cycles_devices import _get_cycles_enabled_devices, _get_scene_cycles_device, get_devices_for_display
+from ..utils.cycles_devices import get_devices_for_display
 from ..utils.helpers import (
     calculate_auto_height,
     calculate_auto_width,
@@ -38,6 +38,7 @@ from ..utils.helpers import (
     get_addon_settings,
     get_addon_temp_dir,
     get_render_engine,
+    get_scene_info,
     is_blend_or_backup_file,
     replace_variables,
 )
@@ -72,21 +73,6 @@ def generate_job_id() -> str:
     random_part = "".join(random.choices(alphabet, k=3))
 
     return time_part + random_part
-
-
-def get_scene_info(settings):
-    """Single source of truth for scene info parsing"""
-    if not settings.external_scene_info or not settings.is_scene_info_loaded:
-        return None
-
-    try:
-        info = json.loads(settings.external_scene_info)
-        if info.get("blend_filepath", "") == "No Data":
-            return None
-        return info
-    except json.JSONDecodeError as e:
-        log.error("Failed to decode JSON: %s", e)
-        return None
 
 
 def validate_render_settings(operator, context) -> bool:
@@ -127,11 +113,23 @@ def validate_render_settings(operator, context) -> bool:
 
     # Save Blend
     if not settings.use_external_blend and prefs.auto_save_before_render and bpy.data.is_dirty:
+        blend_path = Path(bpy.data.filepath)
+        if not blend_path.is_file():
+            msg = (
+                "Saved blend file no longer exists at '%s'. Please save the file again before exporting scripts."
+            ) % bpy.data.filepath
+            operator.report({"ERROR"}, msg)
+            log.error("%s", msg)
+            return False
+
         try:
             bpy.ops.wm.save_mainfile(check_existing=True)
             log.info("Auto-saved")
+        except RuntimeError as e:
+            log.error("Failed to auto-save blend file to '%s': %s", bpy.data.filepath, e)
+            return False
         except Exception as e:
-            log.error("Failed to auto-save blend file: %s", e)
+            log.error("Unexpected error while auto-saving blend file to '%s': %s", bpy.data.filepath, e)
             return False
 
     # FFMPEG File Format
@@ -274,7 +272,9 @@ class RECOM_OT_ExportRenderScript(Operator):
 
         # Dispatch based on Engine and Parallelism logic
         if render_engine == RE_CYCLES:
-            self._execute_cycles_export(context, prefs, settings, blend_file, scene, ext_info)
+            result = self.scene.use_nodes(context, prefs, settings, blend_file, scene, ext_info)
+            if result == {"CANCELLED"}:
+                return result
 
         elif render_engine in {RE_EEVEE_NEXT, RE_EEVEE, RE_WORKBENCH}:
             render_iterations = prefs.render_iterations
@@ -297,7 +297,9 @@ class RECOM_OT_ExportRenderScript(Operator):
             # Track workers for logging
             settings.worker_count = len(chunks)
 
-            self._process_render_chunks(context, prefs, settings, blend_file, chunks, ext_info)
+            result = self._process_render_chunks(context, prefs, settings, blend_file, chunks, ext_info)
+            if result == {"CANCELLED"}:
+                return result
         else:
             self.report({"ERROR"}, f"Unsupported render engine: {render_engine}")
             return {"CANCELLED"}
@@ -323,7 +325,7 @@ class RECOM_OT_ExportRenderScript(Operator):
 
         if prefs.export_output_target == "BLEND_DIR":
             if settings.use_external_blend and settings.external_blend_file_path:
-                blend_dir = settings.external_blend_file_path
+                blend_dir = bpy.path.abspath(settings.external_blend_file_path)
             else:
                 blend_dir = bpy.data.filepath
 
@@ -489,36 +491,12 @@ class RECOM_OT_ExportRenderScript(Operator):
     def _execute_cycles_export(self, context, prefs, settings, blend_file, scene, ext_info: dict) -> set[str]:
         """Generate export scripts for Cycles engine, handling device selection and splitting."""
 
-        if not prefs.manage_cycles_devices and prefs.device_parallel:
-            selected_devices = _get_cycles_enabled_devices(context, prefs)
-            cycles_device = _get_scene_cycles_device(settings, scene, ext_info)
-
-            if cycles_device == "GPU" and len(selected_devices) > 1:
-                if prefs.launch_mode == MODE_SEQ:
-                    chunks = calculate_chunks_sequence_parallel(prefs, settings, scene, selected_devices, ext_info)
-                elif prefs.launch_mode == MODE_LIST:
-                    chunks = calculate_chunks_list_parallel(prefs, settings, selected_devices)
-                else:
-                    selected_ids = [d.id for d in selected_devices]
-                    chunks = calculate_chunks_single_process(prefs, settings, scene, selected_ids, ext_info)
-            else:
-                selected_ids = [d.id for d in selected_devices]
-                chunks = calculate_chunks_single_process(prefs, settings, scene, selected_ids, ext_info)
-
-            if not chunks:
-                return {"CANCELLED"}
-
-            settings.worker_count = len(chunks)
-            return self._process_render_chunks(context, prefs, settings, blend_file, chunks, ext_info)
-
         devices_to_display = get_devices_for_display(prefs)
         selected_devices = [d for d in devices_to_display if d.use]
         current_backend = prefs.compute_device_type
 
         # Handle CPU/GPU combination logic
-        if (prefs.launch_mode == MODE_SEQ and prefs.device_parallel) or (
-            prefs.launch_mode == MODE_LIST and prefs.device_parallel
-        ):
+        if prefs.launch_mode in {MODE_SEQ, MODE_LIST} and prefs.device_parallel:
             selected_devices = [
                 d for d in devices_to_display if d.use and (not prefs.combine_cpu_with_gpus or d.type != "CPU")
             ]
@@ -691,7 +669,7 @@ class RECOM_OT_ExportRenderScript(Operator):
             script_lines.append("# Filepath Settings")
 
             out_path = self._resolve_output_path(prefs, settings, scene, ext_info)
-            base_name_no_templates = re.sub(r"\{[^}]*\}", "", out_path)
+            base_name_no_templates = re.sub(RENDER_TEMPLATE_PATTERN, "", out_path)
 
             if "#" in base_name_no_templates and prefs.launch_mode == MODE_SINGLE:
                 script_lines.append(f'bpy.context.scene.render.filepath = r"{out_path}"')
@@ -803,7 +781,7 @@ class RECOM_OT_ExportRenderScript(Operator):
 
             # Apply frame formatting
             sep = "." if prefs.filename_separator == "DOT" else "_"
-            file_name_no_templates = re.sub(r"\{[^}]*\}", "", file_name)
+            file_name_no_templates = re.sub(RENDER_TEMPLATE_PATTERN, "", file_name)
 
             if "#" not in file_name_no_templates:
                 file_name = f"{file_name}{sep}{'#' * prefs.frame_length_digits}"

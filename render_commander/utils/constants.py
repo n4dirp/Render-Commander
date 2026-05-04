@@ -56,6 +56,9 @@ RESERVED_TOKENS = {
     "camera_name",
 }
 
+# Regex patterns for template processing
+RENDER_TEMPLATE_PATTERN = r"\{[^}]*\}"
+
 
 class RCBasePanel:
     """Mix-in to standardize layout metadata across all Render Commander panels"""

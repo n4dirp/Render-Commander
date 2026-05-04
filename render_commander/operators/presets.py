@@ -145,7 +145,10 @@ class RECOM_OT_overrides_preset(AddPresetBase, Operator):
         "override_settings.use_overscan",
         "override_settings.overscan_type",
         "override_settings.overscan_percent",
+        "override_settings.overscan_percent_width",
+        "override_settings.overscan_percent_height",
         "override_settings.overscan_width",
+        "override_settings.overscan_height",
         # Motion Blur
         "override_settings.motion_blur_override",
         "override_settings.use_motion_blur",

@@ -29,7 +29,7 @@ class RECOM_PT_main_panel(RCBasePanel, Panel):
         row = layout.row(align=True)
         sub = row.row(align=True)
         sub.active = _blend_filepath(context)
-        text = "Export"
+        text = "Generate Scripts"
         if prefs.export_output_target == "SELECT_DIR":
             text += "..."
         sub.operator("recom.export_render_script", text=text, icon="EXPORT")

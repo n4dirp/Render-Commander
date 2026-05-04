@@ -340,7 +340,7 @@ class RECOM_PT_scene_override_settings(RCSubPanel, Panel):
 
         sub = row.row(align=True)
         sub.enabled = has_active_overrides
-        sub.operator("recom.remove_all_overrides", text="", icon="TRASH")
+        sub.operator("recom.remove_all_overrides", text="", icon="X")
 
 
 class RECOM_PT_import_overrides_popup(Panel):
@@ -918,7 +918,7 @@ class RECOM_PT_path_variables(Panel):
     bl_label = "Path Variables"
     bl_space_type = "VIEW_3D"
     bl_region_type = "WINDOW"
-    bl_ui_units_x = 12
+    bl_ui_units_x = 11
 
     def draw(self, context):
         layout = self.layout

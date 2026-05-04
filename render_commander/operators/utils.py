@@ -7,7 +7,7 @@ import bpy
 from bpy.props import EnumProperty, IntProperty, StringProperty
 from bpy.types import Operator
 
-from ..utils.cycles_devices import refresh_cycles_devices
+from ..utils.cycles_devices import refresh_local_devices
 from ..utils.helpers import get_addon_preferences, redraw_ui
 
 log = logging.getLogger(__name__)
@@ -22,7 +22,7 @@ class RECOM_OT_ReinitializeDevices(Operator):
     def execute(self, context):
         prefs = get_addon_preferences(context)
 
-        refresh_cycles_devices(prefs, context)
+        refresh_local_devices(prefs, context)
         redraw_ui()
 
         self.report({"INFO"}, "Device list refreshed successfully")

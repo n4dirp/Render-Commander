@@ -74,7 +74,7 @@ class RECOM_PT_scene_file_panel(RCSubPanel, Panel):
         prefs = get_addon_preferences(context)
         layout.emboss = "PULLDOWN_MENU"
         layout.active = bool(prefs.recent_blend_files)
-        layout.menu("RECOM_MT_recent_blend_files", text="", icon="COLLAPSEMENU")
+        layout.menu("RECOM_MT_recent_blend_files", text="", icon="RECOVER_LAST")
         layout.separator(factor=0.25)
 
     def draw(self, context):

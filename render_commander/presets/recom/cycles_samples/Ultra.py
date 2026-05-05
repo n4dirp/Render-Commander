@@ -1,11 +1,11 @@
 import bpy
 
-settings = bpy.context.window_manager.recom_render_settings
+cycles_settings = bpy.context.window_manager.recom_render_settings.override_settings.cycles
 
-settings.override_settings.cycles.sampling_mode = "CUSTOM"
-settings.override_settings.cycles.use_adaptive_sampling = True
-settings.override_settings.cycles.adaptive_threshold = 0.0075
-settings.override_settings.cycles.samples = 4096
-settings.override_settings.cycles.adaptive_min_samples = 64
-settings.override_settings.cycles.time_limit = 0.0
-settings.override_settings.cycles.use_denoising = False
+cycles_settings.sampling_mode = "CUSTOM"
+cycles_settings.use_adaptive_sampling = True
+cycles_settings.adaptive_threshold = 0.0075
+cycles_settings.samples = 4096
+cycles_settings.adaptive_min_samples = 64
+cycles_settings.time_limit = 0.0
+cycles_settings.use_denoising = False

@@ -1,9 +1,9 @@
 import bpy
 
-settings = bpy.context.window_manager.recom_render_settings
+override_settings = bpy.context.window_manager.recom_render_settings.override_settings
 
-settings.override_settings.resolution_override = True
-settings.override_settings.resolution_mode = "CUSTOM"
-settings.override_settings.resolution_x = 2048
-settings.override_settings.resolution_y = 1080
-settings.override_settings.custom_render_scale = 100
+override_settings.resolution_override = True
+override_settings.resolution_mode = "CUSTOM"
+override_settings.resolution_x = 2048
+override_settings.resolution_y = 1080
+override_settings.custom_render_scale = 100

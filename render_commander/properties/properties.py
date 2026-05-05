@@ -102,6 +102,7 @@ class RECOM_PG_RenderSettings(PropertyGroup):
     )
     first_worker_info: StringProperty(default="")
     worker_count: IntProperty(default=0)
+    item_properties_index: IntProperty(name="Active Item", default=-1)
 
 
 class RECOM_PG_ExternalSceneInfoItem(PropertyGroup):

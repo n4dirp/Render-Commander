@@ -19,7 +19,6 @@ from ..utils.constants import (
     RCSubPanel,
 )
 from ..utils.helpers import (
-    draw_label_value_box,
     get_addon_preferences,
     get_default_resolution,
     get_override_settings,
@@ -46,9 +45,9 @@ OVERRIDE_MAP = {
         "output_path": ("Output Path", "output_path_override", "FILE_FOLDER"),
     },
     "Data": {
+        "custom_api": ("Advanced", "use_data_path_overrides", "PROPERTIES"),
         "camera_settings": ("Camera", "cameras_override", "OUTLINER_DATA_CAMERA"),
         "compositor": ("Compositing", "compositor_override", "NODE_COMPOSITING"),
-        "custom_api": ("Custom Properties", "use_data_path_overrides", "PROPERTIES"),
         "fps_converter": ("FPS Converter", "use_fps_converter", "FILE_REFRESH"),
         "overscan": ("Overscan", "use_overscan", "FULLSCREEN_ENTER"),
     },
@@ -340,7 +339,7 @@ class RECOM_PT_scene_override_settings(RCSubPanel, Panel):
 
         sub = row.row(align=True)
         sub.enabled = has_active_overrides
-        sub.operator("recom.remove_all_overrides", text="", icon="X")
+        sub.operator("recom.remove_all_overrides", text="", icon="TRASH")
 
 
 class RECOM_PT_import_overrides_popup(Panel):
@@ -401,11 +400,6 @@ class RECOM_PT_cycles_overrides(RCBasePanel, Panel):
     bl_options = {"HIDE_HEADER"}
     bl_order = 0
 
-    @classmethod
-    def poll(cls, context):
-        render_engine = get_render_engine(context)
-        return render_engine == RE_CYCLES
-
     def draw(self, context):
         pass
 
@@ -461,6 +455,9 @@ class RECOM_PT_samples_settings(RCBasePanel, Panel):
         layout.use_property_decorate = False
 
         override_settings = get_override_settings(context)
+
+        render_engine = get_render_engine(context)
+        layout.active = render_engine == RE_CYCLES
 
         # Mode
         layout.row().prop(override_settings.cycles, "sampling_mode", expand=True)
@@ -519,7 +516,9 @@ class RECOM_PT_denoise_settings(RCBasePanel, Panel):
         layout = self.layout
 
         override_settings = get_override_settings(context)
-        layout.active = override_settings.cycles.use_denoising
+
+        render_engine = get_render_engine(context)
+        layout.active = override_settings.cycles.use_denoising and render_engine == RE_CYCLES
 
         row = layout.row()
         row.prop(override_settings.cycles, "denoiser", expand=True)
@@ -556,6 +555,9 @@ class RECOM_PT_performance_settings(RCBasePanel, Panel):
         layout.use_property_split = True
         layout.use_property_decorate = False
 
+        render_engine = get_render_engine(context)
+        layout.active = render_engine == RE_CYCLES
+
         override_settings = get_override_settings(context)
 
         col = layout.column(heading="")
@@ -576,9 +578,8 @@ class RECOM_PT_eevee_settings(RCBasePanel, Panel):
 
     @classmethod
     def poll(cls, context):
-        render_engine = get_render_engine(context)
         override_settings = get_override_settings(context)
-        return (render_engine in {RE_EEVEE_NEXT, RE_EEVEE}) and override_settings.eevee_override
+        return override_settings.eevee_override
 
     def draw_header(self, context):
         pass
@@ -597,6 +598,9 @@ class RECOM_PT_eevee_settings(RCBasePanel, Panel):
         layout = self.layout
         layout.use_property_split = True
         layout.use_property_decorate = False
+
+        render_engine = get_render_engine(context)
+        layout.active = render_engine in {RE_EEVEE_NEXT, RE_EEVEE}
 
         override_settings = get_override_settings(context)
 
@@ -646,8 +650,7 @@ class RECOM_PT_frame_range_settings(RCBasePanel, Panel):
     @classmethod
     def poll(cls, context):
         override_settings = get_override_settings(context)
-        prefs = get_addon_preferences(context)
-        return override_settings.frame_range_override and prefs.launch_mode != MODE_LIST
+        return override_settings.frame_range_override
 
     def draw_header_preset(self, context):
         layout = self.layout
@@ -664,11 +667,13 @@ class RECOM_PT_frame_range_settings(RCBasePanel, Panel):
         override_settings = get_override_settings(context)
         prefs = get_addon_preferences(context)
 
-        if prefs.launch_mode == MODE_SINGLE:
+        layout.active = prefs.launch_mode != MODE_LIST
+
+        if prefs.launch_mode != MODE_SEQ:
             row = layout.row(align=True)
             row.prop(override_settings, "frame_current", text="Current Frame")
 
-        if prefs.launch_mode == MODE_SEQ:
+        if prefs.launch_mode != MODE_SINGLE:
             col = layout.column(align=True)
             col.prop(override_settings, "frame_start", text="Frame Start")
             col.prop(override_settings, "frame_end", text="End")
@@ -743,6 +748,8 @@ class RECOM_PT_resolution_settings(RCBasePanel, Panel):
         sub_row = sub.row(align=True)
         sub_row.prop(override_settings, "resolution_mode", text="")
 
+        auto_width, auto_height = 0, 0
+
         if override_settings.resolution_override:
             # Conditional UI Based on Mode
             col = col.column(align=True)
@@ -788,33 +795,37 @@ class RECOM_PT_resolution_settings(RCBasePanel, Panel):
         row.prop(override_settings, "custom_render_scale", text="%", slider=True)
         row.menu("RECOM_MT_custom_render_scale", text="", icon="DOWNARROW_HLT")
 
-        # Scaled result
+        self._draw_render_resolution(context, override_settings, auto_width, auto_height, layout)
+
+    def _draw_render_resolution(self, context, override_settings, auto_width, auto_height, layout):
+        """Draw calculated render resolution"""
         show_scale = override_settings.custom_render_scale != 100
+        if not show_scale:
+            return
 
-        if show_scale:
-            # Calculate Scale
-            scale_factor = override_settings.custom_render_scale / 100
+        # Calculate Scale
+        scale_factor = override_settings.custom_render_scale / 100
 
-            if override_settings.resolution_override:
-                if override_settings.resolution_mode == "SET_HEIGHT":
-                    height = override_settings.resolution_y
-                    width = auto_width
-                elif override_settings.resolution_mode == "SET_WIDTH":
-                    width = override_settings.resolution_x
-                    height = auto_height
-                else:
-                    width = override_settings.resolution_x
-                    height = override_settings.resolution_y
+        if override_settings.resolution_override:
+            if override_settings.resolution_mode == "SET_HEIGHT":
+                height = override_settings.resolution_y
+                width = auto_width
+            elif override_settings.resolution_mode == "SET_WIDTH":
+                width = override_settings.resolution_x
+                height = auto_height
             else:
-                resolution = get_default_resolution(context)
-                width = resolution[0]
-                height = resolution[1]
+                width = override_settings.resolution_x
+                height = override_settings.resolution_y
+        else:
+            resolution = get_default_resolution(context)
+            width = resolution[0]
+            height = resolution[1]
 
-            scaled_width = int(round(width * scale_factor / 2) * 2)
-            scaled_height = int(round(height * scale_factor / 2) * 2)
+        scaled_width = int(round(width * scale_factor / 2) * 2)
+        scaled_height = int(round(height * scale_factor / 2) * 2)
 
-            # Draw Preview
-            draw_label_value_box(layout, "Scaled", f"{scaled_width} x {scaled_height} px")
+        # Draw Preview
+        layout.label(text=f"Render Resolution: {scaled_width} x {scaled_height} px")
 
 
 class RECOM_PT_overscan_settings(RCBasePanel, Panel):
@@ -914,6 +925,7 @@ PATH_VARIABLES_DATA = {
 }
 
 
+# Popup Panel
 class RECOM_PT_path_variables(Panel):
     bl_label = "Path Variables"
     bl_space_type = "VIEW_3D"
@@ -1016,8 +1028,8 @@ class RECOM_PT_output_format_settings(RCBasePanel, Panel):
             col.prop(override_settings, "codec", text="Codec")
             col.prop(override_settings, "use_preview", text="Preview")
 
-        if override_settings.file_format == "JPEG":
-            col.prop(override_settings, "jpeg_quality", text="Quality", slider=True)
+        if override_settings.file_format in ["JPEG", "WEBP"]:
+            col.prop(override_settings, "quality", text="Quality", slider=True)
 
 
 class RECOM_PT_camera_settings(RCBasePanel, Panel):
@@ -1117,7 +1129,7 @@ class RECOM_UL_data_path_overrides(UIList):
 
 
 class RECOM_PT_data_path_settings(RCBasePanel, Panel):
-    bl_label = "Custom Properties"
+    bl_label = "Advanced"
     bl_parent_id = "RECOM_PT_scene_override_settings"
     bl_order = 6
 

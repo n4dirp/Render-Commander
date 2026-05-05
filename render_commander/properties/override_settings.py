@@ -447,13 +447,13 @@ class RECOM_PG_OverrideSettings(PropertyGroup):
         subtype="PIXEL",
     )
     custom_render_scale: FloatProperty(
-        name="Custom Render Scale",
+        name="Resolution Scale",
         default=100.0,
         min=1.0,
         soft_max=200.0,
         precision=1,
         step=10,
-        description="Enter a custom scale factor %",
+        description="Percentage scale for a render resolution",
         subtype="PERCENTAGE",
     )
 
@@ -574,15 +574,12 @@ class RECOM_PG_OverrideSettings(PropertyGroup):
     file_format: EnumProperty(
         name="Format",
         items=[
-            (
-                "OPEN_EXR_MULTILAYER",
-                "Multi-Layer EXR",
-                "Output image in OpenEXR MultiLayer format",
-            ),
+            ("OPEN_EXR_MULTILAYER", "Multi-Layer EXR", "Output image in OpenEXR MultiLayer format"),
+            ("JPEG", "JPEG (.jpg)", "Output image in JPEG format"),
             ("OPEN_EXR", "OpenEXR (.exr)", "Output image in OpenEXR format"),
             ("PNG", "PNG (.png)", "Output image in PNG format"),
-            ("JPEG", "JPEG (.jpg)", "Output image in JPEG format"),
             ("TIFF", "TIFF (.tif)", "Output image in TIFF format"),
+            ("WEBP", "WebP (.webp)", "Output image in WebP format"),
         ],
         default="OPEN_EXR_MULTILAYER",
         description="Select the output format for rendered images",
@@ -599,12 +596,22 @@ class RECOM_PG_OverrideSettings(PropertyGroup):
         default="DWAA",
         description="Codec for OpenEXR/TIFF output",
     )
+    # Deprecated: jpeg_quality
     jpeg_quality: IntProperty(
         name="Quality",
-        default=85,
+        default=90,
         min=1,
+        soft_min=30,
         max=100,
-        description="Quality for JPEG output (1-100)",
+        description="Quality for JPEG output",
+    )
+    quality: IntProperty(
+        name="Quality",
+        default=90,
+        min=1,
+        soft_min=30,
+        max=100,
+        description="Quality for image formats that support lossy compression",
     )
 
     def _get_color_depth_items(self, context):

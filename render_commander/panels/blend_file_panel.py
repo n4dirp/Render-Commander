@@ -12,7 +12,7 @@ from ..utils.constants import (
     RENDER_ENGINE_MAPPING,
     RCSubPanel,
 )
-from ..utils.helpers import get_addon_preferences, get_addon_settings, get_scene_info
+from ..utils.helpers import format_timecode, get_addon_preferences, get_addon_settings, get_scene_info
 
 log = logging.getLogger(__name__)
 
@@ -23,37 +23,6 @@ FORMAT_NAME_MAPPING = {
     "JPEG": "JPEG",
     "TIFF": "TIFF",
 }
-
-
-def format_timecode(frame_start: int, frame_end: int, fps_real: float, show_hours=False) -> str:
-    """Convert a frame range to a formatted timecode string."""
-    # Calculate total duration
-    total_frames = max(0, frame_end - frame_start + 1)
-    total_seconds = total_frames / fps_real if fps_real > 0 else 0
-
-    # Break down into time components
-    hours = int(total_seconds // 3600)
-    minutes = int((total_seconds % 3600) // 60)
-    seconds = int(total_seconds % 60)
-    # Calculate remaining frames from fractional seconds
-    frames = int(round((total_seconds - int(total_seconds)) * fps_real))
-
-    # Handle frame overflow (can happen due to rounding)
-    if frames >= fps_real:
-        frames = 0
-        seconds += 1
-        if seconds >= 60:
-            seconds = 0
-            minutes += 1
-            if minutes >= 60:
-                minutes = 0
-                hours += 1
-
-    # Format output
-    if show_hours is True or (show_hours is None and hours > 0):
-        return f"{hours:02}:{minutes:02}:{seconds:02}+{frames:02}"
-
-    return f"{minutes:02}:{seconds:02}+{frames:02}"
 
 
 class RECOM_PT_scene_file_panel(RCSubPanel, Panel):
@@ -82,6 +51,7 @@ class RECOM_PT_scene_file_panel(RCSubPanel, Panel):
         layout.use_property_split = True
         layout.use_property_decorate = False
 
+        prefs = get_addon_preferences(context)
         settings = get_addon_settings(context)
         layout.active = settings.use_external_blend
 
@@ -92,29 +62,31 @@ class RECOM_PT_scene_file_panel(RCSubPanel, Panel):
         sub.operator("recom.select_external_blend_file", text="", icon="FILE_FOLDER")
 
         # Extract Scene Operator
-        sub = row.row(align=True)
+        sub = layout.row(align=True)
         sub.enabled = bool(settings.external_blend_file_path)
 
+        button_text = "Read Scene"
         icon = "ZOOM_ALL"
         info = get_scene_info(settings) if settings.external_blend_file_path else {}
         if info and settings.external_blend_file_path == info.get("blend_filepath", ""):
+            button_text = "Refresh"
             icon = "FILE_REFRESH"
 
         sub_extract = sub.row(align=True)
 
         if not settings.is_scene_info_loaded:
             sub_extract.enabled = False
-        else:
-            # Extract
-            sub_extract.operator("recom.extract_external_scene_data", text="", icon=icon)
+            button_text = "Reading scene data…"
+            icon = "SORTTIME"
+
+        # Extract
+        sub_extract.operator("recom.extract_external_scene_data", text=button_text, icon=icon)
 
         # Cancel
         if _extraction_state["is_running"]:
-            row.operator("recom.cancel_extraction", text="", icon="CANCEL")
-
-            box = layout.box()
-            box.active = False
-            box.label(text="Reading scene data…", icon="SORTTIME")
+            sub.operator("recom.cancel_extraction", text="", icon="CANCEL")
+        else:
+            sub.menu("RECOM_MT_external_blend_options", text="", icon="DOWNARROW_HLT")
 
         if not settings.external_blend_file_path and get_scene_info(settings):
             return
@@ -128,43 +100,34 @@ class RECOM_PT_scene_file_panel(RCSubPanel, Panel):
 
         # Display Scene Info
         if info:
-            prefs = get_addon_preferences(context)
-
+            col = layout.column()
             if not prefs.show_scene_info_list:
-                self._draw_scene_info(layout, info)
+                self._draw_scene_info(col, info)
             else:
-                self._draw_scene_info_ui_list(context, layout, info)
+                self._draw_scene_info_ui_list(context, col, info)
 
         elif settings.external_blend_file_path and settings.is_scene_info_loaded:
             layout.label(text="Failed to load valid scene information", icon="ERROR")
 
-    def _draw_scene_info_header(self, layout, info):
-        """Shared header drawing for both display modes"""
-        blend_filename = Path(info.get("blend_filepath", "Unknown File")).name
+    def _draw_scene_info_row(self, layout, key='', value='', icon="NONE"):
+        """Draw a two-column key-value row."""
+        split = layout.split(factor=0.4)
+        split.label(text=key, icon=icon)
+        split.label(text=str(value))
+
+    def _draw_scene_info(self, layout, info):
+        """Compact display mode with two-column key-value layout"""
+
+        col = layout.box().column(align=True)
+        col.separator(factor=0.2)
+
+        # blend_filename = Path(info.get("blend_filepath", "Unknown File")).name
         version_file = info.get("version_file", "N/A")
         modified_date_short = info.get("modified_date_short", "N/A")
         file_size = info.get("file_size", "N/A")
-
-        col = layout.box().column(align=True)
-        row = col.row(align=True)
-        row.label(text=f"{blend_filename}", icon="FILE_BLEND")
-        row.menu("RECOM_MT_external_blend_options", text="", icon="DOWNARROW_HLT")
-        col.label(text=f"{version_file} | {modified_date_short} | {file_size}", icon="BLANK1")
-
-    def _draw_scene_info(self, layout, info):
-        """Compact display mode"""
-        self._draw_scene_info_header(layout, info)
-
-        col = layout.box().column(align=True)
-
-        separator_factor = 1.0
-
-        # Scene
-        scene_name = info.get("scene_name", "")
-        viewlayer_names = info.get("viewlayer_names", "")
-
-        row = col.row(align=True)
-        row.label(text=f"{scene_name} | {viewlayer_names}", icon="SCENE_DATA")
+        self._draw_scene_info_row(col, "Blender", version_file)
+        self._draw_scene_info_row(col, "Modified", modified_date_short)
+        self._draw_scene_info_row(col, "File Size", file_size)
 
         # Engine
         render_engine = info.get("render_engine", RE_CYCLES)
@@ -178,33 +141,26 @@ class RECOM_PT_scene_file_panel(RCSubPanel, Panel):
             denoising_text = "Denoising" if info.get("use_denoising", False) else ""
             compute_device = info.get("device", "N/A")
 
-            col.separator(factor=separator_factor)
-            col.label(
-                text=f"{render_engine_display} ({compute_device})",
-                icon="SCENE",
-            )
-            col.label(text=f"Samples: {samples}{threshold_text}", icon="BLANK1")
+            self._draw_scene_info_row(col, "Engine", f"{render_engine_display} ({compute_device})")
+            self._draw_scene_info_row(col, "Samples", f"{samples}{threshold_text}")
             if denoising_text:
-                col.label(text=f"{denoising_text}", icon="BLANK1")
+                self._draw_scene_info_row(col, "Denoising", "Enabled")
         elif render_engine in {RE_EEVEE_NEXT, RE_EEVEE}:
             eevee_samples = info.get("eevee_samples", "0")
             raytracing_text = " | Raytracing" if info.get("eevee_use_raytracing", False) else ""
 
-            col.separator(factor=separator_factor)
-            col.label(text=f"{render_engine_display}", icon="SCENE")
-            col.label(text=f"Samples: {eevee_samples}{raytracing_text}", icon="BLANK1")
+            self._draw_scene_info_row(col, "Engine", render_engine_display)
+            self._draw_scene_info_row(col, "Samples", f"{eevee_samples}{raytracing_text}")
 
         # Compositing
         compositing_text = "Compositing" if info.get("use_compositor", False) else ""
         if compositing_text:
-            col.separator(factor=separator_factor)
-            col.label(text=f"{compositing_text}", icon="NODE_COMPOSITING")
+            self._draw_scene_info_row(col, "Compositing", "Enabled")
 
         # Camera
         camera_count = info.get("camera_render_count", 0)
         if camera_count > 1:
-            col.separator(factor=separator_factor)
-            col.label(text=f"Render Cameras: {camera_count}", icon="CAMERA_DATA")
+            self._draw_scene_info_row(col, "Render Cameras", str(camera_count))
 
         # Frame/time info
         frame_current = info.get("frame_current", 0)
@@ -222,42 +178,46 @@ class RECOM_PT_scene_file_panel(RCSubPanel, Panel):
             else:
                 return str(value)
 
-        col.separator(factor=separator_factor)
-        col.label(text=f"Frame {frame_start}/{frame_end} ({frame_current})", icon="PREVIEW_RANGE")
-        col.label(text=f"{format_float(fps_real)} fps | {timecode}", icon="BLANK1")
+        self._draw_scene_info_row(col, "Duration", f"{timecode} ({format_float(fps_real)} fps)")
+        self._draw_scene_info_row(col, "Frame Range", f"{frame_start}-{frame_end}")
+        self._draw_scene_info_row(col, "Current Frame", frame_current)
         if motion_text:
-            col.label(text=f"{motion_text}", icon="BLANK1")
+            self._draw_scene_info_row(col, "Motion Blur", "Enabled")
 
-        # Output format/resolution
-        file_format = info.get("file_format", "No Data")
-        file_format_text = FORMAT_NAME_MAPPING.get(file_format, file_format)
-        color_depth_val = info.get("color_depth", "")
-        color_depth_text = f" ({color_depth_val}-bit)" if color_depth_val else ""
+        # Resolution
         resolution_x = info.get("resolution_x", 0)
         resolution_y = info.get("resolution_y", 0)
         render_scale = info.get("render_scale", 100)
         render_scale_text = f" ({render_scale}%)" if render_scale != 100 else ""
+        self._draw_scene_info_row(col, "Resolution", f"{resolution_x} x {resolution_y} px{render_scale_text}")
 
-        col.separator(factor=separator_factor)
-        col.label(text=f"{resolution_x} x {resolution_y} px{render_scale_text}", icon="IMAGE_DATA")
-        col.label(text=f"{file_format_text}{color_depth_text}", icon="BLANK1")
+        # Output format
+        file_format = info.get("file_format", "No Data")
+        file_format_text = FORMAT_NAME_MAPPING.get(file_format, file_format)
+        color_depth_val = info.get("color_depth", "")
+        color_depth_text = f" ({color_depth_val}-bit)" if color_depth_val else ""
+        self._draw_scene_info_row(col, "Format", f"{file_format_text}{color_depth_text}")
 
-        # Output path
+        # Color Management
+        view_transform = info.get("view_transform", "")
+        look = info.get("look", "")
+        if view_transform or look:
+            cm_text = ""
+            if view_transform and look:
+                cm_text = f"{view_transform} | {look}"
+            elif view_transform:
+                cm_text = view_transform
+            else:
+                cm_text = look
+            self._draw_scene_info_row(col, "Color Management", cm_text)
+
+        # Output Path
         output_path = info.get("filepath", "")
-        frame_path = info.get("frame_path", "")
-        if output_path and frame_path:
-            col.separator(factor=separator_factor)
-            op_folder_row = col.row(align=True)
-            op_folder_row.alignment = "LEFT"
-            op_folder_row.operator(
-                "recom.open_blend_output_path",
-                text=f"{output_path}",
-                icon="FILE_FOLDER",
-            ).file_path = frame_path
+        self._draw_scene_info_row(col, "Output Path", output_path)
 
     def _draw_scene_info_ui_list(self, context, layout, info):
         """Non-compact display mode using UIList"""
-        self._draw_scene_info_header(layout, info)
+        # self._draw_scene_info_header(layout, info)
 
         col = layout.column(align=True)
 
@@ -268,10 +228,7 @@ class RECOM_PT_scene_file_panel(RCSubPanel, Panel):
         # Exclude metadata fields shown in header
         excluded_keys = {
             "blend_filepath",
-            "version_file",
             "modified_date",
-            "modified_date_short",
-            "file_size",
             "view_layer",
             "view_layer_count",
         }
@@ -296,10 +253,11 @@ class RECOM_PT_scene_file_panel(RCSubPanel, Panel):
 
 # Add this near the top of the file, after FORMAT_NAME_MAPPING
 EXTERNAL_BLEND_INFO_KEY_MAP = {
+    "modified_date_short": "Modified",
     "scene_name": "Scene Name",
     "view_layer": "View Layer",
     "view_layer_count": "View Layer Count",
-    "viewlayer_names": "View Layer Names",
+    "viewlayer_names": "View Layer",
     "render_engine": "Render Engine",
     "view_transform": "View Transform",
     "look": "Look",
@@ -318,7 +276,7 @@ EXTERNAL_BLEND_INFO_KEY_MAP = {
     "file_format": "File Format",
     "color_depth": "Color Depth",
     "exr_codec": "EXR Codec",
-    "jpeg_quality": "JPEG Quality",
+    "quality": "Quality",
     "use_motion_blur": "Motion Blur",
     "motion_blur_position": "Motion Blur Position",
     "motion_blur_shutter": "Motion Blur Shutter",

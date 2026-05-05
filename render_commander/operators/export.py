@@ -29,7 +29,11 @@ from ..utils.constants import (
     RENDER_HISTORY_LIMIT,
     RENDER_TEMPLATE_PATTERN,
 )
-from ..utils.cycles_devices import get_devices_for_display
+from ..utils.cycles_devices import (
+    get_compute_device_type,
+    get_cpu_device,
+    get_devices_for_display,
+)
 from ..utils.helpers import (
     calculate_auto_height,
     calculate_auto_width,
@@ -169,11 +173,10 @@ def validate_render_settings(operator, context) -> bool:
             end = scene.frame_end
 
         if start == end:
-            msg = "Frame start must be less than end for animation"
+            msg = "Frame start equals frame end; Switching to single render mode"
             operator.report({"WARNING"}, msg)
             log.error("%s", msg)
             prefs.launch_mode = MODE_SINGLE
-            return False
 
     return True
 
@@ -182,7 +185,7 @@ class RECOM_OT_ExportRenderScript(Operator):
     """Main operator for background rendering script generation."""
 
     bl_idname = "recom.export_render_script"
-    bl_label = "Save Scripts"
+    bl_label = "Export Render Scripts"
     bl_description = "Export script render files"
     bl_options = {"REGISTER"}
 
@@ -272,7 +275,7 @@ class RECOM_OT_ExportRenderScript(Operator):
 
         # Dispatch based on Engine and Parallelism logic
         if render_engine == RE_CYCLES:
-            result = self.scene.use_nodes(context, prefs, settings, blend_file, scene, ext_info)
+            result = self._execute_cycles_export(context, prefs, settings, blend_file, scene, ext_info)
             if result == {"CANCELLED"}:
                 return result
 
@@ -491,9 +494,9 @@ class RECOM_OT_ExportRenderScript(Operator):
     def _execute_cycles_export(self, context, prefs, settings, blend_file, scene, ext_info: dict) -> set[str]:
         """Generate export scripts for Cycles engine, handling device selection and splitting."""
 
-        devices_to_display = get_devices_for_display(prefs)
+        devices_to_display = get_devices_for_display(prefs, context)
         selected_devices = [d for d in devices_to_display if d.use]
-        current_backend = prefs.compute_device_type
+        current_backend = get_compute_device_type(prefs, context)
 
         # Handle CPU/GPU combination logic
         if prefs.launch_mode in {MODE_SEQ, MODE_LIST} and prefs.device_parallel:
@@ -503,11 +506,11 @@ class RECOM_OT_ExportRenderScript(Operator):
 
         # Handle fallback to CPU if no backend/devices
         if current_backend == "NONE":
-            self._handle_cpu_fallback(prefs)
-            devices_to_display = get_devices_for_display(prefs)
+            self._handle_cpu_fallback(prefs, context)
+            devices_to_display = get_devices_for_display(prefs, context)
             selected_devices = [d for d in devices_to_display if d.use]
         elif not selected_devices:
-            self._handle_no_devices_selected(prefs)
+            self._handle_no_devices_selected(prefs, context)
 
         # Cycles Device Type (CPU vs GPU) for Scene settings
         if settings.override_settings.cycles.device_override:
@@ -542,17 +545,19 @@ class RECOM_OT_ExportRenderScript(Operator):
         settings.worker_count = len(chunks)
         return self._process_render_chunks(context, prefs, settings, blend_file, chunks, ext_info)
 
-    def _handle_cpu_fallback(self, prefs):
-        for device in prefs.devices:
-            if device.type == "CPU":
-                device.use = True
-        prefs.compute_device_type = "NONE"
+    def _handle_cpu_fallback(self, prefs, context=None):
+        if prefs.manage_cycles_devices:
+            for device in prefs.devices:
+                if device.type == "CPU":
+                    device.use = True
+            prefs.compute_device_type = "NONE"
 
-    def _handle_no_devices_selected(self, prefs):
-        prefs.compute_device_type = "NONE"
-        for device in prefs.devices:
-            if device.type == "CPU":
-                device.use = True
+    def _handle_no_devices_selected(self, prefs, context=None):
+        if prefs.manage_cycles_devices:
+            prefs.compute_device_type = "NONE"
+            for device in prefs.devices:
+                if device.type == "CPU":
+                    device.use = True
         self.report({"WARNING"}, "No devices selected. Fallback to CPU.")
 
     # Unified Execution
@@ -659,7 +664,7 @@ class RECOM_OT_ExportRenderScript(Operator):
                 )
 
         # CPU Threads limit
-        if (any(d.type == "CPU" and d.use for d in prefs.devices)) and (prefs.cpu_threads_limit != 0):
+        if get_cpu_device(prefs, context) and prefs.cpu_threads_limit != 0:
             script_lines.append(f"bpy.context.scene.cycles.threads = {prefs.cpu_threads_limit}")
 
         # Output Path & Render Call Logic

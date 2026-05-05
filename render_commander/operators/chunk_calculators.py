@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from typing import List, Tuple, Union
 
 from ..utils.constants import MODE_LIST, MODE_SEQ, MODE_SINGLE
-from ..utils.cycles_devices import get_devices_for_display
+from ..utils.cycles_devices import get_cpu_device
 
 log = logging.getLogger(__name__)
 
@@ -271,8 +271,7 @@ def _get_frame_settings(prefs, settings, scene, is_animation, ext_info):
 def _get_combined_device_ids(prefs, primary_device):
     """Combine CPU with GPU if preference is set."""
     if prefs.combine_cpu_with_gpus:
-        devices_to_display = get_devices_for_display(prefs)
-        cpu_device = next((d for d in devices_to_display if d.use and d.type == "CPU"), None)
+        cpu_device = get_cpu_device(prefs)
         if cpu_device:
             return [primary_device.id, cpu_device.id]
     return [primary_device.id]

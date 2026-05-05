@@ -2,6 +2,7 @@
 
 import logging
 import unicodedata
+from typing import List, NamedTuple, Optional
 
 import bpy
 from bpy.props import BoolProperty, StringProperty
@@ -13,6 +14,35 @@ from .helpers import redraw_ui
 log = logging.getLogger(__name__)
 log.addHandler(logging.NullHandler())
 log.setLevel(logging.WARNING)
+
+
+# -----------------------------------------------------------
+# Normalized device abstraction
+# -----------------------------------------------------------
+
+
+class DeviceEntry(NamedTuple):
+    """Normalized device representation from either addon prefs or Cycles prefs."""
+
+    id: str
+    name: str
+    use: bool
+    type: str
+
+
+def _normalize_device(dev) -> DeviceEntry:
+    """Convert any device-like object (PG_DeviceSettings or Cycles device) to DeviceEntry."""
+    return DeviceEntry(
+        id=getattr(dev, "id", ""),
+        name=getattr(dev, "name", ""),
+        use=bool(getattr(dev, "use", False)),
+        type=getattr(dev, "type", ""),
+    )
+
+
+# -----------------------------------------------------------
+# Cycles preference access
+# -----------------------------------------------------------
 
 
 def get_cycles_prefs(context=None):
@@ -45,15 +75,15 @@ class RECOM_PG_DeviceSettings(PropertyGroup):
     type: StringProperty(name="Type", description="Backend type (e.g., CUDA, OPTIX, CPU)")
 
 
+# -----------------------------------------------------------
 # Enum & Update Callbacks
-#################################################
+# -----------------------------------------------------------
 
 
 def get_device_types_items(self, context):
     """Build dynamic enum items from the currently available Cycles device entries."""
     global _DEVICE_ITEMS_CACHE
 
-    # Return the cached items if they exist to prevent UI lag and memory crashes
     if _DEVICE_ITEMS_CACHE is not None:
         return _DEVICE_ITEMS_CACHE
 
@@ -73,7 +103,6 @@ def get_device_types_items(self, context):
         "ONEAPI": "oneAPI",
     }
 
-    # Dynamically read what devices are currently registered in Cycles
     for dev in getattr(cycles_prefs, "devices", []):
         dev_type = getattr(dev, "type", "")
         if not dev_type or dev_type in seen or dev_type == "CPU":
@@ -83,18 +112,94 @@ def get_device_types_items(self, context):
         name = friendly_names.get(dev_type, dev_type)
         items.append((dev_type, name, f"Use {name} for GPU acceleration"))
 
-    _DEVICE_ITEMS_CACHE = items  # Save to cache
+    _DEVICE_ITEMS_CACHE = items
     return _DEVICE_ITEMS_CACHE
 
 
-# Device List Management (Refactored / Merged)
-#################################################
+# -----------------------------------------------------------
+# Unified device source resolution
+# -----------------------------------------------------------
+
+
+def _get_device_source(prefs, context=None):
+    """Return (source_prefs, is_local) tuple.
+
+    When prefs.manage_cycles_devices is True, uses the addon's local device list.
+    Otherwise reads directly from Cycles preferences.
+    """
+    if getattr(prefs, "manage_cycles_devices", False):
+        return prefs, True
+    return get_cycles_prefs(context), False
+
+
+def get_compute_device_type(prefs, context=None) -> str:
+    """Get the active compute device type from the appropriate source."""
+    source, is_local = _get_device_source(prefs, context)
+    if source is None:
+        return "NONE"
+    return getattr(source, "compute_device_type", "NONE")
+
+
+# -----------------------------------------------------------
+# Unified device list retrieval
+# -----------------------------------------------------------
+
+
+def get_devices_for_display(prefs, context=None) -> List[DeviceEntry]:
+    """Get list of devices sorted for UI/display, from the appropriate source.
+
+    Returns normalized DeviceEntry objects regardless of source.
+    When manage_cycles_devices is True, reads from addon's local prefs.devices.
+    Otherwise reads directly from Cycles preferences.
+    """
+    source, is_local = _get_device_source(prefs, context)
+
+    if source is None:
+        return []
+
+    if is_local:
+        raw_devices = list(getattr(source, "devices", []))
+    else:
+        raw_devices = list(getattr(source, "devices", []))
+
+    devices = [_normalize_device(d) for d in raw_devices]
+    selected = get_compute_device_type(prefs, context)
+
+    if prefs.multiple_backends and prefs.device_parallel and prefs.launch_mode != MODE_SINGLE:
+        # Multi-backend: show all devices, CPU first
+        result = [d for d in devices if d.type == "CPU"]
+        result.extend([d for d in devices if d.type != "CPU"])
+    else:
+        # Filter by active type
+        result = [d for d in devices if d.type == selected and d.type != "CPU"]
+
+        if selected != "CPU":
+            existing_ids = {d.id for d in result}
+            result.extend([d for d in devices if d.type == "CPU" and d.id not in existing_ids])
+        else:
+            result = [d for d in devices if d.type == "CPU"]
+
+    return result
+
+
+def get_cpu_device(prefs, context=None) -> Optional[DeviceEntry]:
+    """Get the first enabled CPU device from the appropriate source."""
+    devices = get_devices_for_display(prefs, context)
+    for d in devices:
+        if d.use and d.type == "CPU":
+            return d
+    return None
+
+
+# -----------------------------------------------------------
+# Device List Management (Local only)
+# -----------------------------------------------------------
 
 
 def refresh_local_devices(prefs, context=None, sync_type=True):
-    """Refresh the local device list from Cycles."""
+    """Refresh the local device list from Cycles. Only used when manage_cycles_devices is True."""
     global _DEVICE_ITEMS_CACHE
-    _DEVICE_ITEMS_CACHE = None  # Reset the cache so the Enum updates
+    _DEVICE_ITEMS_CACHE = None
 
     context = context or bpy.context
     cycles_prefs = get_cycles_prefs(context)
@@ -106,7 +211,6 @@ def refresh_local_devices(prefs, context=None, sync_type=True):
         return False
 
     try:
-        # Sync active compute device type from Cycles
         if sync_type:
             cycles_type = getattr(cycles_prefs, "compute_device_type", "NONE")
             valid_types = [item[0] for item in get_device_types_items(prefs, context)]
@@ -114,7 +218,6 @@ def refresh_local_devices(prefs, context=None, sync_type=True):
             if cycles_type in valid_types and prefs.compute_device_type != cycles_type:
                 prefs.compute_device_type = cycles_type
 
-        # Smart sync devices to avoid UI duplicating items (diffing instead of .clear())
         fresh_keys = set()
         existing_devices = {(d.id, d.type): d for d in prefs.devices}
 
@@ -131,13 +234,11 @@ def refresh_local_devices(prefs, context=None, sync_type=True):
             fresh_keys.add(key)
 
             if key in existing_devices:
-                # Update existing entry
                 entry = existing_devices[key]
                 if entry.name != dev_name:
                     entry.name = dev_name
                 entry.use = dev_use
             else:
-                # Create new entry
                 item = prefs.devices.add()
                 item.id = dev_id
                 item.name = dev_name
@@ -145,7 +246,6 @@ def refresh_local_devices(prefs, context=None, sync_type=True):
                 item.use = dev_use
                 existing_devices[key] = item
 
-        # Remove stale devices that are no longer in Cycles
         for i in range(len(prefs.devices) - 1, -1, -1):
             d = prefs.devices[i]
             if (d.id, d.type) not in fresh_keys:
@@ -159,8 +259,9 @@ def refresh_local_devices(prefs, context=None, sync_type=True):
         return False
 
 
+# -----------------------------------------------------------
 # UI & Formatting Utilities
-#################################################
+# -----------------------------------------------------------
 
 
 def format_device_name(name):
@@ -173,31 +274,8 @@ def format_device_name(name):
     )
 
 
-def get_devices_for_display(prefs):
-    """Get list of devices and sort for UI display."""
-    selected = prefs.compute_device_type
-    devices_to_display = []
-
-    if prefs.multiple_backends and prefs.device_parallel and prefs.launch_mode != MODE_SINGLE:
-        # Sort cpu first, then other devices
-        devices_to_display.extend([d for d in prefs.devices if d.type == "CPU"])
-        devices_to_display.extend([d for d in prefs.devices if d.type != "CPU"])
-    else:
-        # Filter by active type
-        devices_to_display.extend([d for d in prefs.devices if d.type == selected and d.type != "CPU"])
-
-        if selected != "CPU":
-            existing_ids = {d.id for d in devices_to_display}
-            devices_to_display.extend([d for d in prefs.devices if d.type == "CPU" and d.id not in existing_ids])
-        else:
-            devices_to_display = [d for d in prefs.devices if d.type == "CPU"]
-
-    return devices_to_display
-
-
 def draw_devices(layout, prefs):
-    """Draw device list in UI."""
-
+    """Draw device list in UI. Uses local prefs.devices directly."""
     devices_to_draw = get_devices_for_display(prefs)
 
     if not devices_to_draw:
@@ -214,7 +292,6 @@ def draw_devices(layout, prefs):
         col = layout.column(align=True)
 
         if prefs.multiple_backends and prefs.device_parallel and prefs.launch_mode != MODE_SINGLE:
-            # Draw group labels
             if device.type != prev_type:
                 row = col.row()
                 row.active = False
@@ -225,39 +302,9 @@ def draw_devices(layout, prefs):
         else:
             device_name = format_device_name(device.name)
 
-        col.prop(device, "use", text=device_name, translate=False)
+        # Find the actual PG device for prop binding (only works with local prefs)
+        pg_device = next((d for d in prefs.devices if d.id == device.id and d.type == device.type), None)
+        if pg_device:
+            col.prop(pg_device, "use", text=device_name, translate=False)
 
         prev_type = device.type
-
-
-def get_cycles_active_device_type(context):
-    """Get the active Cycles compute device type from the addon preferences."""
-    cycles_prefs = get_cycles_prefs(context)
-    if not cycles_prefs:
-        return "NONE"
-    return getattr(cycles_prefs, "compute_device_type", "NONE")
-
-
-def get_cycles_enabled_devices(context):
-    """Get all devices currently enabled in the Cycles addon preferences."""
-    cycles_prefs = get_cycles_prefs(context)
-    if not cycles_prefs:
-        return []
-    return [d for d in getattr(cycles_prefs, "devices", []) if getattr(d, "use", False)]
-
-
-def get_cycles_enabled_devices_by_type(context, device_type):
-    """Get enabled devices filtered by a specific device type."""
-    enabled = get_cycles_enabled_devices(context)
-    return [d for d in enabled if getattr(d, "type", "") == device_type]
-
-
-def _get_cycles_enabled_devices(context, prefs):
-    """Get devices currently enabled in the Cycles addon preferences."""
-    enabled = get_cycles_enabled_devices(context)
-
-    if not prefs.multiple_backends:
-        active_type = get_cycles_active_device_type(context)
-        enabled = [d for d in enabled if getattr(d, "type", "") == active_type]
-
-    return enabled

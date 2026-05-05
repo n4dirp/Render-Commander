@@ -406,8 +406,8 @@ def _apply_output_format_settings(override_settings, script_lines: list[str]) ->
                 ]
             )
 
-        if override_settings.file_format == "JPEG":
-            lines.append(f"bpy.context.scene.render.image_settings.quality = {override_settings.jpeg_quality}")
+        if override_settings.file_format in ["JPEG", "WEBP"]:
+            lines.append(f"bpy.context.scene.render.image_settings.quality = {override_settings.quality}")
 
         script_lines.extend(_wrap_in_try(lines, "Output Format Settings", True))
 
@@ -561,23 +561,19 @@ def _apply_cycles_performance_settings(override_settings, lines: list[str]) -> N
 
 
 def _apply_cycles_device_settings(context, prefs, selected_ids, lines: list[str]) -> None:
-    """Apply Cycles device settings."""
+    """Apply Cycles device settings for the generated worker script."""
 
     if not (prefs.device_parallel or prefs.manage_cycles_devices):
         return
 
-    if prefs.manage_cycles_devices:
-        cycles_prefs = prefs
-    else:
-        cycles_prefs = get_cycles_prefs(context)
-
     if prefs.multiple_backends and prefs.launch_mode != MODE_SINGLE and prefs.device_parallel:
-        devices = getattr(cycles_prefs, "devices", [])
-        # Get the first enabled device matching selected_ids
-        match = next((d for d in devices if d.id in selected_ids and d.use), None)
-        backend_type = match.type if match else "CPU"  # "CPU" resolves to "NONE" below
+        source = prefs if prefs.manage_cycles_devices else get_cycles_prefs(context)
+        devices = getattr(source, "devices", []) if source else []
+        match = next((d for d in devices if d.id in selected_ids and getattr(d, "use", False)), None)
+        backend_type = getattr(match, "type", "CPU") if match else "CPU"
     else:
-        backend_type = cycles_prefs.compute_device_type
+        cycles_prefs = prefs if prefs.manage_cycles_devices else get_cycles_prefs(context)
+        backend_type = getattr(cycles_prefs, "compute_device_type", "NONE") if cycles_prefs else "NONE"
 
     cycles_backend = "NONE" if backend_type == "CPU" else backend_type
     formatted_ids = json.dumps(list(selected_ids), indent=4).replace("\n", "\n            ")

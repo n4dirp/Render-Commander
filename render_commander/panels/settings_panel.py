@@ -23,7 +23,6 @@ from ..utils.cycles_devices import (
     get_devices_for_display,
 )
 from ..utils.helpers import (
-    draw_label_value_box,
     get_addon_preferences,
     get_addon_settings,
     get_render_engine,

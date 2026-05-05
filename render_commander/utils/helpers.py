@@ -287,25 +287,6 @@ def get_scene_info(settings: Any) -> Union[dict, None]:
         return None
 
 
-def draw_label_value_box(layout, label: str, value: str = "", factor: float = 0.4, active: bool = False) -> object:
-    """Draw a split box with a right-aligned label and left-aligned value."""
-    box = layout.box()
-    box.active = active
-    split = box.split(factor=factor)
-
-    row_label = split.row(align=True)
-    row_value = split.row(align=True)
-
-    if value:
-        row_value.alignment = "LEFT"
-        row_label.alignment = "RIGHT"
-
-    row_label.label(text=label)
-    row_value.label(text=str(value))
-
-    return box
-
-
 def format_timecode(frame_start: int, frame_end: int, fps_real: float, show_hours=False) -> str:
     """Convert a frame range to a formatted timecode string."""
     # Calculate total duration

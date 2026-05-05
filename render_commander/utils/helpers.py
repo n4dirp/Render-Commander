@@ -77,11 +77,25 @@ def replace_variables(prefs, path_template: str) -> str:
         raise
 
 
-def redraw_ui() -> None:
-    """Redraw the UI in Blender."""
+def redraw_ui(mode: str = "VIEW_3D") -> None:
+    """
+    Redraw Blender UI areas.
+
+    Args:
+        mode:
+            "VIEW_3D" -> redraw only 3D viewports
+            "ALL"     -> redraw every UI area
+            any other Blender area type (e.g. "IMAGE_EDITOR")
+    """
+
     for window in bpy.context.window_manager.windows:
-        for area in window.screen.areas:
-            if area.type == "VIEW_3D":
+        screen = window.screen
+
+        for area in screen.areas:
+            if mode == "ALL":
+                area.tag_redraw()
+
+            elif area.type == mode:
                 area.tag_redraw()
 
 
@@ -290,3 +304,34 @@ def draw_label_value_box(layout, label: str, value: str = "", factor: float = 0.
     row_value.label(text=str(value))
 
     return box
+
+
+def format_timecode(frame_start: int, frame_end: int, fps_real: float, show_hours=False) -> str:
+    """Convert a frame range to a formatted timecode string."""
+    # Calculate total duration
+    total_frames = max(0, frame_end - frame_start + 1)
+    total_seconds = total_frames / fps_real if fps_real > 0 else 0
+
+    # Break down into time components
+    hours = int(total_seconds // 3600)
+    minutes = int((total_seconds % 3600) // 60)
+    seconds = int(total_seconds % 60)
+    # Calculate remaining frames from fractional seconds
+    frames = int(round((total_seconds - int(total_seconds)) * fps_real))
+
+    # Handle frame overflow (can happen due to rounding)
+    if frames >= fps_real:
+        frames = 0
+        seconds += 1
+        if seconds >= 60:
+            seconds = 0
+            minutes += 1
+            if minutes >= 60:
+                minutes = 0
+                hours += 1
+
+    # Format output
+    if show_hours is True or (show_hours is None and hours > 0):
+        return f"{hours:02}:{minutes:02}:{seconds:02}+{frames:02}"
+
+    return f"{minutes:02}:{seconds:02}+{frames:02}"

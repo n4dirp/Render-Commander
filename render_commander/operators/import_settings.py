@@ -204,12 +204,12 @@ class RECOM_OT_ImportAllSettings(Operator):
             override_settings.file_format = file_format
             override_settings.color_depth = color_depth_value
             override_settings.codec = ext_info.get("exr_codec", "ZIP")
-            override_settings.jpeg_quality = ext_info.get("jpeg_quality", 85)
+            override_settings.quality = ext_info.get("quality", 90)
         else:
             override_settings.file_format = scene.render.image_settings.file_format
             override_settings.color_depth = str(scene.render.image_settings.color_depth)
             override_settings.codec = scene.render.image_settings.exr_codec
-            override_settings.jpeg_quality = scene.render.image_settings.quality
+            override_settings.quality = scene.render.image_settings.quality
 
         override_settings.file_format_override = True
 

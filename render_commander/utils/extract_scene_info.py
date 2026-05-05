@@ -79,23 +79,23 @@ def get_scene_info() -> dict:
 
         data = {
             "blend_filepath": str(blend_path),
-            "file_size": format_file_size(file_size),
             "version_file": ".".join(map(str, context.blend_data.version)),
             "modified_date": modified_time,
             "modified_date_short": None,
+            "file_size": format_file_size(file_size),
             "scene_name": scene.name,
             "view_layer": context.view_layer.name,
             "view_layer_count": sum(1 for layer in scene.view_layers if layer.use),
             "viewlayer_names": ", ".join(layer.name for layer in scene.view_layers if layer.use),
             "render_engine": scene.render.engine,
-            "view_transform": scene.view_settings.view_transform,
-            "look": scene.view_settings.look,
             "frame_current": scene.frame_current,
             "frame_start": scene.frame_start,
             "frame_end": scene.frame_end,
             "frame_step": scene.frame_step,
             "fps": render.fps,
             "fps_base": render.fps_base,
+            "view_transform": scene.view_settings.view_transform,
+            "look": scene.view_settings.look,
             "resolution_x": render.resolution_x,
             "resolution_y": render.resolution_y,
             "render_scale": render.resolution_percentage,
@@ -130,7 +130,7 @@ def get_scene_info() -> dict:
             data["exr_codec"] = render.image_settings.exr_codec
 
         if render.image_settings.file_format == "JPEG":
-            data["jpeg_quality"] = render.image_settings.quality
+            data["quality"] = render.image_settings.quality
 
         use_compositor = render.use_compositing and (
             bool(scene.compositing_node_group) if bpy.app.version >= BLENDER_5_0 else scene.use_nodes

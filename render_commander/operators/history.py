@@ -84,11 +84,9 @@ class RECOM_OT_RemoveRenderHistoryItem(Operator):
 
 
 class RECOM_OT_OpenOutputFolder(Operator):
-    """Open the output folder in file explorer."""
-
     bl_idname = "recom.open_output_folder"
-    bl_label = "Open Output Folder"
-    bl_description = "Open the folder"
+    bl_label = "Open Scripts Folder"
+    bl_description = "Open a directory in file explorer"
     bl_options = {"INTERNAL"}
 
     folder_path: StringProperty(name="Folder Path", default="")

@@ -110,7 +110,7 @@ class RECOM_PT_render_preferences(RCSubPanel, Panel):
         row = root_col.column()
         if settings.use_external_blend and settings.external_blend_file_path:
             row.active = False
-        row.prop(prefs, "auto_save_before_render", text="Auto Save Blend File")
+        row.prop(prefs, "auto_save_before_render", text="Save Blend File")
 
         if prefs.launch_mode != MODE_SINGLE:
             root_col.prop(prefs, "track_render_time", text="Track Render Time")
@@ -176,7 +176,7 @@ class RECOM_PT_device_settings(RCBasePanel, Panel):
             row.use_property_split = True
             row.use_property_decorate = False
             row.active = not is_multi_backend
-            row.prop(prefs, "compute_device_type", text="Backend Type")
+            row.prop(prefs, "compute_device_type", text="Type")
 
         if prefs.compute_device_type == "NONE" and not (prefs.multiple_backends and prefs.device_parallel):
             return
@@ -186,7 +186,7 @@ class RECOM_PT_device_settings(RCBasePanel, Panel):
 
 
 class RECOM_PT_device_parallel(RCBasePanel, Panel):
-    bl_label = "Parallel Rendering"
+    bl_label = "Parallel Devices"
     bl_parent_id = "RECOM_PT_render_preferences"
     bl_options = {"DEFAULT_CLOSED"}
 
@@ -212,7 +212,7 @@ class RECOM_PT_device_parallel(RCBasePanel, Panel):
             get_render_engine(context) == RE_CYCLES and prefs.launch_mode != MODE_SINGLE and prefs.device_parallel
         )
 
-        layout.prop(prefs, "multiple_backends", text="Multi-Backend")
+        layout.prop(prefs, "multiple_backends", text="Multi-Type")
 
         parallel_col = layout.column()
 
@@ -246,11 +246,11 @@ class RECOM_PT_device_parallel(RCBasePanel, Panel):
                 num_instances -= 1
             num_instances = max(num_instances, 1)
 
-            draw_label_value_box(layout, "Instances", f"{num_instances}")
+            layout.label(text=f"Render Instances: {num_instances}")
 
 
 class RECOM_PT_render_instances(RCBasePanel, Panel):
-    bl_label = "Multi-Process"
+    bl_label = "Parallel Instances"
     bl_parent_id = "RECOM_PT_render_preferences"
     bl_options = {"DEFAULT_CLOSED"}
 
@@ -276,7 +276,7 @@ class RECOM_PT_render_instances(RCBasePanel, Panel):
         layout.active = prefs.launch_mode != MODE_SINGLE and prefs.multi_instance
 
         col = layout.column()
-        col.prop(prefs, "render_iterations", text="Process Count")
+        col.prop(prefs, "render_iterations", text="Iterations")
 
         row = col.row()
         row.active = prefs.launch_mode != MODE_LIST
@@ -317,16 +317,12 @@ class RECOM_PT_command_line_arguments(RCBasePanel, Panel):
         row_arg.prop(prefs, "custom_command_line_args", text="")
 
         if found_banned:
-            box = layout.box()
-            box.active = False
-            col = box.column(align=True)
+            col = layout.column(align=True)
             col.label(text="Overlapping arguments detected.", icon="ERROR")
             col.label(text=f"Remove: {', '.join(found_banned)}", icon="BLANK1")
 
         if found_config:
-            box = layout.box()
-            box.active = False
-            col = box.column(align=True)
+            col = layout.column(align=True)
             col.label(text="Redundant arguments detected.", icon="INFO")
             col.label(text=f"Managed: {', '.join(found_config)}", icon="BLANK1")
 

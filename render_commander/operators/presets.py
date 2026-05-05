@@ -133,7 +133,7 @@ class RECOM_OT_overrides_preset(AddPresetBase, Operator):
         "override_settings.file_format",
         "override_settings.color_depth",
         "override_settings.codec",
-        "override_settings.jpeg_quality",
+        "override_settings.quality",
         # Resolution Settings
         "override_settings.format_override",
         "override_settings.resolution_override",
@@ -304,12 +304,6 @@ class RECOM_OT_render_preferences_preset(AddPresetBase, Operator):
         # Multi-Process
         "prefs.multi_instance",
         "prefs.render_iterations",
-        # Export Scripts
-        "prefs.auto_open_exported_folder",
-        "prefs.export_output_target",
-        "prefs.custom_export_path",
-        "prefs.export_scripts_subfolder",
-        "prefs.export_scripts_folder_name",
         # Script Name
         "prefs.use_blend_name_in_script",
         "prefs.use_render_type_in_script",

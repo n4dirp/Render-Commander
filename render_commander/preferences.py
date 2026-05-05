@@ -122,6 +122,23 @@ class RECOM_PG_RenderHistoryItem(PropertyGroup):
     motion_blur: BoolProperty(name="Motion Blur", default=False)
     compositing: BoolProperty(name="Compositing", default=False)
 
+    def _get_tooltip(self):
+        lines = []
+        if self.blend_file_name:
+            lines.append(f"{self.blend_file_name}")
+        if self.date and self.render_id:
+            lines.append(f"{self.date} - {self.render_id}")
+        return "\n".join(lines)
+
+    def _set_tooltip(self, value):
+        pass
+
+    tooltip_display: StringProperty(
+        get=_get_tooltip,
+        set=_set_tooltip,
+        description="Render details on hover",
+    )
+
 
 class RECOM_PG_PropertyItem(PropertyGroup):
     """Single property row for active item display"""
@@ -152,21 +169,20 @@ def update_active_render_history_properties(self, context):
     properties_to_show = [
         ("Blend Name", active_item.blend_file_name),
         ("Blend Directory", active_item.blend_dir),
+        ("Export Date", active_item.date),
         ("Render ID", active_item.render_id),
-        ("Date", active_item.date),
-        ("Render Mode", active_item.launch_mode),
-        ("Frames", active_item.frames),
         ("Workers", str(active_item.worker_count)),
         ("Script Name", active_item.script_filename),
         ("Script Directory", active_item.export_path),
+        ("Frames", active_item.frames),
         ("Engine", active_item.render_engine),
         ("Scene", active_item.scene_name),
         ("View Layers", active_item.view_layer_names),
-        ("Resolution", f"{active_item.resolution_x} x {active_item.resolution_y}"),
         ("Samples", active_item.samples),
         ("Color Management", active_item.color_management),
         ("Motion Blur", str(active_item.motion_blur)),
         ("Compositing", str(active_item.compositing)),
+        ("Resolution", f"{active_item.resolution_x} x {active_item.resolution_y}"),
         ("File Format", active_item.file_format),
         ("Output Path", active_item.output_path),
     ]
@@ -252,7 +268,8 @@ class RECOM_Preferences(AddonPreferences):
     # Ext blend file
     recent_blend_files: CollectionProperty(type=RECOM_PG_RecentBlendFile)
     show_scene_info_list: BoolProperty(
-        name="Show List",
+        name="Show Detailed List",
+        description="Display scene information as a scrollable list instead of compact rows",
         default=False,
     )
 
@@ -272,7 +289,6 @@ class RECOM_Preferences(AddonPreferences):
         name="Active Item", default=-1, update=update_active_render_history_properties
     )
     active_item_properties: CollectionProperty(type=RECOM_PG_PropertyItem)
-    item_properties_index: IntProperty(name="Active Item", default=-1)
 
     # Cycles Devices
     compute_device_type: EnumProperty(
@@ -367,8 +383,8 @@ class RECOM_Preferences(AddonPreferences):
         default=True,
     )
     auto_save_before_render: BoolProperty(
-        name="Auto‑Save Before Render",
-        description="Save the current blend file before export, if it has unsaved changes",
+        name="Auto‑Save Blend File",
+        description="Save blend before export if there are unsaved changes",
         default=False,
     )
     write_still: BoolProperty(
@@ -457,13 +473,13 @@ class RECOM_Preferences(AddonPreferences):
             ("CUSTOM_PATH", "Custom", "User‑defined folder"),
         ],
         default="SELECT_DIR",
-        update=lambda self, context: redraw_ui(),
+        update=lambda self, context: redraw_ui("ALL"),
     )
     custom_export_path: StringProperty(
         name="Custom Export Path",
         description="Manually set the folder to open after export",
         subtype="DIR_PATH",
-        default="",
+        default="/tmp\\",
         update=lambda self, context: redraw_ui(),
     )
     export_scripts_subfolder: BoolProperty(

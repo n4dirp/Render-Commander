@@ -23,7 +23,7 @@ def get_extension_version() -> str:
 BLENDER_VERSION_STR = bpy.app.version_string
 ADDON_VERSION_STR = get_extension_version()
 EXTERNAL_BLEND_FILE_HISTORY_LIMIT = 30
-RENDER_HISTORY_LIMIT = 50
+RENDER_HISTORY_LIMIT = 30
 
 # Render Engines
 RE_CYCLES = "CYCLES"

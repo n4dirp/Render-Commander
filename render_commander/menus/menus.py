@@ -41,7 +41,7 @@ class RECOM_MT_recent_blend_files(Menu):
 
 
 class RECOM_MT_external_blend_options(Menu):
-    bl_label = "External Blend Options"
+    bl_label = "Blend File"
 
     def draw(self, context):
         layout = self.layout
@@ -72,13 +72,9 @@ class RECOM_MT_external_blend_options(Menu):
             op_open_output_folder.file_path = frame_path
 
         layout.separator()
-        layout.operator(
-            "recom.clear_and_reload_scene_info",
-            text="Clear Cache & Reload",
-            icon="FILE_REFRESH",
-        )
+        layout.operator("recom.clear_and_reload_scene_info", text="Clear Data Cache", icon="TRASH")
         layout.separator()
-        layout.prop(prefs, "show_scene_info_list", text="Show List")
+        layout.prop(prefs, "show_scene_info_list")
 
 
 class RECOM_MT_script_options(Menu):

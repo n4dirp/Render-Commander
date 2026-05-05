@@ -19,6 +19,7 @@ class RECOM_PT_main_panel(RCBasePanel, Panel):
     """Main panel for background rendering controls"""
 
     bl_label = "Render Commander"
+    # bl_icon = 'CONSOLE'
 
     def draw(self, context):
         layout = self.layout
@@ -29,7 +30,7 @@ class RECOM_PT_main_panel(RCBasePanel, Panel):
         row = layout.row(align=True)
         sub = row.row(align=True)
         sub.active = _blend_filepath(context)
-        text = "Generate Scripts"
+        text = "Export Scripts"
         if prefs.export_output_target == "SELECT_DIR":
             text += "..."
         sub.operator("recom.export_render_script", text=text, icon="EXPORT")
@@ -42,7 +43,7 @@ class RECOM_PT_main_panel(RCBasePanel, Panel):
 
         # Frame List
         if prefs.launch_mode == MODE_LIST:
-            row = col.row()
+            row = layout.row()
             row.use_property_split = True
             row.use_property_decorate = False
             row.prop(settings, "frame_list", text="", placeholder="Frame List")
@@ -117,7 +118,7 @@ class RECOM_PT_panel_visibility_popup(Panel):
         col2.prop(prefs.visible_panels, "history", text="")
 
         col.separator()
-        layout.operator("recom.open_pref", text="Preferences", icon="PREFERENCES")
+        layout.operator("recom.open_pref", text="Preferences...", icon="PREFERENCES")
 
 
 classes = (

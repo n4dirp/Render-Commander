@@ -279,7 +279,7 @@ class RECOM_OT_ExtractExternalSceneData(Operator):
 
         _extraction_state["timer_handle"] = bpy.app.timers.register(_poll_extraction_timer, first_interval=0.5)
 
-        self.report({"INFO"}, "Reading scene data…")
+        # self.report({"INFO"}, "Reading scene data…")
         return {"FINISHED"}
 
 
@@ -334,7 +334,7 @@ class RECOM_OT_ClearAndReloadSceneInfo(Operator):
 
     bl_idname = "recom.clear_and_reload_scene_info"
     bl_label = "Clear Cache & Reload Scene Info"
-    bl_description = "Clear the scene info cache and reload from external blend file"
+    bl_description = "Clear the scene data cache and reload"
     bl_options = {"INTERNAL"}
 
     def execute(self, context):
@@ -357,14 +357,9 @@ class RECOM_OT_ClearAndReloadSceneInfo(Operator):
         if cache_path.exists():
             try:
                 cache_path.unlink(missing_ok=True)
-
-                self.report({"INFO"}, "Cache cleared")
                 log.info('Cleared scene info cache: "%s"', str(cache_path))
-
             except Exception as e:
-                self.report({"ERROR"}, "Cache clear failed")
                 log.error('Failed to clear cache: "%s"', e)
-
                 return {"CANCELLED"}
 
         # Trigger extraction
@@ -590,8 +585,10 @@ class RECOM_OT_SelectExternalBlendFile(Operator):
         log.info('External blend set to: "%s"', abs_path)
 
         if self.read_scene and abs_path:
-            self.report({"INFO"}, "Reading scene data…")
-            bpy.ops.recom.extract_external_scene_data()
+            # self.report({"INFO"}, "Reading scene data…")
+            result = bpy.ops.recom.extract_external_scene_data()
+            if result == 'CANCELLED':
+                return {'CANCELLED'}
 
         return {"FINISHED"}
 

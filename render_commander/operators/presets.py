@@ -13,17 +13,20 @@ log = logging.getLogger(__name__)
 BASE_NAME = base_package.split(".")[-1]
 PRESET_BASE_PATH = "recom"
 PRESET_REGISTRY = {
-    # Overrides
-    "overrides_main": f"{PRESET_BASE_PATH}/overrides_main",
-    "resolution": f"{PRESET_BASE_PATH}/resolution",
-    "cycles_samples": f"{PRESET_BASE_PATH}/cycles_samples",
-    "output_path": f"{PRESET_BASE_PATH}/output_path",
-    "custom_variables": f"{PRESET_BASE_PATH}/custom_variables",
-    "advanced_props": f"{PRESET_BASE_PATH}/advanced_props",
-    # Preferences
-    "render_prefs": f"{PRESET_BASE_PATH}/render_prefs",
-    "cmd_args": f"{PRESET_BASE_PATH}/cmd_args",
-    "scripts": f"{PRESET_BASE_PATH}/scripts",
+    key: bpy.path.native_pathsep(f"{PRESET_BASE_PATH}/{key}")
+    for key in (
+        # Overrides
+        "overrides_main",
+        "resolution",
+        "cycles_samples",
+        "output_path",
+        "custom_variables",
+        "advanced_props",
+        # Preferences
+        "render_prefs",
+        "cmd_args",
+        "scripts",
+    )
 }
 
 PROP_TYPE_ATTR_MAP = {

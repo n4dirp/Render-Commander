@@ -85,7 +85,6 @@ class RECOM_PT_render_preferences(RCSubPanel, Panel):
     """Main panel for render preferences"""
 
     bl_label = "Settings"
-    bl_options = {"DEFAULT_CLOSED"}
 
     @classmethod
     def poll(cls, context):
@@ -417,6 +416,11 @@ class RECOM_PT_log_to_file(RCBasePanel, Panel):
     bl_label = "File Logging"
     bl_parent_id = "RECOM_PT_render_preferences"
     bl_options = {"DEFAULT_CLOSED"}
+
+    @classmethod
+    def poll(cls, context):
+        BLENDER_5_0 = (5, 0, 0)
+        return bpy.app.version >= BLENDER_5_0
 
     def draw_header(self, context):
         prefs = get_addon_preferences(context)

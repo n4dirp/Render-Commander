@@ -1,5 +1,4 @@
 import logging
-from pathlib import Path
 
 import bpy
 from bpy.types import Panel, UIList
@@ -109,7 +108,7 @@ class RECOM_PT_scene_file_panel(RCSubPanel, Panel):
         elif settings.external_blend_file_path and settings.is_scene_info_loaded:
             layout.label(text="Failed to load valid scene information", icon="ERROR")
 
-    def _draw_scene_info_row(self, layout, key='', value='', icon="NONE"):
+    def _draw_scene_info_row(self, layout, key="", value="", icon="NONE"):
         """Draw a two-column key-value row."""
         split = layout.split(factor=0.4)
         split.label(text=key, icon=icon)
@@ -121,11 +120,10 @@ class RECOM_PT_scene_file_panel(RCSubPanel, Panel):
         col = layout.box().column(align=True)
         col.separator(factor=0.2)
 
-        # blend_filename = Path(info.get("blend_filepath", "Unknown File")).name
         version_file = info.get("version_file", "N/A")
         modified_date_short = info.get("modified_date_short", "N/A")
         file_size = info.get("file_size", "N/A")
-        self._draw_scene_info_row(col, "Blender", version_file)
+        self._draw_scene_info_row(col, "Blend Data", f"Blender {version_file}")
         self._draw_scene_info_row(col, "Modified", modified_date_short)
         self._draw_scene_info_row(col, "File Size", file_size)
 
@@ -191,12 +189,12 @@ class RECOM_PT_scene_file_panel(RCSubPanel, Panel):
         render_scale_text = f" ({render_scale}%)" if render_scale != 100 else ""
         self._draw_scene_info_row(col, "Resolution", f"{resolution_x} x {resolution_y} px{render_scale_text}")
 
-        # Output format
+        # File format
         file_format = info.get("file_format", "No Data")
         file_format_text = FORMAT_NAME_MAPPING.get(file_format, file_format)
         color_depth_val = info.get("color_depth", "")
         color_depth_text = f" ({color_depth_val}-bit)" if color_depth_val else ""
-        self._draw_scene_info_row(col, "Format", f"{file_format_text}{color_depth_text}")
+        self._draw_scene_info_row(col, "File Format", f"{file_format_text}{color_depth_text}")
 
         # Color Management
         view_transform = info.get("view_transform", "")
@@ -231,6 +229,7 @@ class RECOM_PT_scene_file_panel(RCSubPanel, Panel):
             "modified_date",
             "view_layer",
             "view_layer_count",
+            "fps_base",
         }
 
         for k, v in info.items():
@@ -253,6 +252,7 @@ class RECOM_PT_scene_file_panel(RCSubPanel, Panel):
 
 # Add this near the top of the file, after FORMAT_NAME_MAPPING
 EXTERNAL_BLEND_INFO_KEY_MAP = {
+    "version_file": "Blend Data",
     "modified_date_short": "Modified",
     "scene_name": "Scene Name",
     "view_layer": "View Layer",

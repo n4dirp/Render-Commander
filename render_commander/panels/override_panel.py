@@ -313,7 +313,6 @@ class RECOM_PT_scene_override_settings(RCSubPanel, Panel):
     """Main scene overrides panel"""
 
     bl_label = "Overrides"
-    bl_options = {"DEFAULT_CLOSED"}
 
     @classmethod
     def poll(cls, context):

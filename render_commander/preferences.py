@@ -682,7 +682,7 @@ def register():
         bpy.utils.register_class(cls)
 
     try:
-        prefs = bpy.context.preferences.addons[__package__].preferences
+        prefs = bpy.context.preferences.addons.get(__package__).preferences
         if prefs and not prefs.devices_ini:
             refresh_local_devices(prefs, bpy.context, sync_type=True)
             prefs.devices_ini = True

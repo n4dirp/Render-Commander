@@ -42,7 +42,7 @@ def update_logger_from_prefs():
 
     enable_logging = False
     try:
-        prefs = bpy.context.preferences.addons[__package__].preferences
+        prefs = bpy.context.preferences.addons.get(__package__).preferences
         enable_logging = getattr(prefs, "debug_mode", False)
     except (KeyError, AttributeError):
         pass
@@ -88,9 +88,7 @@ def unregister():
         try:
             mdl.unregister()
         except Exception as err:
-            log.error(
-                "[%s] Failed to unreg module %s: %s", __package__, mdl.__name__, err
-            )
+            log.error("[%s] Failed to unreg module %s: %s", __package__, mdl.__name__, err)
 
 
 if __name__ == "__main__":

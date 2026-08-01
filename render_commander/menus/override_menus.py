@@ -60,7 +60,7 @@ class RECOM_MT_resolution_x(Menu):
 
         sections = {
             "Landscape": [7680, 5120, 3840, 2560, 1280, 854, 640],
-            "Portait": [2160, 1920, 720, 480, 360],
+            "Portrait": [2160, 1920, 720, 480, 360],
             "Square": [8192, 4096, 2048, 1080, 1024, 800, 512, 256],
         }
         section_count = len(sections)
@@ -99,7 +99,7 @@ class RECOM_MT_resolution_y(Menu):
 
         sections = {
             "Landscape": [4320, 2880, 2160, 1440, 720, 480],
-            "Portait": [3840, 2560, 1920, 1350, 1280, 960, 640],
+            "Portrait": [3840, 2560, 1920, 1350, 1280, 960, 640],
             "Square": [8192, 4096, 2048, 1080, 1024, 800, 512, 256],
         }
         section_count = len(sections)

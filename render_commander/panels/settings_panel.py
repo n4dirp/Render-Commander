@@ -451,11 +451,6 @@ class RECOM_PT_ocio(RCBasePanel, Panel):
     bl_parent_id = "RECOM_PT_render_preferences"
     bl_options = {"DEFAULT_CLOSED"}
 
-    @classmethod
-    def poll(cls, context):
-        prefs = get_addon_preferences(context)
-        return prefs.visible_panels.ocio
-
     def draw_header(self, context):
         prefs = get_addon_preferences(context)
         self.layout.prop(prefs, "set_ocio", text="")

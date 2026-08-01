@@ -8,6 +8,7 @@ from bl_ui.utils import PresetPanel
 from bpy.types import Menu, Operator, Panel, UIList
 
 from ..operators.presets import PRESET_REGISTRY
+from ..preferences import RECOM_PT_custom_variables_presets
 from ..utils.constants import (
     MODE_LIST,
     MODE_SEQ,
@@ -929,7 +930,7 @@ class RECOM_PT_path_variables(Panel):
     bl_label = "Path Variables"
     bl_space_type = "VIEW_3D"
     bl_region_type = "WINDOW"
-    bl_ui_units_x = 11
+    bl_ui_units_x = 13
 
     def draw(self, context):
         layout = self.layout
@@ -940,31 +941,72 @@ class RECOM_PT_path_variables(Panel):
 
         if not show_templates and not has_custom:
             layout.label(text="No variables available", icon="INFO")
-            return
+        else:
+            # Calculate columns based on visible sections only
+            num_sections = 1 if show_templates else 0
+            extra_column = 1 if has_custom else 0
+            columns = num_sections + extra_column
+            flow = layout.grid_flow(columns=columns, even_columns=True, even_rows=False, align=True)
 
-        # Calculate columns based on visible sections only
-        num_sections = 1 if show_templates else 0
-        extra_column = 1 if has_custom else 0
-        columns = num_sections + extra_column
-        flow = layout.grid_flow(columns=columns, even_columns=True, even_rows=False, align=True)
+            # Draw Path Templates section (Blender 5.0+)
+            if show_templates:
+                self.draw_section(context, flow.column(), "Path Templates", PATH_VARIABLES_DATA["data"])
 
-        # Draw Path Templates section (Blender 5.0+)
-        if show_templates:
-            self.draw_section(context, flow.column(), "Path Templates", PATH_VARIABLES_DATA["data"])
-
-        # Draw Custom Variables section
-        if has_custom:
-            col = flow.column(align=True)
-            col.label(text="Custom")
-            for var in prefs.custom_variables:
-                op = col.operator("recom.insert_variable", text=var.name)
-                op.variable = f"{{{var.token}}}"
+            # Draw Custom Variables section
+            if has_custom:
+                col = flow.column(align=True)
+                col.label(text="Custom")
+                for var in prefs.custom_variables:
+                    op = col.operator("recom.insert_variable", text=var.name)
+                    op.variable = f"{{{var.token}}}"
 
         layout.separator(factor=0.5)
         col = layout.column()
         col.label(text="Target")
         col.row().prop(override_settings, "variable_insert_target", expand=True)
         col.prop(prefs, "use_underscore_separator", text="Add Underscore")
+
+        layout.separator(factor=0.5)
+
+        header, sub_body = layout.panel("RECOM_PT_custom_variables", default_closed=True)
+        header.label(text="Custom Variables")
+        RECOM_PT_custom_variables_presets.draw_panel_header(header)
+        if sub_body:
+            col = sub_body.column()
+            row = col.row()
+            show_op = len(prefs.custom_variables)
+
+            # Variable list
+            list_col = row.column()
+            rows = 4 if show_op else 3
+            list_col.template_list(
+                "RECOM_UL_custom_variables",
+                "",
+                prefs,
+                "custom_variables",
+                prefs,
+                "active_custom_variable_index",
+                rows=rows,
+            )
+
+            # Controls
+            col = row.column()
+            add_remove_col = col.column(align=True)
+            add_remove_col.operator("recom.add_custom_variable", text="", icon="ADD")
+            has_selection = bool(
+                prefs.custom_variables and prefs.active_custom_variable_index < len(prefs.custom_variables)
+            )
+            remove_col = add_remove_col.column(align=True)
+            remove_col.active = has_selection
+            remove_col.operator("recom.remove_custom_variable", text="", icon="REMOVE")
+            col.separator(factor=0.5)
+
+            if show_op:
+                # Move buttons
+                move_col = col.column(align=True)
+                move_col.active = has_selection and len(prefs.custom_variables) > 1
+                move_col.operator("recom.move_custom_variable", text="", icon="TRIA_UP").direction = "UP"
+                move_col.operator("recom.move_custom_variable", text="", icon="TRIA_DOWN").direction = "DOWN"
 
         return
 

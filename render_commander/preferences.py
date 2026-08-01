@@ -210,7 +210,6 @@ class RECOM_PG_VisiblePanels(PropertyGroup):
         default=True,
         update=lambda self, context: redraw_ui(),
     )
-    ocio: BoolProperty(name="OCIO Environment", default=False)
     history: BoolProperty(name="Export History", default=True, update=lambda self, context: redraw_ui())
 
 
@@ -305,8 +304,8 @@ class RECOM_Preferences(AddonPreferences):
         update=lambda self, context: redraw_ui(),
     )
     devices_ini: BoolProperty(
-        name="Get Devices from Cycles",
-        description="Create a local copy of devices",
+        name="Manage Devices Locally",
+        description="Manage render devices from the addon instead of reading from Cycles preferences",
         default=False,
         update=lambda self, context: redraw_ui(),
     )
@@ -383,7 +382,7 @@ class RECOM_Preferences(AddonPreferences):
         default=True,
     )
     auto_save_before_render: BoolProperty(
-        name="Auto‑Save Blend File",
+        name="Auto-Save Blend File",
         description="Save blend before export if there are unsaved changes",
         default=False,
     )
@@ -431,7 +430,7 @@ class RECOM_Preferences(AddonPreferences):
         default=True,
     )
     use_render_type_in_script: BoolProperty(
-        name="Include Render Type",
+        name="Include Render Mode",
         description="Append the render mode to the generated script filenames",
         default=False,
     )
@@ -461,7 +460,7 @@ class RECOM_Preferences(AddonPreferences):
     # Export options properties
     auto_open_exported_folder: BoolProperty(
         name="Open Exported Folder",
-        description="Open the folder that contains the exported script/files after export",
+        description="Open the folder that contains the exported scripts and files after export",
         default=False,
     )
     export_output_target: EnumProperty(
@@ -572,65 +571,13 @@ class RECOM_Preferences(AddonPreferences):
         update=lambda self, context: redraw_ui(),
     )
 
-    def draw_custom_variables(self, layout):
-        col = layout.column()
-        row = col.row()
-        show_op = len(self.custom_variables)
-
-        # Variable list
-        list_col = row.column()
-        rows = 4 if show_op else 3
-        list_col.template_list(
-            "RECOM_UL_custom_variables",
-            "",
-            self,
-            "custom_variables",
-            self,
-            "active_custom_variable_index",
-            rows=rows,
-        )
-
-        # Controls
-        col = row.column()
-        add_remove_col = col.column(align=True)
-        add_remove_col.operator("recom.add_custom_variable", text="", icon="ADD")
-        has_selection = bool(self.custom_variables and self.active_custom_variable_index < len(self.custom_variables))
-        remove_col = add_remove_col.column(align=True)
-        remove_col.active = has_selection
-        remove_col.operator("recom.remove_custom_variable", text="", icon="REMOVE")
-        col.separator(factor=0.5)
-
-        if not show_op:
-            return
-
-        # Move buttons
-        move_col = col.column(align=True)
-        move_col.active = has_selection and len(self.custom_variables) > 1
-        move_col.operator("recom.move_custom_variable", text="", icon="TRIA_UP").direction = "UP"
-        move_col.operator("recom.move_custom_variable", text="", icon="TRIA_DOWN").direction = "DOWN"
-
     def draw(self, context):
         layout = self.layout
         layout.use_property_split = True
         layout.use_property_decorate = False
 
-        root_col = layout.column(align=True)
-
-        box = root_col.box()
-        box.label(text="Visible Panels")
-        col = box.column(align=True)
-        col = col.column(heading="")
-        col.prop(self.visible_panels, "ocio")
-
-        box = root_col.box()
-        row = box.row(align=True)
-        row.label(text="Path Templates")
-        RECOM_PT_custom_variables_presets.draw_panel_header(row)
-        self.draw_custom_variables(box)
-
-        box = root_col.box()
-        box.label(text="Debug")
-        box.prop(self, "debug_mode", text="Console Logging")
+        layout.label(text="Debug")
+        layout.prop(self, "debug_mode", text="Console Logging")
 
 
 class RECOM_PT_custom_variables_presets(PresetPanel, Panel):

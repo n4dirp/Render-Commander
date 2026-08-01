@@ -174,7 +174,7 @@ class RECOM_PG_CyclesRenderOverrides(PropertyGroup):
     )
     time_limit: FloatProperty(
         name="Time Limit",
-        description="Limit the render time (excluding synchronization time).Zero disables the limit.",
+        description="Limit the render time (excluding synchronization time). Zero disables the limit.",
         min=0.0,
         default=0.0,
         step=100.0,
@@ -352,7 +352,7 @@ class RECOM_PG_OverrideSettings(PropertyGroup):
     )
     fps: IntProperty(
         name="",
-        description="Define the interval between frames to render",
+        description="Set the frames per second (FPS) for playback rate",
         default=30,
         min=1,
     )
@@ -729,7 +729,7 @@ class RECOM_PG_OverrideSettings(PropertyGroup):
     compositor_disable_output_files: BoolProperty(
         name="Bypass File Outputs",
         default=False,
-        description="Muted all File Output nodes in the compositor",
+        description="Mutes all File Output nodes in the compositor",
     )
 
     # FPS

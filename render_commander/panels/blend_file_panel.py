@@ -61,7 +61,7 @@ class RECOM_PT_scene_file_panel(RCSubPanel, Panel):
         sub.operator("recom.select_external_blend_file", text="", icon="FILE_FOLDER")
 
         # Extract Scene Operator
-        sub = layout.row(align=True)
+        sub = col.row(align=True)
         sub.enabled = bool(settings.external_blend_file_path)
 
         button_text = "Read Scene"

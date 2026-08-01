@@ -1,4 +1,5 @@
 import bpy
+
 override_settings = bpy.context.window_manager.recom_render_settings.override_settings
 
 override_settings.use_data_path_overrides = True

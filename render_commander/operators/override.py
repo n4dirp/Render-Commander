@@ -345,10 +345,7 @@ def get_prop_config(val: Any) -> tuple[str, dict]:
 class RECOM_OT_add_advanced_property_override(Operator):
     bl_idname = "recom.add_advanced_property_override"
     bl_label = "Add Property Override"
-    bl_description = (
-        "Creates a new property override. \nIf the input is empty, "
-        "it will automatically attempt to use a path from your clipboard."
-    )
+    bl_description = "Creates a new property override."
     bl_options = {"UNDO", "INTERNAL"}
 
     def execute(self, context):
@@ -356,27 +353,7 @@ class RECOM_OT_add_advanced_property_override(Operator):
         path = override_settings.property_path_input.strip()
 
         if not path:
-            try:
-                cb = context.window_manager.clipboard
-                if cb:
-                    cb_str = cb.strip()
-                    valid_prefixes = (
-                        "bpy.",
-                        "scene.",
-                        "render.",
-                        "view_layer.",
-                        "view_layers[",
-                        "eevee.",
-                        "cycles.",
-                        "world.",
-                    )
-                    if any(cb_str.startswith(p) for p in valid_prefixes):
-                        path = cb_str
-            except Exception:
-                pass  # Clipboard may be locked or unavailable
-
-        if not path:
-            self.report({"WARNING"}, "Please enter a valid data path or copy one to clipboard.")
+            self.report({"WARNING"}, "Please enter a valid data path.")
             return {"CANCELLED"}
 
         try:

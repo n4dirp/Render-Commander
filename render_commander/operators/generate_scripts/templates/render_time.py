@@ -1,5 +1,8 @@
 """Render Time Logic for Sequence Renders"""
 
+import time
+
+import bpy
 from bpy.app.handlers import persistent
 
 
@@ -58,7 +61,7 @@ def on_render_post(scene):
     if estimated_time_remaining:
         status_message += " | ETA: %s" % estimated_time_remaining
 
-    log.info("%s", status_message)
+    log.info("%s", status_message)  # noqa: F821 - provided by surrounding script  # pyright: ignore[reportUndefinedVariable]
 
 
 @persistent
@@ -72,10 +75,10 @@ def on_render_complete(scene):
         hours, remainder = divmod(total_elapsed_time, 3600)
         minutes, seconds = divmod(remainder, 60)
 
-        log.info("Render completed in %02d:%02d:%05.2f", int(hours), int(minutes), seconds)
+        log.info("Render completed in %02d:%02d:%05.2f", int(hours), int(minutes), seconds)  # noqa: F821 - provided by surrounding script  # pyright: ignore[reportUndefinedVariable]
 
         if frames_completed > 0:
-            log.info("Frames: %d | Avg: %.2fs", frames_completed, total_elapsed_time / frames_completed)
+            log.info("Frames: %d | Avg: %.2fs", frames_completed, total_elapsed_time / frames_completed)  # noqa: F821 - provided by surrounding script  # pyright: ignore[reportUndefinedVariable]
 
         # Clean up scene properties
         scene.pop("recom_render_start_time", None)

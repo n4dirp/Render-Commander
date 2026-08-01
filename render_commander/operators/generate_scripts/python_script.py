@@ -55,7 +55,8 @@ def _wrap_in_try(lines: list[str], section_name: str, abort_on_fail: bool = Fals
         wrapped.extend(
             [
                 "except Exception as e:",
-                f"    raise RuntimeError(f'Render Commander FATAL Error: Failed to apply {section_name} -> {{e}}') from e",
+                f"    raise RuntimeError(f'Render Commander FATAL Error: Failed to apply "
+                f"{section_name} -> {{e}}') from e",
                 "",
             ]
         )
@@ -174,7 +175,8 @@ def _apply_fps_converter_settings(override_settings, script_lines: list[str]) ->
                 "if bpy.context.scene.render.use_motion_blur:",
                 "    old_shutter = bpy.context.scene.render.motion_blur_shutter",
                 "    bpy.context.scene.render.motion_blur_shutter = old_shutter * multiplier",
-                '    log.info(f"Motion blur shutter adjusted: {old_shutter:.3f} -> {bpy.context.scene.render.motion_blur_shutter:.3f}")',
+                '    log.info(f"Motion blur shutter adjusted: {old_shutter:.3f} -> '
+                '{bpy.context.scene.render.motion_blur_shutter:.3f}")',
             ]
         )
 
@@ -339,7 +341,8 @@ def _apply_overscan_settings(context, override_settings, script_lines: list[str]
         [
             "for obj in bpy.data.objects:",
             "    if obj.type == 'CAMERA':",
-            "        obj.data.lens = obj.data.lens * (original_resolution[0] / max(1, (original_resolution[0] + 2 * overscan_x)))",
+            "        obj.data.lens = obj.data.lens * "
+            "(original_resolution[0] / max(1, (original_resolution[0] + 2 * overscan_x)))",
             "",
         ]
     )
@@ -435,7 +438,8 @@ def _apply_compositing_settings(override_settings, script_lines: list[str]) -> N
         lines.extend(
             [
                 "# Disable File Output",
-                'node_tree = getattr(bpy.context.scene, "compositing_node_group", getattr(bpy.context.scene, "node_tree", None))',
+                'node_tree = getattr(bpy.context.scene, "compositing_node_group", '
+                'getattr(bpy.context.scene, "node_tree", None))',
                 "if node_tree:",
                 "    for node in node_tree.nodes:",
                 "        if node.type == 'OUTPUT_FILE':",
@@ -494,9 +498,11 @@ def _apply_cycles_sampling_settings(override_settings, lines: list[str]) -> None
                 "    # Sampling Factor Override",
                 f"    quality_factor = {factor}",
                 "    bpy.context.scene.cycles.samples = max(1, int(bpy.context.scene.cycles.samples * quality_factor))",
-                "    bpy.context.scene.cycles.adaptive_min_samples = int(bpy.context.scene.cycles.adaptive_min_samples * quality_factor)",
+                "    bpy.context.scene.cycles.adaptive_min_samples = "
+                "int(bpy.context.scene.cycles.adaptive_min_samples * quality_factor)",
                 "    # Noise scales by the inverse square root of samples",
-                "    bpy.context.scene.cycles.adaptive_threshold = bpy.context.scene.cycles.adaptive_threshold / max(0.0001, (quality_factor ** 0.5))",
+                "    bpy.context.scene.cycles.adaptive_threshold = "
+                "bpy.context.scene.cycles.adaptive_threshold / max(0.0001, (quality_factor ** 0.5))",
                 "    bpy.context.scene.cycles.time_limit = bpy.context.scene.cycles.time_limit * quality_factor",
                 "",
             ]

@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.2.6] - 2026-08-01
+
+### Changed
+- Removed clipboard access for advanced property overrides
+- The **OCIO** panel is now always visible (removed the visibility toggle from preferences)
+- Custom variables editor moved from preferences to the **Path Variables** popup
+
+---
+
 ## [1.2.5] - 2026-05-05
 
 ### Added

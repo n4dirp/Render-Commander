@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.3.0] - 2026-08-16
+
+### Added
+- New **Panel Location** preference to place the addon panels in the **3D Viewport** sidebar, the **Render Properties** tab, or the **Output Properties** tab
+- New master **Enable Overrides** toggle to turn all render overrides on or off at once
+- New **Render Summary** in the launcher panel showing the current render/export settings and pre-export warnings before exporting scripts
+
+### Changed
+- Minimum Blender version bumped to **5.2 LTS**
+- Export options moved to a new **Scripts Output** sub-panel under **Rendder Settings** (the old visibility popup was removed)
+- **Visible Panels** toggles moved to the addon preferences
+- Removed the **OCIO** custom config env-var option (panel, preferences, presets)
+
+---
+
 ## [1.2.6] - 2026-08-01
 
 ### Changed

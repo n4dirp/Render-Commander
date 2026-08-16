@@ -356,6 +356,8 @@ class RECOM_OT_add_advanced_property_override(Operator):
             self.report({"WARNING"}, "Please enter a valid data path.")
             return {"CANCELLED"}
 
+        override_settings.enabled = True
+
         try:
             normalized_path, val = resolve_blender_path(path)
         except Exception as e:

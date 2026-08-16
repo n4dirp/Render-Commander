@@ -20,6 +20,9 @@ from .utils.constants import (
     MODE_LIST,
     MODE_SEQ,
     MODE_SINGLE,
+    PANEL_LOCATION_OUTPUT,
+    PANEL_LOCATION_RENDER,
+    PANEL_LOCATION_VIEWPORT,
     RESERVED_TOKENS,
 )
 from .utils.cycles_devices import (
@@ -37,6 +40,13 @@ def on_logging_pref_changed(self, context):
     from . import update_logger_from_prefs
 
     update_logger_from_prefs()
+
+
+def on_panel_location_changed(self, context):
+    """Re-register the panels in the newly selected location"""
+    from .panels import schedule_reload
+
+    schedule_reload()
 
 
 class RECOM_PG_ScriptEntry(PropertyGroup):
@@ -240,24 +250,71 @@ class RECOM_Preferences(AddonPreferences):
     # Misc
     #################################
 
+    show_export_summary: BoolProperty(
+        name="Show Export Summary",
+        description="Display a summary of the render settings in the launcher panel before exporting scripts",
+        default=True,
+        update=lambda self, context: redraw_ui(),
+    )
     launch_mode: EnumProperty(
         items=[
-            (MODE_SINGLE, "Still", "Render a single frame"),
-            (MODE_SEQ, "Sequence", "Render a full frame range"),
+            (MODE_SINGLE, "Image", "Render a single frame", "RENDER_STILL", 0),
+            (MODE_SEQ, "Animation", "Render a full frame range", "RENDER_ANIMATION", 1),
             (
                 MODE_LIST,
                 "List",
                 "Render non-continuous frame ranges",
+                "ONIONSKIN_ON",
+                2,
             ),
         ],
         default=MODE_SEQ,
         description="Render Mode",
         update=lambda self, context: redraw_ui(),
     )
-    debug_mode: BoolProperty(
-        name="Enable Console Logging",
+    panel_location: EnumProperty(
+        name="Panel Location",
+        description="Where the Render Commander panels are displayed",
+        items=[
+            (
+                PANEL_LOCATION_VIEWPORT,
+                "3D Viewport",
+                "Show panels in the 3D Viewport sidebar",
+                "VIEW3D",
+                0,
+            ),
+            (
+                PANEL_LOCATION_RENDER,
+                "Render Properties",
+                "Show panels in the Render Properties tab",
+                "SCENE",
+                1,
+            ),
+            (
+                PANEL_LOCATION_OUTPUT,
+                "Output Properties",
+                "Show panels in the Output Properties tab",
+                "OUTPUT",
+                2,
+            ),
+        ],
+        default=PANEL_LOCATION_VIEWPORT,
+        update=on_panel_location_changed,
+    )
+    logging_enabled: BoolProperty(
+        name="Console Logging",
         description="Print add-on status and debug messages to the system console",
         default=False,
+        update=on_logging_pref_changed,
+    )
+    logging_level: EnumProperty(
+        name="Verbosity",
+        description="Level of detail for console output",
+        items=[
+            ("INFO", "Info", "General events, warnings, and errors"),
+            ("DEBUG", "Debug", "+ Detailed diagnostics for troubleshooting"),
+        ],
+        default="DEBUG",
         update=on_logging_pref_changed,
     )
     visible_panels: PointerProperty(type=RECOM_PG_VisiblePanels)
@@ -558,26 +615,31 @@ class RECOM_Preferences(AddonPreferences):
         default=0,
     )
 
-    # OCIO config
-    set_ocio: BoolProperty(
-        name="OCIO Config",
-        description="Use a custom color management configuration",
-        default=False,
-    )
-    ocio_path: StringProperty(
-        name="OCIO Config File",
-        description="Path to the OCIO configuration file (.ocio)",
-        subtype="FILE_PATH",
-        update=lambda self, context: redraw_ui(),
-    )
-
     def draw(self, context):
         layout = self.layout
         layout.use_property_split = True
         layout.use_property_decorate = False
 
-        layout.label(text="Debug")
-        layout.prop(self, "debug_mode", text="Console Logging")
+        layout.label(text="Panel")
+        layout.prop(self, "panel_location")
+
+        layout.separator()
+
+        layout.label(text="Visible Panels")
+        col = layout.column(align=True)
+        col.prop(self.visible_panels, "external_scene", text="Blend File")
+        col.prop(self.visible_panels, "override_settings", text="Overrides")
+        col.prop(self.visible_panels, "preferences", text="Settings")
+        col.prop(self.visible_panels, "history", text="History")
+
+        layout.separator()
+
+        layout.label(text="Development")
+        row = layout.row(align=True, heading="Console Logging")
+        row.prop(self, "logging_enabled", text="")
+        sub = row.row(align=True)
+        sub.active = self.logging_enabled
+        sub.prop(self, "logging_level", text="")
 
 
 class RECOM_PT_custom_variables_presets(PresetPanel, Panel):

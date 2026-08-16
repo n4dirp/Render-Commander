@@ -72,6 +72,8 @@ class RECOM_OT_ImportAllSettings(Operator):
             if prefs_overrides.import_compositor:
                 self._import_compositor(scene, override_settings, ext_info)
 
+            override_settings.enabled = True
+
             context.area.tag_redraw()
         except Exception as exc:
             log.error("ImportAllSettings failed: %s", exc, exc_info=True)

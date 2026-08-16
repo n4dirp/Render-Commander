@@ -286,6 +286,14 @@ class RECOM_PG_EEVEERenderOverrides(PropertyGroup):
 class RECOM_PG_OverrideSettings(PropertyGroup):
     """Stores override settings"""
 
+    # Master Toggle
+    enabled: BoolProperty(
+        name="Enable Overrides",
+        description="Master switch for all render overrides. When disabled, override settings are ignored",
+        default=False,
+        update=lambda self, context: redraw_ui(),
+    )
+
     # Data Path Overrides
     property_path_input: StringProperty(
         name="Blender Data Path",

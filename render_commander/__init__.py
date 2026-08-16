@@ -41,9 +41,11 @@ def update_logger_from_prefs():
         log.removeHandler(handler)
 
     enable_logging = False
+    level = "INFO"
     try:
         prefs = bpy.context.preferences.addons.get(__package__).preferences
-        enable_logging = getattr(prefs, "debug_mode", False)
+        enable_logging = getattr(prefs, "logging_enabled", False)
+        level = getattr(prefs, "logging_level", "INFO")
     except (KeyError, AttributeError):
         pass
 
@@ -51,11 +53,12 @@ def update_logger_from_prefs():
         log.addHandler(logging.NullHandler())
         return
 
+    level_map = {"INFO": logging.INFO, "DEBUG": logging.DEBUG}
     handler = logging.StreamHandler()
     handler.setFormatter(AddonLogFormatter(with_level=True))
 
     log.addHandler(handler)
-    log.setLevel(logging.DEBUG if enable_logging else logging.INFO)
+    log.setLevel(level_map[level])
 
 
 addon_modules = [

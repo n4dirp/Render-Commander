@@ -8,7 +8,7 @@ from ..utils.helpers import get_addon_preferences, get_addon_settings
 
 
 class RECOM_PT_render_history_panel(RCSubPanel, Panel):
-    bl_label = "History"
+    bl_label = "Export History"
     bl_options = {"DEFAULT_CLOSED"}
 
     @classmethod

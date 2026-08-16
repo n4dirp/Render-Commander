@@ -242,7 +242,7 @@ def _get_frame_settings(prefs, settings, scene, is_animation, ext_info):
             raise ValueError("Frame start must be less than frame end.")
         return (start, end, step)
 
-    if settings.override_settings.frame_range_override:
+    if settings.override_settings.enabled and settings.override_settings.frame_range_override:
         if is_animation:
             return check(
                 prefs,

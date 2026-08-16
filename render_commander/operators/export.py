@@ -137,7 +137,7 @@ def validate_render_settings(operator, context) -> bool:
             return False
 
     # FFMPEG File Format
-    if not settings.override_settings.file_format_override:
+    if not (settings.override_settings.enabled and settings.override_settings.file_format_override):
         is_mov = settings.use_external_blend and ext_info.get("is_movie_format", False)
         if prefs.launch_mode != MODE_SEQ and (scene.render.is_movie_format or is_mov):
             msg = "Current mode does not support FFMPEG animation output"
@@ -160,7 +160,7 @@ def validate_render_settings(operator, context) -> bool:
 
     # Animation: Prevent identical start/end frames
     if prefs.launch_mode == MODE_SEQ:
-        if settings.override_settings.frame_range_override:
+        if settings.override_settings.enabled and settings.override_settings.frame_range_override:
             start, end = (
                 settings.override_settings.frame_start,
                 settings.override_settings.frame_end,
@@ -231,16 +231,16 @@ class RECOM_OT_ExportRenderScript(Operator):
         prefs = get_addon_preferences(context)
 
         col = layout.column()
-        folder_row = col.row(heading="Add Subfolder")
+        folder_row = col.row(heading="Subfolder")
         folder_row.prop(prefs, "export_scripts_subfolder", text="")
         sub_folder_row = folder_row.row()
         sub_folder_row.active = prefs.export_scripts_subfolder
         sub_folder_row.prop(prefs, "export_scripts_folder_name", text="")
 
-        col = layout.column(heading="Actions", align=True)
-        col.prop(prefs, "auto_open_exported_folder", text="Open in File Explorer")
+        col = layout.column(heading="", align=True)
+        col.prop(prefs, "auto_open_exported_folder", text="Open Folder")
 
-        col = layout.column(heading="Script Naming", align=True)
+        col = layout.column(heading="File Name", align=True)
         col.prop(prefs, "use_export_date_in_script", text="Export Date")
         col.prop(prefs, "use_blend_name_in_script", text="Blend Name")
         col.prop(prefs, "use_render_type_in_script", text="Render Mode")
@@ -380,7 +380,7 @@ class RECOM_OT_ExportRenderScript(Operator):
             history_item.blend_file_name = "untitled"
 
         # Resolution
-        if override_settings.format_override:
+        if override_settings.enabled and override_settings.format_override:
             res_mode = override_settings.resolution_mode
             history_item.resolution_x = (
                 override_settings.resolution_x if res_mode in {"SET_WIDTH", "CUSTOM"} else calculate_auto_width(context)
@@ -396,7 +396,7 @@ class RECOM_OT_ExportRenderScript(Operator):
 
         # Samples
         if render_engine == RE_CYCLES:
-            if override_settings.cycles.sampling_override:
+            if override_settings.enabled and override_settings.cycles.sampling_override:
                 history_item.samples = (
                     f"{int(override_settings.cycles.sampling_factor)}%"
                     if override_settings.cycles.sampling_mode == "FACTOR"
@@ -406,7 +406,7 @@ class RECOM_OT_ExportRenderScript(Operator):
                 history_item.samples = str(ext_info.get("samples", 0) if is_external else scene.cycles.samples)
 
         elif is_eevee:
-            if override_settings.eevee_override:
+            if override_settings.enabled and override_settings.eevee_override:
                 history_item.samples = str(override_settings.eevee.samples)
             else:
                 history_item.samples = str(
@@ -417,7 +417,7 @@ class RECOM_OT_ExportRenderScript(Operator):
         if prefs.launch_mode == MODE_LIST and settings.frame_list:
             frames = format_frame_range(parse_frame_string(settings.frame_list))
         elif prefs.launch_mode == MODE_SEQ:
-            if override_settings.frame_range_override:
+            if override_settings.enabled and override_settings.frame_range_override:
                 frames = f"{override_settings.frame_start}-{override_settings.frame_end}"
             else:
                 frames = (
@@ -426,7 +426,7 @@ class RECOM_OT_ExportRenderScript(Operator):
                     else f"{scene.frame_start}-{scene.frame_end}"
                 )
         else:  # Single frame
-            if override_settings.frame_range_override:
+            if override_settings.enabled and override_settings.frame_range_override:
                 frames = str(override_settings.frame_current)
             else:
                 frames = str(ext_info.get("frame_current", 0)) if is_external else str(scene.frame_current)
@@ -436,7 +436,7 @@ class RECOM_OT_ExportRenderScript(Operator):
         # File Format
         fmt_id = (
             override_settings.file_format
-            if override_settings.file_format_override
+            if override_settings.enabled and override_settings.file_format_override
             else ext_info.get("file_format", "")
             if is_external
             else scene.render.image_settings.file_format
@@ -467,7 +467,7 @@ class RECOM_OT_ExportRenderScript(Operator):
         history_item.color_management = f"{vt} / {lk}" if vt or lk else ""
 
         # Motion Blur
-        if override_settings.motion_blur_override:
+        if override_settings.enabled and override_settings.motion_blur_override:
             history_item.motion_blur = override_settings.use_motion_blur
         elif is_external:
             history_item.motion_blur = ext_info.get("use_motion_blur", False)
@@ -475,7 +475,7 @@ class RECOM_OT_ExportRenderScript(Operator):
             history_item.motion_blur = scene.render.use_motion_blur
 
         # Compositing
-        if override_settings.compositor_override:
+        if override_settings.enabled and override_settings.compositor_override:
             history_item.compositing = override_settings.use_compositor
         elif is_external:
             history_item.compositing = ext_info.get("use_compositor", False)
@@ -513,11 +513,13 @@ class RECOM_OT_ExportRenderScript(Operator):
             self._handle_no_devices_selected(prefs, context)
 
         # Cycles Device Type (CPU vs GPU) for Scene settings
-        if settings.override_settings.cycles.device_override:
+        if settings.override_settings.enabled and settings.override_settings.cycles.device_override:
             cycles_device = settings.override_settings.cycles.device
         else:
             cycles_device = (
-                str(ext_info.get("device", "CPU")) if settings.use_external_blend else str(scene.cycles.device)
+                str(ext_info.get("device", "CPU"))
+                if settings.use_external_blend
+                else str(scene.cycles.device)
             )
 
         # Determine Workload Strategy
@@ -702,7 +704,9 @@ class RECOM_OT_ExportRenderScript(Operator):
             add_render_cmd(f_start, True, False, ext_info)
         elif isinstance(chunk.frames, tuple):
             # Mode: Single Frame (tuple used in single process fallback)
-            write_s = prefs.write_still or settings.override_settings.output_path_override
+            write_s = prefs.write_still or (
+                settings.override_settings.enabled and settings.override_settings.output_path_override
+            )
             add_render_cmd(f_start, False, write_s, ext_info)
         else:
             # Mode: List (list of frames)
@@ -759,7 +763,7 @@ class RECOM_OT_ExportRenderScript(Operator):
 
     def _resolve_output_path(self, prefs, settings, scene, ext_info: dict) -> str:
         """Resolves the output path and updates settings/history variables."""
-        is_override = settings.override_settings.output_path_override
+        is_override = settings.override_settings.enabled and settings.override_settings.output_path_override
 
         try:
             # Determine base directory and filename based on the mode
@@ -767,7 +771,11 @@ class RECOM_OT_ExportRenderScript(Operator):
                 dir_path = settings.override_settings.output_directory or "/tmp/"
                 file_name = settings.override_settings.output_filename
             else:
-                base_path = ext_info.get("filepath", "//") if settings.use_external_blend else scene.render.filepath
+                base_path = (
+                    ext_info.get("filepath", "//")
+                    if settings.use_external_blend
+                    else scene.render.filepath
+                )
                 last_slash = max(base_path.rfind("/"), base_path.rfind("\\"))
                 if last_slash == -1:
                     dir_path, file_name = "", base_path

@@ -107,7 +107,11 @@ def _finalize_extraction():
         log.error("Extraction error: %s", info_data["error"])
     else:
         log.info("Scene info successfully extracted and cached.")
+
+    try:
         redraw_ui()
+    except Exception:
+        pass
 
     duration = time.time() - _extraction_state["start_time"]
     log.debug("Extraction process finished in %.2f seconds", duration)

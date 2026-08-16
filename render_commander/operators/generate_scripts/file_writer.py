@@ -204,14 +204,13 @@ def create_process_files(
     blender_exec = str(bpy.app.binary_path)
     shell_content = []
 
-    def set_env(var: str, val: str, is_path_expr: bool = False, export: bool = False) -> str:
+    def set_env(var: str, val: str, is_path_expr: bool = False) -> str:
         if _IS_WINDOWS:
             if not is_path_expr:
                 val = val.replace("%", "%%")
             return f'set "{var}={val}"'
-        prefix = "export " if export else ""
         safe_val = f'"{val}"' if is_path_expr else shlex.quote(val)
-        return f"{prefix}{var}={safe_val}"
+        return f"{var}={safe_val}"
 
     def ref_env(var: str) -> str:
         return f'"%{var}%"' if _IS_WINDOWS else f'"${var}"'
@@ -260,13 +259,6 @@ def create_process_files(
         ]
     )
     shell_content.extend(script_check)
-
-    if prefs.set_ocio and prefs.ocio_path:
-        ocio_path = Path(bpy.path.abspath(prefs.ocio_path))
-        if ocio_path.exists() and ocio_path.suffix.lower() == ".ocio":
-            shell_content.append(set_env("OCIO", str(ocio_path), export=True))
-        else:
-            log.warning('Invalid OCIO path: "%s"', prefs.ocio_path)
 
     def add_script_vars(order: str):
         idx = 1

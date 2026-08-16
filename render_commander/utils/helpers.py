@@ -12,7 +12,12 @@ from typing import Any, Union
 import bpy
 
 from .. import __package__ as base_package
-from .constants import RESERVED_TOKENS
+from .constants import (
+    PANEL_LOCATION_OUTPUT,
+    PANEL_LOCATION_RENDER,
+    PANEL_LOCATION_VIEWPORT,
+    RESERVED_TOKENS,
+)
 
 log = logging.getLogger(__name__)
 
@@ -77,25 +82,45 @@ def replace_variables(prefs, path_template: str) -> str:
         raise
 
 
-def redraw_ui(mode: str = "VIEW_3D") -> None:
+#: Area types hosting the addon panels for each supported panel location.
+_PANEL_LOCATION_REDRAW_MODES = {
+    PANEL_LOCATION_VIEWPORT: ("VIEW_3D",),
+    PANEL_LOCATION_RENDER: ("PROPERTIES",),
+    PANEL_LOCATION_OUTPUT: ("PROPERTIES",),
+}
+
+
+def _get_panel_redraw_modes() -> tuple:
+    """Return the area types that host the addon panels for the current panel location."""
+    prefs = get_addon_preferences()
+    if prefs is None:
+        return ("VIEW_3D", "PROPERTIES")
+    return _PANEL_LOCATION_REDRAW_MODES.get(prefs.panel_location, ("VIEW_3D", "PROPERTIES"))
+
+
+def redraw_ui(mode: str | None = None) -> None:
     """
     Redraw Blender UI areas.
 
     Args:
         mode:
-            "VIEW_3D" -> redraw only 3D viewports
-            "ALL"     -> redraw every UI area
-            any other Blender area type (e.g. "IMAGE_EDITOR")
+            None     -> redraw the areas that host the addon panels, derived from
+                        the current ``panel_location`` preference
+            "ALL"    -> redraw every UI area
+            any other Blender area type (e.g. "IMAGE_EDITOR") -> redraw only that area type
     """
+    if mode is None:
+        modes = _get_panel_redraw_modes()
+    elif mode == "ALL":
+        modes = ("ALL",)
+    else:
+        modes = (mode,)
 
     for window in bpy.context.window_manager.windows:
         screen = window.screen
 
         for area in screen.areas:
-            if mode == "ALL":
-                area.tag_redraw()
-
-            elif area.type == mode:
+            if "ALL" in modes or area.type in modes:
                 area.tag_redraw()
 
 

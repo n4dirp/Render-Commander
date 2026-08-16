@@ -42,26 +42,27 @@ class RECOM_PT_scene_file_panel(RCSubPanel, Panel):
         prefs = get_addon_preferences(context)
         layout.emboss = "PULLDOWN_MENU"
         layout.active = bool(prefs.recent_blend_files)
-        layout.menu("RECOM_MT_recent_blend_files", text="", icon="RECOVER_LAST")
+        layout.menu("RECOM_MT_recent_blend_files", text="", icon="COLLAPSEMENU")
         layout.separator(factor=0.25)
 
     def draw(self, context):
         layout = self.layout
-        layout.use_property_split = True
+        # layout.use_property_split = True
         layout.use_property_decorate = False
 
-        prefs = get_addon_preferences(context)
         settings = get_addon_settings(context)
+
         layout.active = settings.use_external_blend
 
         col = layout.column()
         row = col.row(align=True)
+
         sub = row.row(align=True)
-        sub.prop(settings, "external_blend_file_path", text="", placeholder="Blend Path")
+        sub.prop(settings, "external_blend_file_path", text="", placeholder="Blend Path", icon="FILE_BLEND")
         sub.operator("recom.select_external_blend_file", text="", icon="FILE_FOLDER")
 
         # Extract Scene Operator
-        sub = col.row(align=True)
+        sub = layout.row(align=True)
         sub.enabled = bool(settings.external_blend_file_path)
 
         button_text = "Read Scene"
@@ -87,26 +88,40 @@ class RECOM_PT_scene_file_panel(RCSubPanel, Panel):
         else:
             sub.menu("RECOM_MT_external_blend_options", text="", icon="DOWNARROW_HLT")
 
-        if not settings.external_blend_file_path and get_scene_info(settings):
-            return
-
-        info = get_scene_info(settings) if settings.external_blend_file_path else {}
-
-        # Check for error in scene info extraction first
+        info = get_scene_info(settings)
         if isinstance(info, dict) and "error" in info:
             layout.label(text=f"Error: {info['error']}", icon="ERROR")
+        elif settings.external_blend_file_path and settings.is_scene_info_loaded and not info:
+            layout.label(text="Failed to load valid scene information", icon="ERROR")
+
+
+class RECOM_PT_scene_info_panel(RCSubPanel, Panel):
+    bl_label = "Details"
+    bl_parent_id = "RECOM_PT_scene_file_panel"
+
+    @classmethod
+    def poll(cls, context):
+        settings = get_addon_settings(context)
+        info = get_scene_info(settings)
+        return (
+            bool(info) and not (isinstance(info, dict) and "error" in info) and bool(settings.external_blend_file_path)
+        )
+
+    def draw(self, context):
+        layout = self.layout
+        prefs = get_addon_preferences(context)
+        settings = get_addon_settings(context)
+
+        layout.active = settings.use_external_blend
+
+        info = get_scene_info(settings)
+        if not info:
             return
 
-        # Display Scene Info
-        if info:
-            col = layout.column()
-            if not prefs.show_scene_info_list:
-                self._draw_scene_info(col, info)
-            else:
-                self._draw_scene_info_ui_list(context, col, info)
-
-        elif settings.external_blend_file_path and settings.is_scene_info_loaded:
-            layout.label(text="Failed to load valid scene information", icon="ERROR")
+        if not prefs.show_scene_info_list:
+            self._draw_scene_info(layout, info)
+        else:
+            self._draw_scene_info_ui_list(context, layout, info)
 
     def _draw_scene_info_row(self, layout, key="", value="", icon="NONE"):
         """Draw a two-column key-value row."""
@@ -245,7 +260,7 @@ class RECOM_PT_scene_file_panel(RCSubPanel, Panel):
             "recom_external_scene_info_items",
             wm,
             "recom_external_scene_info_active",
-            rows=4,
+            rows=12,
             item_dyntip_propname="tooltip_display",
         )
 
@@ -334,6 +349,7 @@ class RECOM_UL_external_blend_info_list(UIList):
 
 classes = (
     RECOM_PT_scene_file_panel,
+    RECOM_PT_scene_info_panel,
     RECOM_UL_external_blend_info_list,
 )
 

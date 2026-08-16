@@ -288,9 +288,6 @@ class RECOM_OT_render_preferences_preset(AddPresetBase, Operator):
         # Command Line Args
         "prefs.add_command_line_args",
         "prefs.custom_command_line_args",
-        # OCIO
-        "prefs.set_ocio",
-        "prefs.ocio_path",
         # Scripts
         "prefs.append_python_scripts",
         "prefs.additional_scripts",

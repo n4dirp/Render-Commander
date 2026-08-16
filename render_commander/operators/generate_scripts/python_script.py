@@ -99,6 +99,9 @@ def _add_render_time_tracking(prefs, script_lines: list[str]) -> None:
 
 def _apply_motion_blur_settings(override_settings, script_lines: list[str]) -> None:
     """Apply motion blur override settings."""
+    if not override_settings.enabled:
+        return
+
     if not override_settings.motion_blur_override:
         return
 
@@ -134,13 +137,16 @@ def _apply_frame_settings(
 
     if prefs.launch_mode != MODE_LIST:
         script_lines.append("# Frame Settings")
-        if override_settings.frame_range_override:
+        if override_settings.enabled and override_settings.frame_range_override:
             script_lines.append('log.info(f"Applying Frame Range override")')
         script_lines.extend(lines)
 
 
 def _apply_fps_converter_settings(override_settings, script_lines: list[str]) -> None:
     """Apply FPS converter / Time Remapping override settings."""
+    if not override_settings.enabled:
+        return
+
     if not override_settings.use_fps_converter:
         return
 
@@ -185,6 +191,9 @@ def _apply_fps_converter_settings(override_settings, script_lines: list[str]) ->
 
 def _apply_camera_settings(override_settings, script_lines: list[str]) -> None:
     """Apply camera overrides."""
+    if not override_settings.enabled:
+        return
+
     if not override_settings.cameras_override:
         return
 
@@ -220,6 +229,9 @@ def _apply_camera_settings(override_settings, script_lines: list[str]) -> None:
 
 def _apply_resolution_settings(context, override_settings, script_lines: list[str]) -> None:
     """Apply overrides: resolution, scale, camera shift, and overscan settings."""
+    if not override_settings.enabled:
+        return
+
     if not override_settings.format_override:
         return
 
@@ -281,6 +293,9 @@ def _apply_resolution_settings(context, override_settings, script_lines: list[st
 
 
 def _apply_overscan_settings(context, override_settings, script_lines: list[str]) -> None:
+    if not override_settings.enabled:
+        return
+
     if not override_settings.use_overscan:
         return
 
@@ -370,6 +385,9 @@ def _apply_overscan_settings(context, override_settings, script_lines: list[str]
 def _apply_output_format_settings(override_settings, script_lines: list[str]) -> None:
     """Apply file format override settings."""
     try:
+        if not override_settings.enabled:
+            return
+
         if not override_settings.file_format_override:
             return
 
@@ -420,6 +438,9 @@ def _apply_output_format_settings(override_settings, script_lines: list[str]) ->
 
 def _apply_compositing_settings(override_settings, script_lines: list[str]) -> None:
     """Apply compositing override settings."""
+    if not override_settings.enabled:
+        return
+
     if not override_settings.compositor_override:
         return
 
@@ -457,10 +478,15 @@ def _apply_cycles_settings(context, prefs, override_settings, selected_ids, scri
         if not (
             prefs.manage_cycles_devices
             or prefs.device_parallel
-            or override_settings.cycles.device_override
-            or override_settings.cycles.sampling_override
-            or override_settings.cycles.denoising_override
-            or override_settings.cycles.performance_override
+            or (
+                override_settings.enabled
+                and (
+                    override_settings.cycles.device_override
+                    or override_settings.cycles.sampling_override
+                    or override_settings.cycles.denoising_override
+                    or override_settings.cycles.performance_override
+                )
+            )
         ):
             return
 
@@ -469,7 +495,7 @@ def _apply_cycles_settings(context, prefs, override_settings, selected_ids, scri
         lines = []
         lines.append(f"if bpy.context.scene.render.engine == '{RE_CYCLES}':")
 
-        if override_settings.cycles.device_override:
+        if override_settings.enabled and override_settings.cycles.device_override:
             lines.append(f"    bpy.context.scene.cycles.device = '{override_settings.cycles.device}'")
             lines.append("")
 
@@ -486,6 +512,9 @@ def _apply_cycles_settings(context, prefs, override_settings, selected_ids, scri
 
 def _apply_cycles_sampling_settings(override_settings, lines: list[str]) -> None:
     """Apply Cycles sampling settings."""
+    if not override_settings.enabled:
+        return
+
     if not override_settings.cycles.sampling_override:
         return
 
@@ -523,6 +552,9 @@ def _apply_cycles_sampling_settings(override_settings, lines: list[str]) -> None
 
 def _apply_cycles_denoising_settings(override_settings, lines: list[str]) -> None:
     """Apply Cycles denoising settings."""
+    if not override_settings.enabled:
+        return
+
     if not override_settings.cycles.denoising_override:
         return
 
@@ -552,6 +584,9 @@ def _apply_cycles_denoising_settings(override_settings, lines: list[str]) -> Non
 
 def _apply_cycles_performance_settings(override_settings, lines: list[str]) -> None:
     """Apply Cycles performance settings."""
+    if not override_settings.enabled:
+        return
+
     if not override_settings.cycles.performance_override:
         return
 
@@ -612,6 +647,9 @@ def _apply_cycles_device_settings(context, prefs, selected_ids, lines: list[str]
 
 def _apply_eevee_settings(override_settings, script_lines: list[str]) -> None:
     """Add EEVEE override settings."""
+    if not override_settings.enabled:
+        return
+
     if not override_settings.eevee_override:
         return
 
@@ -631,6 +669,9 @@ def _apply_eevee_settings(override_settings, script_lines: list[str]) -> None:
 def _apply_data_path_overrides(override_settings, script_lines: list[str]) -> None:
     """Add data paths overrides."""
     try:
+        if not override_settings.enabled:
+            return
+
         if not override_settings.use_data_path_overrides:
             return
 

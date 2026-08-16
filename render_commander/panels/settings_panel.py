@@ -84,7 +84,7 @@ class RECOM_PT_additional_script_presets(PresetPanel, Panel):
 class RECOM_PT_render_preferences(RCSubPanel, Panel):
     """Main panel for render preferences"""
 
-    bl_label = "Settings"
+    bl_label = "Render Settings"
 
     @classmethod
     def poll(cls, context):
@@ -115,7 +115,7 @@ class RECOM_PT_render_preferences(RCSubPanel, Panel):
 
 
 class RECOM_PT_output_filename(Panel):
-    bl_label = "Output File"
+    bl_label = "File Output"
     bl_parent_id = "RECOM_PT_render_preferences"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
@@ -130,7 +130,7 @@ class RECOM_PT_output_filename(Panel):
         prefs = get_addon_preferences(context)
 
         col = layout.column()
-        col.prop(prefs, "default_render_filename", text="Filename")
+        col.prop(prefs, "default_render_filename", text="Default Name")
         col.prop(prefs, "frame_length_digits", text="Frame Padding")
         col.prop(prefs, "filename_separator", text="Separator")
 
@@ -138,6 +138,44 @@ class RECOM_PT_output_filename(Panel):
         if prefs.launch_mode != MODE_SINGLE:
             row.active = False
         row.prop(prefs, "write_still", text="Write Still")
+
+
+class RECOM_PT_export_options(RCBasePanel, Panel):
+    bl_label = "Scripts Output"
+    bl_parent_id = "RECOM_PT_render_preferences"
+    bl_options = {"DEFAULT_CLOSED"}
+
+    def draw(self, context):
+        layout = self.layout
+        layout.use_property_split = True
+        layout.use_property_decorate = False
+
+        prefs = get_addon_preferences(context)
+
+        col = layout.column()
+        col.prop(prefs, "export_output_target", text="Target")
+        if prefs.export_output_target == "CUSTOM_PATH":
+            layout.prop(prefs, "custom_export_path", text="")
+
+        row = layout.row(heading="Subfolder")
+        row.prop(prefs, "export_scripts_subfolder", text="")
+        sub = row.row()
+        sub.active = prefs.export_scripts_subfolder
+        sub.prop(prefs, "export_scripts_folder_name", text="")
+
+        col = layout.column(align=True, heading="File Name")
+        col.prop(prefs, "use_export_date_in_script", text="Export Date")
+        col.prop(prefs, "use_blend_name_in_script", text="Blend Name")
+        col.prop(prefs, "use_render_type_in_script", text="Render Mode")
+        col.prop(prefs, "use_frame_range_in_script", text="Frame Range")
+
+        tag_row = col.row(align=True)
+        tag_row.prop(prefs, "custom_script_tag", text="")
+        tag_input = tag_row.row(align=True)
+        tag_input.enabled = prefs.custom_script_tag
+        tag_input.prop(prefs, "custom_script_text", text="", placeholder="Custom Tag")
+
+        layout.prop(prefs, "auto_open_exported_folder", text="Open Folder")
 
 
 class RECOM_PT_device_settings(RCBasePanel, Panel):
@@ -184,7 +222,7 @@ class RECOM_PT_device_settings(RCBasePanel, Panel):
 
 
 class RECOM_PT_device_parallel(RCBasePanel, Panel):
-    bl_label = "Parallel Devices"
+    bl_label = "Device Parallel Rendering"
     bl_parent_id = "RECOM_PT_render_preferences"
     bl_options = {"DEFAULT_CLOSED"}
 
@@ -326,7 +364,7 @@ class RECOM_PT_command_line_arguments(RCBasePanel, Panel):
 
 
 class RECOM_PT_additional_scripts(RCBasePanel, Panel):
-    bl_label = "Python Scripts"
+    bl_label = "Append Scripts"
     bl_parent_id = "RECOM_PT_render_preferences"
     bl_options = {"DEFAULT_CLOSED"}
 
@@ -394,7 +432,7 @@ class RECOM_UL_script_list(UIList):
         if not is_python_file:
             layout.alert = True
 
-        layout.prop(item, "script_path", text="", emboss=False)
+        layout.prop(item, "script_path", text="", emboss=False, icon="FILE_SCRIPT")
 
     def filter_items(self, context, data, propname):
         items = getattr(data, propname)
@@ -446,30 +484,9 @@ class RECOM_PT_log_to_file(RCBasePanel, Panel):
         sub_folder_row.prop(prefs, "logs_folder_name", text="")
 
 
-class RECOM_PT_ocio(RCBasePanel, Panel):
-    bl_label = "OCIO"
-    bl_parent_id = "RECOM_PT_render_preferences"
-    bl_options = {"DEFAULT_CLOSED"}
-
-    def draw_header(self, context):
-        prefs = get_addon_preferences(context)
-        self.layout.prop(prefs, "set_ocio", text="")
-
-    def draw(self, context):
-        layout = self.layout
-        layout.use_property_split = True
-        layout.use_property_decorate = False
-
-        prefs = get_addon_preferences(context)
-
-        layout.active = prefs.set_ocio
-        layout.prop(prefs, "ocio_path", text="", placeholder="OCIO File")
-
-
 classes = (
     RECOM_PT_render_preferences_presets,
     RECOM_PT_render_preferences,
-    RECOM_PT_output_filename,
     RECOM_PT_render_instances,
     RECOM_PT_device_settings,
     RECOM_PT_device_parallel,
@@ -479,7 +496,8 @@ classes = (
     RECOM_PT_additional_scripts,
     RECOM_UL_script_list,
     RECOM_PT_log_to_file,
-    RECOM_PT_ocio,
+    RECOM_PT_output_filename,
+    RECOM_PT_export_options,
 )
 
 

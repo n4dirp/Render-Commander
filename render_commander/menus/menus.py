@@ -13,7 +13,7 @@ log = logging.getLogger(__name__)
 
 
 class RECOM_MT_recent_blend_files(Menu):
-    bl_label = "Recent Files Menu"
+    bl_label = "Load Recent"
 
     def draw(self, context):
         layout = self.layout
@@ -27,7 +27,7 @@ class RECOM_MT_recent_blend_files(Menu):
             return
 
         row = layout.row()
-        row.label(text="Recent Files")
+        row.label(text="Load Recent")
         row.active = False
         layout.separator()
 
@@ -74,7 +74,7 @@ class RECOM_MT_external_blend_options(Menu):
         layout.separator()
         layout.operator("recom.clear_and_reload_scene_info", text="Clear Data Cache", icon="TRASH")
         layout.separator()
-        layout.prop(prefs, "show_scene_info_list")
+        layout.prop(prefs, "show_scene_info_list", text="Show Additional Info")
 
 
 class RECOM_MT_script_options(Menu):

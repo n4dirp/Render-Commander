@@ -52,11 +52,11 @@ class RECOM_PG_RenderSettings(PropertyGroup):
             if not is_blend_or_backup_file(ext_blend_file):
                 log.warning("External Blend File - Invalid or non-Blender file: %s", ext_blend_file)
 
-    # External Scene
+    # Blend File Source
     use_external_blend: BoolProperty(
         name="Use External Blend File",
+        description="Render a separate blend file instead of the active one",
         default=False,
-        description="Render an external blend file",
         update=lambda self, context: redraw_ui(),
     )
     external_blend_file_path: StringProperty(

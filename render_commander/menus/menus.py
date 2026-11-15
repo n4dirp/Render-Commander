@@ -165,6 +165,7 @@ class RECOM_MT_cycles_render_devices(Menu):
         prefs = get_addon_preferences(context)
         layout.operator("recom.reinitialize_devices", icon="FILE_REFRESH")
         layout.separator()
+        layout.operator("recom.open_cycles_preferences", text="Cycles Preferences", icon="PREFERENCES")
         layout.prop(prefs, "show_device_id")
 
 

@@ -29,6 +29,19 @@ class RECOM_OT_ReinitializeDevices(Operator):
         return {"FINISHED"}
 
 
+class RECOM_OT_OpenCyclesPreferences(Operator):
+    bl_idname = "recom.open_cycles_preferences"
+    bl_label = "Open Cycles Preferences"
+    bl_description = "Open the Cycles preferences in the Blender preferences window"
+    bl_options = {"REGISTER", "INTERNAL"}
+
+    def execute(self, context):
+        bpy.ops.screen.userpref_show()
+        context.preferences.active_section = "ADDONS"
+        context.window_manager.addon_search = "Cycles"
+        return {"FINISHED"}
+
+
 class RECOM_OT_RemoveAdditionalScript(Operator):
     bl_idname = "recom.remove_additional_script"
     bl_label = "Remove"
@@ -229,6 +242,7 @@ class RECOM_OT_ChangeScriptOrder(Operator):
 
 classes = (
     RECOM_OT_ReinitializeDevices,
+    RECOM_OT_OpenCyclesPreferences,
     RECOM_OT_RemoveAdditionalScript,
     RECOM_OT_AddAdditionalScript,
     RECOM_OT_ScriptAddItem,

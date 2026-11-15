@@ -85,6 +85,7 @@ class RECOM_PT_render_preferences(RCSubPanel, Panel):
     """Main panel for render preferences"""
 
     bl_label = "Render Settings"
+    bl_options = {"DEFAULT_CLOSED"}
 
     @classmethod
     def poll(cls, context):
@@ -179,7 +180,7 @@ class RECOM_PT_export_options(RCBasePanel, Panel):
 
 
 class RECOM_PT_device_settings(RCBasePanel, Panel):
-    bl_label = "Manage Devices"
+    bl_label = "Manage Cycles Devices"
     bl_parent_id = "RECOM_PT_render_preferences"
     bl_options = {"DEFAULT_CLOSED"}
 
@@ -202,7 +203,8 @@ class RECOM_PT_device_settings(RCBasePanel, Panel):
     def draw(self, context):
         layout = self.layout
         prefs = get_addon_preferences(context)
-        layout.active = get_render_engine(context) == RE_CYCLES and prefs.manage_cycles_devices
+        active = get_render_engine(context) == RE_CYCLES and prefs.manage_cycles_devices
+        layout.active = active
 
         col = layout.column()
 
@@ -219,6 +221,9 @@ class RECOM_PT_device_settings(RCBasePanel, Panel):
 
         col = col.box().column(align=True)
         draw_devices(col, prefs)
+
+        if active:
+            layout.label(text="Only applies to the exported render scripts", icon="INFO")
 
 
 class RECOM_PT_device_parallel(RCBasePanel, Panel):
@@ -248,7 +253,7 @@ class RECOM_PT_device_parallel(RCBasePanel, Panel):
             get_render_engine(context) == RE_CYCLES and prefs.launch_mode != MODE_SINGLE and prefs.device_parallel
         )
 
-        layout.prop(prefs, "multiple_backends", text="Multi-Type")
+        layout.prop(prefs, "multiple_backends", text="Multi-Backend")
 
         parallel_col = layout.column()
 
@@ -261,7 +266,7 @@ class RECOM_PT_device_parallel(RCBasePanel, Panel):
 
         row = parallel_col.row()
         row.active = prefs.launch_mode != MODE_LIST
-        row.prop(prefs, "frame_allocation", text="Distribution", expand=True)
+        row.prop(prefs, "frame_allocation", text="Frame Distribution", expand=True)
 
         parallel_col.prop(prefs, "parallel_delay", text="Start Delay")
 
@@ -286,7 +291,7 @@ class RECOM_PT_device_parallel(RCBasePanel, Panel):
 
 
 class RECOM_PT_render_instances(RCBasePanel, Panel):
-    bl_label = "Parallel Instances"
+    bl_label = "Parallel Rendering"
     bl_parent_id = "RECOM_PT_render_preferences"
     bl_options = {"DEFAULT_CLOSED"}
 
@@ -316,7 +321,7 @@ class RECOM_PT_render_instances(RCBasePanel, Panel):
 
         row = col.row()
         row.active = prefs.launch_mode != MODE_LIST
-        row.prop(prefs, "frame_allocation", text="Distribution", expand=True)
+        row.prop(prefs, "frame_allocation", text="Frame Distribution", expand=True)
         col.prop(prefs, "parallel_delay", text="Start Delay")
 
 

@@ -42,7 +42,7 @@ class RECOM_PT_scene_file_panel(RCSubPanel, Panel):
         prefs = get_addon_preferences(context)
         layout.emboss = "PULLDOWN_MENU"
         layout.active = bool(prefs.recent_blend_files)
-        layout.menu("RECOM_MT_recent_blend_files", text="", icon="COLLAPSEMENU")
+        layout.menu("RECOM_MT_recent_blend_files", text="", icon="RECOVER_LAST")
         layout.separator(factor=0.25)
 
     def draw(self, context):
@@ -60,6 +60,7 @@ class RECOM_PT_scene_file_panel(RCSubPanel, Panel):
         sub = row.row(align=True)
         sub.prop(settings, "external_blend_file_path", text="", placeholder="Blend Path", icon="FILE_BLEND")
         sub.operator("recom.select_external_blend_file", text="", icon="FILE_FOLDER")
+        sub.menu("RECOM_MT_external_blend_options", text="", icon="COLLAPSEMENU")
 
         # Extract Scene Operator
         sub = layout.row(align=True)
@@ -85,8 +86,6 @@ class RECOM_PT_scene_file_panel(RCSubPanel, Panel):
         # Cancel
         if _extraction_state["is_running"]:
             sub.operator("recom.cancel_extraction", text="", icon="CANCEL")
-        else:
-            sub.menu("RECOM_MT_external_blend_options", text="", icon="DOWNARROW_HLT")
 
         info = get_scene_info(settings)
         if isinstance(info, dict) and "error" in info:
@@ -96,7 +95,7 @@ class RECOM_PT_scene_file_panel(RCSubPanel, Panel):
 
 
 class RECOM_PT_scene_info_panel(RCSubPanel, Panel):
-    bl_label = "Details"
+    bl_label = "Blend Details"
     bl_parent_id = "RECOM_PT_scene_file_panel"
 
     @classmethod

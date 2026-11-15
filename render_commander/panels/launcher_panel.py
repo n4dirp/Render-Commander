@@ -37,6 +37,11 @@ class RECOM_PT_main_panel(RCBasePanel, Panel):
         if prefs.export_output_target == "SELECT_DIR":
             text += "..."
         sub.operator("recom.export_render_script", text=text, icon="EXPORT")
+        sub.prop(prefs, "show_export_summary", text="", toggle=False, icon="HIDE_OFF")
+
+        # Render Summary
+        if prefs.show_export_summary:
+            self._draw_summary(layout, context)
 
         col = layout.column()
         col.prop(prefs, "launch_mode", text="Render Mode", expand=True)
@@ -48,15 +53,12 @@ class RECOM_PT_main_panel(RCBasePanel, Panel):
             row.use_property_decorate = False
             row.prop(settings, "frame_list", text="Frames")
 
-        # Render Summary
-        layout.prop(prefs, "show_export_summary", text="Render Summary", toggle=False)
-        if prefs.show_export_summary:
-            self._draw_summary(layout, context)
-
     def _draw_summary(self, layout, context):
         warnings = build_render_summary_warnings(context)
 
-        box = layout.box().column()
+        box = layout.box().column(align=True)
+        box.label(text="Render Details")
+        box.separator(type="LINE")
         rows = build_render_summary(context)
         for label, value in rows:
             split = box.split(factor=0.4)
@@ -69,6 +71,8 @@ class RECOM_PT_main_panel(RCBasePanel, Panel):
                 row = box.row()
                 row.alert = True
                 row.label(text=text)
+
+        layout.separator(factor=0.5)
 
 
 classes = (RECOM_PT_main_panel,)

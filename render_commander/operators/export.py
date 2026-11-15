@@ -238,7 +238,7 @@ class RECOM_OT_ExportRenderScript(Operator):
         sub_folder_row.prop(prefs, "export_scripts_folder_name", text="")
 
         col = layout.column(heading="", align=True)
-        col.prop(prefs, "auto_open_exported_folder", text="Open Folder")
+        col.prop(prefs, "auto_open_exported_folder", text="Open Scripts Folder")
 
         col = layout.column(heading="File Name", align=True)
         col.prop(prefs, "use_export_date_in_script", text="Export Date")
@@ -517,9 +517,7 @@ class RECOM_OT_ExportRenderScript(Operator):
             cycles_device = settings.override_settings.cycles.device
         else:
             cycles_device = (
-                str(ext_info.get("device", "CPU"))
-                if settings.use_external_blend
-                else str(scene.cycles.device)
+                str(ext_info.get("device", "CPU")) if settings.use_external_blend else str(scene.cycles.device)
             )
 
         # Determine Workload Strategy
@@ -771,11 +769,7 @@ class RECOM_OT_ExportRenderScript(Operator):
                 dir_path = settings.override_settings.output_directory or "/tmp/"
                 file_name = settings.override_settings.output_filename
             else:
-                base_path = (
-                    ext_info.get("filepath", "//")
-                    if settings.use_external_blend
-                    else scene.render.filepath
-                )
+                base_path = ext_info.get("filepath", "//") if settings.use_external_blend else scene.render.filepath
                 last_slash = max(base_path.rfind("/"), base_path.rfind("\\"))
                 if last_slash == -1:
                     dir_path, file_name = "", base_path

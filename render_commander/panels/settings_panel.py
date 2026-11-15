@@ -175,7 +175,7 @@ class RECOM_PT_export_options(RCBasePanel, Panel):
         tag_input.enabled = prefs.custom_script_tag
         tag_input.prop(prefs, "custom_script_text", text="", placeholder="Custom Tag")
 
-        layout.prop(prefs, "auto_open_exported_folder", text="Open Folder")
+        layout.prop(prefs, "auto_open_exported_folder", text="Open Scripts Folder")
 
 
 class RECOM_PT_device_settings(RCBasePanel, Panel):

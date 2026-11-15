@@ -94,6 +94,11 @@ def iterate_all_overrides():
             yield oid, data[0], data[1], data[2]
 
 
+def count_active_overrides(settings):
+    """Returns the number of overrides that are currently active."""
+    return sum(1 for _, _, prop_path, _ in iterate_all_overrides() if is_override_active(settings, prop_path))
+
+
 class RECOM_OT_manage_override(Operator):
     """Add or Remove a scene override"""
 
@@ -317,7 +322,7 @@ class RECOM_PT_override_advanced_property_presets(PresetPanel, Panel):
 class RECOM_PT_scene_override_settings(RCSubPanel, Panel):
     """Main scene overrides panel"""
 
-    bl_label = "Overrides"
+    bl_label = ""
     bl_options = {"DEFAULT_CLOSED"}
 
     @classmethod
@@ -326,8 +331,12 @@ class RECOM_PT_scene_override_settings(RCSubPanel, Panel):
         return prefs.visible_panels.override_settings
 
     def draw_header(self, context):
+        layout = self.layout
         override_settings = get_override_settings(context)
-        self.layout.prop(override_settings, "enabled", text="")
+        override_count = count_active_overrides(override_settings)
+        text = f"Overrides ({override_count})" if override_count > 0 else "Overrides"
+
+        layout.prop(override_settings, "enabled", text=text)
 
     def draw_header_preset(self, context):
         layout = self.layout
@@ -344,9 +353,7 @@ class RECOM_PT_scene_override_settings(RCSubPanel, Panel):
         row.menu("RECOM_MT_add_override_menu", text="Add Override", icon="ADD")
         row.popover(panel="RECOM_PT_import_overrides_popup", text="", icon="IMPORT")
 
-        has_active_overrides = any(
-            is_override_active(override_settings, prop_path) for _, _, prop_path, _ in iterate_all_overrides()
-        )
+        has_active_overrides = count_active_overrides(override_settings) > 0
         if has_active_overrides:
             row.operator("recom.remove_all_overrides", text="", icon="TRASH")
 

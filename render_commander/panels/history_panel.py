@@ -52,7 +52,7 @@ class RECOM_PT_render_history_panel(RCSubPanel, Panel):
 
 
 class RECOM_PT_render_details_panel(RCBasePanel, Panel):
-    bl_label = "Details"
+    bl_label = "Render Details"
     bl_parent_id = "RECOM_PT_render_history_panel"
     bl_options = {"DEFAULT_CLOSED"}
 
@@ -89,7 +89,7 @@ class RECOM_PT_render_details_panel(RCBasePanel, Panel):
 class RECOM_UL_render_history(UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
         row = layout.row(align=True)
-        row.label(text=item.blend_file_name)
+        row.label(text=item.blend_file_name, icon="FILE_BLEND")
         sub = row.row(align=True)
         sub.active = False
         sub.alignment = "RIGHT"

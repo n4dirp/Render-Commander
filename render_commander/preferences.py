@@ -524,8 +524,8 @@ class RECOM_Preferences(AddonPreferences):
         name="Export Folder Target",
         description="Where the exported files will be saved",
         items=[
-            ("SELECT_DIR", "Select", "Folder chosen in the export dialog"),
-            ("BLEND_DIR", "Blend Path", "Folder next to the .blend file"),
+            ("SELECT_DIR", "Select on Export", "Folder chosen in the export dialog"),
+            ("BLEND_DIR", "Blend Directory", "Folder next to the .blend file"),
             ("CUSTOM_PATH", "Custom", "User‑defined folder"),
         ],
         default="SELECT_DIR",
@@ -575,11 +575,11 @@ class RECOM_Preferences(AddonPreferences):
         items=[
             (
                 "EXECUTION_FILES",
-                "Scripts Path",
+                "Render Scripts Directory",
                 "Save logs files in render scripts directory",
             ),
-            ("BLEND_PATH", "Blend File Path", "Save logs files next to blend file"),
-            ("CUSTOM_PATH", "Custom Path", "Specify custom log folder location"),
+            ("BLEND_PATH", "Blend Directory", "Save logs files next to blend file"),
+            ("CUSTOM_PATH", "Custom", "Specify custom log folder location"),
         ],
         default="EXECUTION_FILES",
     )

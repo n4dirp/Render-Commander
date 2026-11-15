@@ -283,6 +283,27 @@ class RECOM_PG_EEVEERenderOverrides(PropertyGroup):
     )
 
 
+class RECOM_PG_OverrideBoxState(PropertyGroup):
+    """Expand state for the collapsible override boxes (UI only)"""
+
+    cycles_device: BoolProperty(default=True, update=lambda self, context: redraw_ui())
+    cycles_sampling: BoolProperty(default=True, update=lambda self, context: redraw_ui())
+    cycles_denoising: BoolProperty(default=True, update=lambda self, context: redraw_ui())
+    cycles_performance: BoolProperty(default=True, update=lambda self, context: redraw_ui())
+    eevee_all: BoolProperty(default=True, update=lambda self, context: redraw_ui())
+    motion_blur: BoolProperty(default=True, update=lambda self, context: redraw_ui())
+    frame_range: BoolProperty(default=True, update=lambda self, context: redraw_ui())
+    fps_converter: BoolProperty(default=True, update=lambda self, context: redraw_ui())
+    resolution: BoolProperty(default=True, update=lambda self, context: redraw_ui())
+    overscan: BoolProperty(default=True, update=lambda self, context: redraw_ui())
+    output_path: BoolProperty(default=True, update=lambda self, context: redraw_ui())
+    file_format: BoolProperty(default=True, update=lambda self, context: redraw_ui())
+    camera_settings: BoolProperty(default=True, update=lambda self, context: redraw_ui())
+    compositor: BoolProperty(default=True, update=lambda self, context: redraw_ui())
+    custom_api: BoolProperty(default=True, update=lambda self, context: redraw_ui())
+    custom_api_details: BoolProperty(default=False, update=lambda self, context: redraw_ui())
+
+
 class RECOM_PG_OverrideSettings(PropertyGroup):
     """Stores override settings"""
 
@@ -293,6 +314,9 @@ class RECOM_PG_OverrideSettings(PropertyGroup):
         default=False,
         update=lambda self, context: redraw_ui(),
     )
+
+    # Override Box UI State
+    box_state: PointerProperty(type=RECOM_PG_OverrideBoxState)
 
     # Data Path Overrides
     property_path_input: StringProperty(
@@ -782,6 +806,7 @@ classes = (
     RECOM_PG_CyclesRenderOverrides,
     RECOM_PG_EEVEERenderOverrides,
     RECOM_PG_DataPathOverride,
+    RECOM_PG_OverrideBoxState,
     RECOM_PG_OverrideSettings,
 )
 

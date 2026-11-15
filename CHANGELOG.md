@@ -9,6 +9,7 @@
 
 ### Changed
 - Minimum Blender version bumped to **5.2 LTS**
+- Override settings are now shown as individual collapsible boxes inside the **Overrides** panel
 - Export options moved to a new **Scripts Output** sub-panel under **Rendder Settings** (the old visibility popup was removed)
 - **Visible Panels** toggles moved to the addon preferences
 - Removed the **OCIO** custom config env-var option (panel, preferences, presets)

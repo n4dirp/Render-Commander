@@ -70,7 +70,7 @@ class RECOM_PT_scene_file_panel(RCSubPanel, Panel):
         icon = "ZOOM_ALL"
         info = get_scene_info(settings) if settings.external_blend_file_path else {}
         if info and settings.external_blend_file_path == info.get("blend_filepath", ""):
-            button_text = "Refresh"
+            button_text = "Reload Data"
             icon = "FILE_REFRESH"
 
         sub_extract = sub.row(align=True)

@@ -155,7 +155,7 @@ class RECOM_PT_export_options(RCBasePanel, Panel):
         col = layout.column()
         col.prop(prefs, "export_output_target", text="Target")
         if prefs.export_output_target == "CUSTOM_PATH":
-            layout.prop(prefs, "custom_export_path", text="")
+            col.prop(prefs, "custom_export_path", text="Custom Path")
 
         row = layout.row(heading="Subfolder")
         row.prop(prefs, "export_scripts_subfolder", text="")
@@ -451,7 +451,7 @@ class RECOM_UL_script_list(UIList):
 
 
 class RECOM_PT_log_to_file(RCBasePanel, Panel):
-    bl_label = "File Logging"
+    bl_label = "Render Logging"
     bl_parent_id = "RECOM_PT_render_preferences"
     bl_options = {"DEFAULT_CLOSED"}
 
@@ -475,9 +475,9 @@ class RECOM_PT_log_to_file(RCBasePanel, Panel):
         col.prop(prefs, "log_to_file_location", text="Target")
 
         if prefs.log_to_file_location == "CUSTOM_PATH":
-            col.prop(prefs, "log_custom_path", text="", placeholder="Path")
+            col.prop(prefs, "log_custom_path", text="Custom Path")
 
-        folder_row = col.row(heading="Add Subfolder")
+        folder_row = col.row(heading="Subfolder")
         folder_row.prop(prefs, "save_to_log_folder", text="")
         sub_folder_row = folder_row.row()
         sub_folder_row.active = prefs.save_to_log_folder

@@ -57,7 +57,7 @@ class RECOM_PT_main_panel(RCBasePanel, Panel):
         warnings = build_render_summary_warnings(context)
 
         box = layout.box().column(align=True)
-        box.label(text="Render Details", icon="INFO")
+        box.label(text="Render Summary", icon="INFO")
         box.separator(type="LINE")
         rows = build_render_summary(context)
         for label, value in rows:

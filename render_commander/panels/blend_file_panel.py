@@ -60,7 +60,6 @@ class RECOM_PT_scene_file_panel(RCSubPanel, Panel):
         sub = row.row(align=True)
         sub.prop(settings, "external_blend_file_path", text="", placeholder="Blend Path", icon="FILE_BLEND")
         sub.operator("recom.select_external_blend_file", text="", icon="FILE_FOLDER")
-        sub.menu("RECOM_MT_external_blend_options", text="", icon="COLLAPSEMENU")
 
         # Extract Scene Operator
         sub = layout.row(align=True)
@@ -105,6 +104,12 @@ class RECOM_PT_scene_info_panel(RCSubPanel, Panel):
         return (
             bool(info) and not (isinstance(info, dict) and "error" in info) and bool(settings.external_blend_file_path)
         )
+
+    def draw_header_preset(self, context):
+        layout = self.layout
+        layout.emboss = "PULLDOWN_MENU"
+        row = layout.row(align=True)
+        row.menu("RECOM_MT_external_blend_options", text="", icon="COLLAPSEMENU")
 
     def draw(self, context):
         layout = self.layout

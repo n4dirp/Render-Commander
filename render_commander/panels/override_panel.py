@@ -866,10 +866,12 @@ class RECOM_PT_scene_override_settings(RCSubPanel, Panel):
         if has_active_overrides:
             row.operator("recom.remove_all_overrides", text="", icon="TRASH")
 
+        col = layout.column()
+        col.active = override_settings.enabled
         for override_id, label, prop_path, icon in iterate_all_overrides():
             if not is_override_active(override_settings, prop_path):
                 continue
-            draw_override_box(layout, context, override_id, label, icon)
+            draw_override_box(col, context, override_id, label, icon)
 
 
 class RECOM_PT_import_overrides_popup(Panel):

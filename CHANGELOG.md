@@ -1,6 +1,6 @@
 # Changelog
 
-## [1.3.0] - 2026-08-16
+## [1.3.0] - [Unreleased]
 
 ### Added
 - New **Panel Location** preference to place the addon panels in the **3D Viewport** sidebar, the **Render Properties** tab, or the **Output Properties** tab

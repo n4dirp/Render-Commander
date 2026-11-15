@@ -46,7 +46,7 @@ class RECOM_PT_main_panel(RCBasePanel, Panel):
             row = col.row()
             row.use_property_split = True
             row.use_property_decorate = False
-            row.prop(settings, "frame_list", text="Frame List")
+            row.prop(settings, "frame_list", text="Frames")
 
         # Render Summary
         layout.prop(prefs, "show_export_summary", text="Render Summary", toggle=False)

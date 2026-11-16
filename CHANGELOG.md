@@ -14,6 +14,9 @@
 - **Visible Panels** toggles moved to the addon preferences
 - Removed the **OCIO** custom config env-var option (panel, preferences, presets)
 
+### Fixed
+- Prevent exported render scripts from failing on Blender 5.2 when render output is disabled and no active File Output nodes are available
+
 ---
 
 ## [1.2.6] - 2026-08-01

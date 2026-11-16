@@ -312,6 +312,86 @@ def get_scene_info(settings: Any) -> Union[dict, None]:
         return None
 
 
+def get_render_save_output(render) -> bool:
+    """Return whether regular render output saving is enabled (Blender 5.2+ uses `save_output`)."""
+    if hasattr(render, "save_output"):
+        return bool(render.save_output)
+    return True
+
+
+def set_render_save_output(render, value: bool) -> bool:
+    """Set regular render output saving if supported. Returns True when a known property was set."""
+    if hasattr(render, "save_output"):
+        render.save_output = bool(value)
+        return True
+    return False
+
+
+def get_compositor_node_tree(scene):
+    """Return the active compositor node tree for a scene across Blender versions."""
+    if bpy.app.version >= (5, 0, 0):
+        return getattr(scene, "compositing_node_group", None)
+    return getattr(scene, "node_tree", None) if getattr(scene, "use_nodes", False) else None
+
+
+def has_active_file_output_nodes(scene) -> bool:
+    """Check whether the scene has any active (unmuted) compositor File Output nodes."""
+    if not getattr(scene.render, "use_compositing", False):
+        return False
+
+    node_tree = get_compositor_node_tree(scene)
+    if not node_tree:
+        return False
+
+    try:
+        return any(node.type == "OUTPUT_FILE" and not getattr(node, "mute", False) for node in node_tree.nodes)
+    except Exception:
+        return False
+
+
+def get_render_output_block_reason(context, settings=None, override_settings=None) -> str | None:
+    """Return a user-facing reason when render output would fail, or None if output is available."""
+    settings = settings or get_addon_settings(context)
+    if settings is None:
+        return None
+
+    if settings.use_external_blend:
+        return None
+
+    scene = context.scene
+    render = scene.render
+
+    save_output = get_render_save_output(render)
+    if save_output:
+        return None
+
+    if override_settings is None:
+        override_settings = settings.override_settings
+
+    if (
+        override_settings
+        and override_settings.enabled
+        and override_settings.compositor_override
+        and not override_settings.use_compositor
+    ):
+        return "Render output is disabled and compositing is off."
+
+    bypass_file_outputs = bool(
+        override_settings
+        and override_settings.enabled
+        and override_settings.compositor_override
+        and override_settings.use_compositor
+        and override_settings.compositor_disable_output_files
+    )
+    if bypass_file_outputs:
+        return "Render output is disabled and File Output nodes are bypassed."
+
+    if has_active_file_output_nodes(scene):
+        return None
+
+    return "Render output is disabled and no active File Output nodes are available."
+
+
 def format_timecode(frame_start: int, frame_end: int, fps_real: float, show_hours=False) -> str:
     """Convert a frame range to a formatted timecode string."""
     # Calculate total duration

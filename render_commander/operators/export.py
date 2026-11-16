@@ -42,6 +42,7 @@ from ..utils.helpers import (
     get_addon_settings,
     get_addon_temp_dir,
     get_render_engine,
+    get_render_output_block_reason,
     get_scene_info,
     is_blend_or_backup_file,
     replace_variables,
@@ -156,6 +157,12 @@ def validate_render_settings(operator, context) -> bool:
         msg = "No active camera"
         operator.report({"WARNING"}, msg)
         log.error("%s", msg)
+        return False
+
+    output_issue = get_render_output_block_reason(context, settings, settings.override_settings)
+    if output_issue:
+        operator.report({"ERROR"}, output_issue)
+        log.error("%s", output_issue)
         return False
 
     # Animation: Prevent identical start/end frames

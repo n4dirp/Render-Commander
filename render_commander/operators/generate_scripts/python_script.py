@@ -472,6 +472,36 @@ def _apply_compositing_settings(override_settings, script_lines: list[str]) -> N
     script_lines.extend(_wrap_in_try(lines, "Compositor Settings", True))
 
 
+def _apply_render_output_settings(script_lines: list[str]) -> None:
+    """Ensure render output saving is available for filepath renders (Blender 5.2+)."""
+    script_lines.append("# Render Output Settings")
+    lines = [
+        "render = bpy.context.scene.render",
+        "if hasattr(render, 'save_output') and not render.save_output:",
+        "    use_compositing = bool(getattr(render, 'use_compositing', False))",
+        "    node_tree = None",
+        "    if use_compositing:",
+        "        if bpy.app.version >= (5, 0, 0):",
+        "            node_tree = getattr(bpy.context.scene, 'compositing_node_group', None)",
+        "        elif getattr(bpy.context.scene, 'use_nodes', False):",
+        "            node_tree = getattr(bpy.context.scene, 'node_tree', None)",
+        "    has_file_output = False",
+        "    if node_tree:",
+        "        try:",
+        "            has_file_output = any(",
+        "                n.type == 'OUTPUT_FILE' and not getattr(n, 'mute', False)",
+        "                for n in node_tree.nodes",
+        "            )",
+        "        except Exception:",
+        "            has_file_output = False",
+        "    if not has_file_output:",
+        "        render.save_output = True",
+        "        log.info('Enabled Save Output for render export')",
+        "",
+    ]
+    script_lines.extend(_wrap_in_try(lines, "Render Output Settings"))
+
+
 def _apply_cycles_settings(context, prefs, override_settings, selected_ids, script_lines: list[str]) -> None:
     """Apply Cycles-specific rendering settings."""
     try:
@@ -754,6 +784,7 @@ def _generate_base_script(
     _apply_overscan_settings(context, override_settings, script_lines)
     _apply_output_format_settings(override_settings, script_lines)
     _apply_compositing_settings(override_settings, script_lines)
+    _apply_render_output_settings(script_lines)
 
     render_engine = get_render_engine(context)
     if render_engine == RE_CYCLES:

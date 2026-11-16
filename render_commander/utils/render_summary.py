@@ -33,6 +33,7 @@ from ..utils.helpers import (
     get_addon_preferences,
     get_addon_settings,
     get_render_engine,
+    get_render_output_block_reason,
     get_scene_info,
     replace_variables,
 )
@@ -93,6 +94,10 @@ def build_render_summary_warnings(context) -> list:
 
     if prefs.launch_mode == MODE_LIST and not settings.frame_list:
         warnings.append("Frame list is empty")
+
+    output_issue = get_render_output_block_reason(context, settings, settings.override_settings)
+    if output_issue:
+        warnings.append(output_issue)
 
     return warnings
 

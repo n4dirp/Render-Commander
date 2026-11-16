@@ -18,9 +18,9 @@ from ..utils.constants import (
     RCSubPanel,
 )
 from ..utils.cycles_devices import (
-    _CYCLES_AVAILABLE,
     draw_devices,
     get_devices_for_display,
+    is_cycles_available,
 )
 from ..utils.helpers import (
     get_addon_preferences,
@@ -122,7 +122,11 @@ class RECOM_PT_render_preferences(RCSubPanel, Panel):
             sub.active = False
         sub.prop(prefs, "auto_save_before_render", text="Save Blend File")
 
-        if _CYCLES_AVAILABLE and get_render_engine(context) == RE_CYCLES and not _scene_device_allows_gpu(context):
+        if (
+            is_cycles_available(context)
+            and get_render_engine(context) == RE_CYCLES
+            and not _scene_device_allows_gpu(context)
+        ):
             box = layout.box()
             col = box.column()
             col.label(text="Cycles render device is set to CPU.", icon="INFO")
@@ -200,7 +204,11 @@ class RECOM_PT_device_settings(RCBasePanel, Panel):
 
     @classmethod
     def poll(cls, context):
-        return _CYCLES_AVAILABLE and get_render_engine(context) == RE_CYCLES and _scene_device_allows_gpu(context)
+        return (
+            is_cycles_available(context)
+            and get_render_engine(context) == RE_CYCLES
+            and _scene_device_allows_gpu(context)
+        )
 
     def draw_header(self, context):
         layout = self.layout.row(align=True)
@@ -249,7 +257,7 @@ class RECOM_PT_device_parallel(RCBasePanel, Panel):
     def poll(cls, context):
         prefs = get_addon_preferences(context)
         return (
-            _CYCLES_AVAILABLE
+            is_cycles_available(context)
             and get_render_engine(context) == RE_CYCLES
             and prefs.launch_mode != MODE_SINGLE
             and _scene_device_allows_gpu(context)

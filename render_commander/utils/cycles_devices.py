@@ -62,7 +62,13 @@ def get_cycles_prefs(context=None):
     return addon.preferences
 
 
-_CYCLES_AVAILABLE = get_cycles_prefs()
+def is_cycles_available(context=None):
+    """Return True if the Cycles engine and its preferences are available."""
+    return bool(get_cycles_prefs(context))
+
+
+# Backwards-compatible name used by older code paths; prefer is_cycles_available().
+_CYCLES_AVAILABLE = is_cycles_available()
 _DEVICE_ITEMS_CACHE = None
 
 

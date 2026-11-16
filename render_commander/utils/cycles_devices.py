@@ -69,10 +69,10 @@ _DEVICE_ITEMS_CACHE = None
 class RECOM_PG_DeviceSettings(PropertyGroup):
     """Local mirror of a Cycles device entry."""
 
-    id: StringProperty(name="ID", description="Unique identifier of the device")
-    name: StringProperty(name="Name", description="Name of the device")
-    use: BoolProperty(name="Use", description="Use device for rendering", default=True)
-    type: StringProperty(name="Type", description="Backend type (e.g., CUDA, OPTIX, CPU)")
+    id: StringProperty(name="ID", description="Unique device identifier")
+    name: StringProperty(name="Name", description="Device name")
+    use: BoolProperty(name="Use", description="Use this device for rendering", default=True)
+    type: StringProperty(name="Type", description="Backend type (e.g. CUDA, OPTIX, CPU)")
 
 
 # -----------------------------------------------------------
@@ -88,7 +88,7 @@ def get_device_types_items(self, context):
         return _DEVICE_ITEMS_CACHE
 
     cycles_prefs = get_cycles_prefs(context)
-    items = [("NONE", "None", "Don't use compute device")]
+    items = [("NONE", "None", "Do not use a compute device")]
 
     if not cycles_prefs:
         _DEVICE_ITEMS_CACHE = items

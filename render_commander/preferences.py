@@ -146,7 +146,7 @@ class RECOM_PG_RenderHistoryItem(PropertyGroup):
     tooltip_display: StringProperty(
         get=_get_tooltip,
         set=_set_tooltip,
-        description="Render details on hover",
+        description="Render details shown on hover",
     )
 
 
@@ -269,12 +269,12 @@ class RECOM_Preferences(AddonPreferences):
             ),
         ],
         default=MODE_SEQ,
-        description="Render Mode",
+        description="Render mode to export",
         update=lambda self, context: redraw_ui(),
     )
     panel_location: EnumProperty(
         name="Panel Location",
-        description="Where the Render Commander panels are displayed",
+        description="Where to display the Render Commander panels",
         items=[
             (
                 PANEL_LOCATION_VIEWPORT,
@@ -334,7 +334,7 @@ class RECOM_Preferences(AddonPreferences):
     active_custom_variable_index: IntProperty(default=-1, name="Active Custom Variable Index")
     use_underscore_separator: BoolProperty(
         name="Use Underscore Separator",
-        description="Automatically inserts an underscore between the base path and the added variable",
+        description="Automatically insert an underscore between the base path and the added variable",
         default=True,
     )
     override_import_settings: PointerProperty(type=RECOM_PG_OverrideImportSettings)
@@ -362,7 +362,7 @@ class RECOM_Preferences(AddonPreferences):
     )
     devices_ini: BoolProperty(
         name="Manage Devices Locally",
-        description="Manage render devices from the addon instead of reading from Cycles preferences",
+        description="Manage render devices from the add-on instead of reading from Cycles preferences",
         default=False,
         update=lambda self, context: redraw_ui(),
     )
@@ -370,12 +370,12 @@ class RECOM_Preferences(AddonPreferences):
     # Parallel Rendering
     manage_cycles_devices: BoolProperty(
         name="Manage Compute Devices",
-        description="Configures Cycles render compute devices, only used for the exported render scripts",
+        description="Configure Cycles compute devices for exported render scripts",
         default=False,
     )
     device_parallel: BoolProperty(
         name="Parallel Rendering",
-        description="Launch separate render process for each device",
+        description="Launch a separate render process for each device",
         default=False,
     )
     frame_allocation: EnumProperty(
@@ -384,10 +384,9 @@ class RECOM_Preferences(AddonPreferences):
             (
                 "SEQUENTIAL",
                 "Sequential",
-                "Each device renders the full frame range.\n"
-                " * Automatically disables overwriting and enables placeholders.",
+                "Render the full frame range on each device (disables overwriting and enables placeholders)",
             ),
-            ("FRAME_SPLIT", "Split", "Divide frame range among devices"),
+            ("FRAME_SPLIT", "Split", "Divide the frame range among devices"),
         ],
         default="FRAME_SPLIT",
         description="How frames are distributed across rendering devices",
@@ -408,7 +407,7 @@ class RECOM_Preferences(AddonPreferences):
     combine_cpu_with_gpus: BoolProperty(
         name="CPU & GPU Rendering",
         default=True,
-        description="Enable to assign the CPU to a separate render job and keep it out of GPU tasks",
+        description="Assign the CPU to a separate render job and keep it out of GPU tasks",
     )
     cpu_threads_limit: IntProperty(
         name="Thread Limit",
@@ -435,23 +434,22 @@ class RECOM_Preferences(AddonPreferences):
 
     keep_terminal_open: BoolProperty(
         name="Keep Terminal Open",
-        description="Prevents the terminal window from closing automatically after the render finishes",
+        description="Keep the terminal window open after the render finishes",
         default=True,
     )
     auto_save_before_render: BoolProperty(
         name="Auto-Save Blend File",
-        description="Save blend before export if there are unsaved changes",
+        description="Save the blend file before export if there are unsaved changes",
         default=False,
     )
     write_still: BoolProperty(
         name="Write Still",
         default=True,
-        description="Write Image, Save the rendered image to the output path",
+        description="Save the rendered image to the output path",
     )
     track_render_time: BoolProperty(
         name="Track Render Time",
-        description="Show render progress in the console.\n"
-        "Displays progress bar, percentage, frame count, and estimated time remaining",
+        description="Show render progress in the console (progress bar, percentage, frame count, and estimated time)",
         default=True,
     )
 
@@ -467,13 +465,14 @@ class RECOM_Preferences(AddonPreferences):
         min=1,
         soft_min=3,
         soft_max=6,
-        description="Number of digits used to pad frame numbers in output filenames.\n"
-        " * Used when the filename does not contain # characters",
+        description=(
+            "Number of digits used to pad frame numbers in output filenames "
+            "(used when the filename has no # characters)"
+        ),
     )
     filename_separator: EnumProperty(
         name="File Separator",
-        description="Separator between output filename and frame numbers.\n"
-        " * Used when the filename does not contain # characters",
+        description="Separator between output filename and frame numbers (used when the filename has no # characters)",
         items=[
             ("DOT", "Dot (.)", "Filename.####"),
             ("UNDERSCORE", "Underscore (_)", "Filename_####"),
@@ -516,8 +515,8 @@ class RECOM_Preferences(AddonPreferences):
 
     # Export options properties
     auto_open_exported_folder: BoolProperty(
-        name="Open Exported Folder",
-        description="Open the folder that contains the exported scripts and files after export",
+        name="Open Scripts Folder",
+        description="Open the folder containing the exported scripts after export",
         default=False,
     )
     export_output_target: EnumProperty(
@@ -526,14 +525,14 @@ class RECOM_Preferences(AddonPreferences):
         items=[
             ("SELECT_DIR", "Select on Export", "Folder chosen in the export dialog"),
             ("BLEND_DIR", "Blend Directory", "Folder next to the .blend file"),
-            ("CUSTOM_PATH", "Custom", "User‑defined folder"),
+            ("CUSTOM_PATH", "Custom", "User-defined folder"),
         ],
         default="SELECT_DIR",
         update=lambda self, context: redraw_ui("ALL"),
     )
     custom_export_path: StringProperty(
         name="Custom Export Path",
-        description="Manually set the folder to open after export",
+        description="Folder used for custom export output",
         subtype="DIR_PATH",
         default="/tmp\\",
         update=lambda self, context: redraw_ui(),
@@ -554,12 +553,12 @@ class RECOM_Preferences(AddonPreferences):
 
     add_command_line_args: BoolProperty(
         name="Use Command Line Arguments",
-        description="Add additional command line arguments for render",
+        description="Add additional command-line arguments for rendering",
         default=True,
     )
     custom_command_line_args: StringProperty(
         name="Command Line Arguments",
-        description="Additional command line arguments to pass to Blender during render",
+        description="Additional command-line arguments to pass to Blender during rendering",
         default="--log render",
         update=lambda self, context: redraw_ui(),
     )
@@ -568,7 +567,7 @@ class RECOM_Preferences(AddonPreferences):
     log_to_file: BoolProperty(
         name="Log to File",
         default=False,
-        description="Save render logs to a file.\n * Appends: --log-file <filepath>",
+        description="Save render logs to a file",
     )
     log_to_file_location: EnumProperty(
         name="Log Directory",
@@ -576,10 +575,10 @@ class RECOM_Preferences(AddonPreferences):
             (
                 "EXECUTION_FILES",
                 "Render Scripts Directory",
-                "Save logs files in render scripts directory",
+                "Save log files in the render scripts directory",
             ),
-            ("BLEND_PATH", "Blend Directory", "Save logs files next to blend file"),
-            ("CUSTOM_PATH", "Custom", "Specify custom log folder location"),
+            ("BLEND_PATH", "Blend Directory", "Save log files next to the blend file"),
+            ("CUSTOM_PATH", "Custom", "Save log files in a custom directory"),
         ],
         default="EXECUTION_FILES",
     )
@@ -602,13 +601,13 @@ class RECOM_Preferences(AddonPreferences):
     # Append Scripts
     append_python_scripts: BoolProperty(
         name="Append Python Scripts",
-        description="Add additional python scripts to run during rendering.\n * Appends: --python <filepath>",
+        description="Run additional Python scripts during rendering",
         default=False,
     )
     additional_scripts: CollectionProperty(
         type=RECOM_PG_ScriptEntry,
         name="Additional Python Scripts",
-        description="List of additional Python scripts to append during render",
+        description="Additional Python scripts to append during render",
     )
     active_script_index: IntProperty(
         name="Active Script Index",

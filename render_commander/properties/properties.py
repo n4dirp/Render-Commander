@@ -41,7 +41,7 @@ class RECOM_PG_RenderSettings(PropertyGroup):
 
     frame_list: StringProperty(
         name="Frame List",
-        description="Frame numbers or ranges separated by commas.\nExample: 1, 2, 5-8.",
+        description="Frame numbers or ranges separated by commas (for example 1, 2, 5-8)",
         default="",
         update=_sanitize_frame_list,
     )
@@ -68,12 +68,12 @@ class RECOM_PG_RenderSettings(PropertyGroup):
     external_scene_info: StringProperty(
         name="External Scene Info",
         default="{}",
-        description="Stores scene info from external blend file",
+        description="Scene information from the external blend file",
     )
     is_scene_info_loaded: BoolProperty(
         name="Scene Info Loaded",
         default=True,
-        description="Indicates if external scene info is loaded",
+        description="Whether external scene information is loaded",
     )
 
     # Override Settings
@@ -83,17 +83,17 @@ class RECOM_PG_RenderSettings(PropertyGroup):
     render_id: StringProperty(
         name="Render ID",
         default="",
-        description="Stores a render id",
+        description="Render identifier",
     )
     render_output_folder_path: StringProperty(
         name="Render Output Folder",
         default="",
-        description="Stores the final render output folder",
+        description="Final render output folder",
     )
     render_output_filename: StringProperty(
         name="Render Output Filename",
         default="",
-        description="Stores the final render output filename",
+        description="Final render output filename",
     )
     folder_opened: BoolProperty(
         name="Folder Opened",

@@ -150,8 +150,8 @@ class RECOM_PG_CyclesRenderOverrides(PropertyGroup):
         default=0.015,
         precision=4,
         description=(
-            "Noise level step to stop sampling at, lower values reduce noise at the cost of render time.\n"
-            "Zero for automatic setting based on number of AA samples."
+            "Noise level step to stop sampling at, lower values reduce noise at the cost of render time "
+            "(zero for automatic setting based on number of AA samples)"
         ),
     )
     samples: IntProperty(
@@ -165,8 +165,8 @@ class RECOM_PG_CyclesRenderOverrides(PropertyGroup):
     adaptive_min_samples: IntProperty(
         name="Adaptive Min Samples",
         description=(
-            "Minimum AA samples for adaptive sampling, to discover noisy features before stopping sampling.\n"
-            "Zero for automatic setting based on noise threshold."
+            "Minimum AA samples for adaptive sampling, to discover noisy features before stopping sampling "
+            "(zero for automatic setting based on noise threshold)"
         ),
         min=0,
         max=4096,
@@ -174,7 +174,7 @@ class RECOM_PG_CyclesRenderOverrides(PropertyGroup):
     )
     time_limit: FloatProperty(
         name="Time Limit",
-        description="Limit the render time (excluding synchronization time). Zero disables the limit.",
+        description="Limit the render time, excluding synchronization time (zero disables the limit)",
         min=0.0,
         default=0.0,
         step=100.0,
@@ -321,7 +321,7 @@ class RECOM_PG_OverrideSettings(PropertyGroup):
     # Data Path Overrides
     property_path_input: StringProperty(
         name="Blender Data Path",
-        description=("Search for a Blender data path to override.\nExample: bpy.context.scene.render.use_simplify"),
+        description="Blender data path to override (for example bpy.context.scene.render.use_simplify)",
         search=data_path_search_callback,
     )
     use_data_path_overrides: BoolProperty(
@@ -431,12 +431,12 @@ class RECOM_PG_OverrideSettings(PropertyGroup):
             (
                 "SET_WIDTH",
                 "Set X",
-                "Specify the width; height will be calculated automatically to maintain the scene's aspect ratio.",
+                "Set width and calculate height from the scene aspect ratio",
             ),
             (
                 "SET_HEIGHT",
                 "Set Y",
-                "Specify the height; width will be calculated automatically to maintain the scene's aspect ratio.",
+                "Set height and calculate width from the scene aspect ratio",
             ),
         ],
         default="CUSTOM",
@@ -501,7 +501,7 @@ class RECOM_PG_OverrideSettings(PropertyGroup):
             ("PERCENTAGE", "Percentage", "Add percentage of the image size"),
             ("PIXELS", "Pixels", "Add an absolute number of pixels"),
         ],
-        description="How the overscan is calculated.",
+        description="How the overscan is calculated",
         default="PERCENTAGE",
     )
     overscan_percent: FloatProperty(
@@ -586,7 +586,7 @@ class RECOM_PG_OverrideSettings(PropertyGroup):
         soft_min=-1.0,
         soft_max=1.0,
         precision=3,
-        description="Camera horizontal shift. \nPositive = Right / Negative = Left.",
+        description="Horizontal camera shift (positive right, negative left)",
     )
     camera_shift_y: FloatProperty(
         name="Shift Y",
@@ -594,7 +594,7 @@ class RECOM_PG_OverrideSettings(PropertyGroup):
         soft_min=-1.0,
         soft_max=1.0,
         precision=3,
-        description="Camera vertical shift. \nPositive = Up / Negative = Down.",
+        description="Vertical camera shift (positive up, negative down)",
     )
 
     # File Format
@@ -699,9 +699,9 @@ class RECOM_PG_OverrideSettings(PropertyGroup):
             (
                 "DIRECTORY",
                 "Directory",
-                "Insert variable into the output directory path string",
+                "Insert the variable into the output directory path",
             ),
-            ("FILENAME", "Filename", "Insert variable into the output filename string"),
+            ("FILENAME", "Filename", "Insert the variable into the output filename"),
         ],
         default="FILENAME",
     )
@@ -761,7 +761,7 @@ class RECOM_PG_OverrideSettings(PropertyGroup):
     compositor_disable_output_files: BoolProperty(
         name="Bypass File Outputs",
         default=False,
-        description="Mutes all File Output nodes in the compositor",
+        description="Mute all File Output nodes in the compositor",
     )
 
     # FPS
@@ -793,7 +793,7 @@ class RECOM_PG_OverrideSettings(PropertyGroup):
         default=60,
         min=1,
         soft_max=240,
-        description="Custom frame rate value",
+        description="Custom frame rate in frames per second",
     )
     preserve_motion_blur: BoolProperty(
         name="Preserve Motion Blur Time",

@@ -52,6 +52,14 @@ BANNED_ARGS = {
 }
 
 
+def _scene_device_allows_gpu(context) -> bool:
+    """Return True if Cycles device settings apply (scene GPU or a device override is active)."""
+    if context.scene.cycles.device == "GPU":
+        return True
+    settings = get_addon_settings(context)
+    return settings.override_settings.enabled and settings.override_settings.cycles.device_override
+
+
 # Presets
 #################################################
 
@@ -103,16 +111,22 @@ class RECOM_PT_render_preferences(RCSubPanel, Panel):
         prefs = get_addon_preferences(context)
         settings = get_addon_settings(context)
 
-        root_col = layout.column(align=True)
-        root_col.prop(prefs, "keep_terminal_open")
+        col = layout.column(align=True)
+        col.prop(prefs, "keep_terminal_open")
 
         if prefs.launch_mode != MODE_SINGLE:
-            root_col.prop(prefs, "track_render_time", text="Track Render Time")
+            col.prop(prefs, "track_render_time", text="Track Render Time")
 
-        row = root_col.column()
+        sub = col.column()
         if settings.use_external_blend and settings.external_blend_file_path:
-            row.active = False
-        row.prop(prefs, "auto_save_before_render", text="Save Blend File")
+            sub.active = False
+        sub.prop(prefs, "auto_save_before_render", text="Save Blend File")
+
+        if _CYCLES_AVAILABLE and get_render_engine(context) == RE_CYCLES and not _scene_device_allows_gpu(context):
+            box = layout.box()
+            col = box.column()
+            col.label(text="Cycles render device is set to CPU.", icon="INFO")
+            col.label(text="Parallel & device options disabled.", icon="BLANK1")
 
 
 class RECOM_PT_output_filename(Panel):
@@ -186,7 +200,7 @@ class RECOM_PT_device_settings(RCBasePanel, Panel):
 
     @classmethod
     def poll(cls, context):
-        return _CYCLES_AVAILABLE and get_render_engine(context) == RE_CYCLES
+        return _CYCLES_AVAILABLE and get_render_engine(context) == RE_CYCLES and _scene_device_allows_gpu(context)
 
     def draw_header(self, context):
         layout = self.layout.row(align=True)
@@ -234,7 +248,12 @@ class RECOM_PT_device_parallel(RCBasePanel, Panel):
     @classmethod
     def poll(cls, context):
         prefs = get_addon_preferences(context)
-        return _CYCLES_AVAILABLE and get_render_engine(context) == RE_CYCLES and prefs.launch_mode != MODE_SINGLE
+        return (
+            _CYCLES_AVAILABLE
+            and get_render_engine(context) == RE_CYCLES
+            and prefs.launch_mode != MODE_SINGLE
+            and _scene_device_allows_gpu(context)
+        )
 
     def draw_header(self, context):
         layout = self.layout

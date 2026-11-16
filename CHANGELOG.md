@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [1.3.1] - 2026-11-16
 
 ### Fixed
 - Fixed **Manage Cycles Devices** and **Device Parallel Rendering** panels sometimes staying hidden on first install in Cycles GPU scenes

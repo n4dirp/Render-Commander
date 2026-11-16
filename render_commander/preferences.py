@@ -488,7 +488,7 @@ class RECOM_Preferences(AddonPreferences):
     use_render_type_in_script: BoolProperty(
         name="Include Render Mode",
         description="Append the render mode to the generated script filenames",
-        default=False,
+        default=True,
     )
     use_export_date_in_script: BoolProperty(
         name="Include Export Date",
@@ -498,7 +498,7 @@ class RECOM_Preferences(AddonPreferences):
     use_frame_range_in_script: BoolProperty(
         name="Include Frame Range",
         description="Append the active frame range or list to the generated script filenames",
-        default=False,
+        default=True,
     )
     custom_script_tag: BoolProperty(
         name="Custom Tag",
@@ -540,7 +540,7 @@ class RECOM_Preferences(AddonPreferences):
     export_scripts_subfolder: BoolProperty(
         name="Scripts Subfolder",
         description="Save the script files into a subfolder",
-        default=False,
+        default=True,
     )
     export_scripts_folder_name: StringProperty(
         name="Export Scripts Folder",
@@ -584,7 +584,7 @@ class RECOM_Preferences(AddonPreferences):
     )
     save_to_log_folder: BoolProperty(
         name="Save to Logs Folder",
-        default=False,
+        default=True,
         description="Save logs in a dedicated 'logs' folder",
     )
     log_custom_path: StringProperty(
@@ -595,7 +595,7 @@ class RECOM_Preferences(AddonPreferences):
     logs_folder_name: StringProperty(
         name="Logs Subfolder",
         description="Folder name for render log files",
-        default="logs",
+        default="render_logs",
     )
 
     # Append Scripts

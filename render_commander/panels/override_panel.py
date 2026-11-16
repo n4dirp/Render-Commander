@@ -487,8 +487,6 @@ def _draw_resolution(layout, context):
     sub.active = override_settings.resolution_override
     sub_row = sub.row(align=True)
     sub_row.prop(override_settings, "resolution_mode", text="")
-    if override_settings.resolution_mode == "CUSTOM":
-        sub_row.operator("recom.swap_resolution", text="", icon="ARROW_LEFTRIGHT")
 
     auto_width, auto_height = 0, 0
 
@@ -530,7 +528,13 @@ def _draw_resolution(layout, context):
             row.prop(override_settings, "resolution_y", text="Y")
             row.menu("RECOM_MT_resolution_y", text="", icon="DOWNARROW_HLT")
 
+            split = layout.split(factor=0.4)
+            split.label(text="")
+            sub = split.row()
+            sub.operator("recom.swap_resolution", text="Swap Resolution")
+
     # Scale resolution menu
+    layout.separator(factor=0.5)
     col = layout.column()
 
     row = col.row(align=True)

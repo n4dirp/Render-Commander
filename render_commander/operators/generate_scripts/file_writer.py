@@ -186,9 +186,9 @@ def create_process_files(
 
     exec_extension = ".bat" if _IS_WINDOWS else ".sh"
 
-    py_filename = f"{base_name}_script{process_id}.py"
-    exec_filename = f"{base_name}_worker{process_id}{exec_extension}"
-    log_filename = f"{base_name}_worker{process_id}.log"
+    py_filename = f"{base_name}_render{process_id}.py"
+    exec_filename = f"{base_name}_run{process_id}{exec_extension}"
+    log_filename = f"{base_name}_run{process_id}.log"
 
     try:
         if not target_dir.exists():

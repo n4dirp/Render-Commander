@@ -50,11 +50,11 @@ Each render job generates:
 
 - **Launch Scripts (`.bat` / `.sh`)**
   - Start Blender in background mode  
-  - Example: `scene_render_worker0.bat`
+  - Example: `scene_Animation_ABC123_run0.bat`
 
 - **Python Scripts (`.py`)**
   - Contain all render settings and frame assignments  
-  - Example: `scene_script_worker0.py`
+  - Example: `scene_Animation_ABC123_render0.py`
 
 ---
 

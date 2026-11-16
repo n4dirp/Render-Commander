@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Changed
+- Generated render files now use clearer names: `_run` for launch scripts and logs, and `_render` for the Python scripts
+
 ### Fixed
 - Added compatibility with Blender 5.3 compositor effects for compositing detection, File Output handling, and render script generation
 

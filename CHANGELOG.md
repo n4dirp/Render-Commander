@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Added
+- **Export History** can now show script names instead of blend file names
+
 ### Changed
 - Generated render files now use clearer names: `_run` for launch scripts and logs, and `_render` for the Python scripts
 

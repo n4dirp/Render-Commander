@@ -142,7 +142,7 @@ class RECOM_MT_render_history_item(Menu):
             op_open_in_new_session.file_path = active_item.blend_path
             blend_col.separator()
             blend_col.operator(
-                "recom.select_recent_file", text="Read Scene", icon="ZOOM_ALL"
+                "recom.select_recent_file", text="Read Scene Data", icon="ZOOM_ALL"
             ).file_path = active_item.blend_path
 
             blend_col.separator()
@@ -150,10 +150,17 @@ class RECOM_MT_render_history_item(Menu):
                 "recom.open_output_folder", text="Open Blend Folder", icon="FILE_FOLDER"
             ).folder_path = str(Path(active_item.blend_path).parent)
 
+            layout.operator(
+                "recom.open_output_folder", text="Open Scripts Folder"
+            ).folder_path = active_item.export_path
+
             layout.separator()
             layout.operator("recom.remove_render_history_item", text="Remove from History", icon="TRASH")
             trash_icon = "BLANK1"
 
+        layout.separator()
+        layout.prop(prefs, "show_history_script_name", text="Show Script Name")
+        layout.separator()
         layout.operator("recom.clean_render_history", text="Clear History List...", icon=trash_icon)
 
 

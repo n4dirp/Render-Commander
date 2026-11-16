@@ -345,6 +345,12 @@ class RECOM_Preferences(AddonPreferences):
         name="Active Item", default=-1, update=update_active_render_history_properties
     )
     active_item_properties: CollectionProperty(type=RECOM_PG_PropertyItem)
+    show_history_script_name: BoolProperty(
+        name="Show Script Name",
+        description="Show the main script name instead of the blend file name in the export history list",
+        default=False,
+        update=lambda self, context: redraw_ui(),
+    )
 
     # Cycles Devices
     compute_device_type: EnumProperty(

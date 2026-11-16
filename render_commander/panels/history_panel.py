@@ -36,9 +36,10 @@ class RECOM_PT_render_history_panel(RCSubPanel, Panel):
             item_dyntip_propname="tooltip_display",
         )
 
-        col = row.column(align=True)
-        col.active = len(prefs.render_history) > 0
-        col.menu("RECOM_MT_render_history_item", text="", icon="DOWNARROW_HLT")
+        action_col = row.column()
+        action_col.active = len(prefs.render_history) > 0
+        action_col.menu("RECOM_MT_render_history_item", text="", icon="DOWNARROW_HLT")
+
         valid_index = (
             prefs.render_history
             and prefs.active_render_history_index >= 0
@@ -46,8 +47,8 @@ class RECOM_PT_render_history_panel(RCSubPanel, Panel):
         )
         if valid_index:
             active_item = prefs.render_history[prefs.active_render_history_index]
-            col.separator()
-            op = col.operator("recom.open_output_folder", text="", icon="FILE_FOLDER")
+            action_col.separator()
+            op = action_col.operator("recom.open_output_folder", text="", icon="FILE_FOLDER")
             op.folder_path = active_item.export_path
 
 
@@ -88,7 +89,13 @@ class RECOM_PT_render_details_panel(RCBasePanel, Panel):
 
 class RECOM_UL_render_history(UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
+        prefs = get_addon_preferences(context)
         row = layout.row(align=True)
+
+        if prefs.show_history_script_name and item.script_filename:
+            row.label(text=item.script_filename, icon="FILE")
+            return
+
         row.label(text=item.blend_file_name, icon="FILE_BLEND")
         sub = row.row(align=True)
         sub.active = False
@@ -108,6 +115,8 @@ class RECOM_UL_render_history(UIList):
         for i, item in enumerate(items):
             match = False
             if search_text in item.blend_file_name.lower():
+                match = True
+            elif search_text in item.script_filename.lower():
                 match = True
             elif search_text in item.frames.replace(" - ", "-").lower():
                 match = True

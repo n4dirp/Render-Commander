@@ -16,6 +16,7 @@ logging.basicConfig(
 )
 
 BLENDER_5_0 = (5, 0, 0)
+BLENDER_5_2 = (5, 2, 0)
 
 
 def format_file_size(size_bytes: int) -> str:
@@ -105,6 +106,9 @@ def get_scene_info() -> dict:
             "file_format": render.image_settings.file_format,
             "color_depth": render.image_settings.color_depth,
         }
+
+        if bpy.app.version >= BLENDER_5_2 and hasattr(render, "save_output"):
+            data["save_output"] = render.save_output
 
         if scene.camera:
             camera_data = {

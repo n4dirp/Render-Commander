@@ -208,6 +208,11 @@ class RECOM_PT_scene_info_panel(RCSubPanel, Panel):
         render_scale_text = f" ({render_scale}%)" if render_scale != 100 else ""
         self._draw_scene_info_row(col, "Resolution", f"{resolution_x} x {resolution_y} px{render_scale_text}")
 
+        # Save Output (Blender 5.2+)
+        if "save_output" in info:
+            save_output_text = "Enabled" if info["save_output"] else "Disabled"
+            self._draw_scene_info_row(col, "Save Output", save_output_text)
+
         # File format
         file_format = info.get("file_format", "No Data")
         file_format_text = FORMAT_NAME_MAPPING.get(file_format, file_format)
@@ -291,6 +296,7 @@ EXTERNAL_BLEND_INFO_KEY_MAP = {
     "render_scale": "Render Scale",
     "filepath": "Output Path",
     "frame_path": "Frame Path",
+    "save_output": "Save Output",
     "is_movie_format": "Movie Format",
     "file_format": "File Format",
     "color_depth": "Color Depth",

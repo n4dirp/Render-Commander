@@ -8,6 +8,7 @@ without producing any side effects.
 """
 
 import logging
+import os
 import re
 from pathlib import Path
 
@@ -265,7 +266,7 @@ def _export_target_text(prefs, settings) -> str:
         target = prefs.custom_export_path or "Not set"
 
     if prefs.export_scripts_subfolder and prefs.export_scripts_folder_name:
-        target = f"{target} / {prefs.export_scripts_folder_name}"
+        target = os.path.join(target.rstrip("/\\"), prefs.export_scripts_folder_name)
 
     return target
 

@@ -1,5 +1,10 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+- Added compatibility with Blender 5.3 compositor effects for compositing detection, File Output handling, and render script generation
+
 ## [1.3.1] - 2026-11-16
 
 ### Fixed

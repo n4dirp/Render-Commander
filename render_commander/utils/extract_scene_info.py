@@ -132,9 +132,19 @@ def get_scene_info() -> dict:
         if render.image_settings.file_format == "JPEG":
             data["quality"] = render.image_settings.quality
 
-        use_compositor = render.use_compositing and (
-            bool(scene.compositing_node_group) if bpy.app.version >= BLENDER_5_0 else scene.use_nodes
-        )
+        def _is_compositing_enabled(scene, render):
+            if not render.use_compositing:
+                return False
+            if bpy.app.version >= (5, 3, 0) and hasattr(scene, "compositor_effects"):
+                for effect in scene.compositor_effects:
+                    if getattr(effect, "enable_for_render", False) and getattr(effect, "node_group", None):
+                        return True
+                return False
+            if bpy.app.version >= BLENDER_5_0:
+                return bool(getattr(scene, "compositing_node_group", None))
+            return bool(getattr(scene, "use_nodes", False))
+
+        use_compositor = _is_compositing_enabled(scene, render)
         if use_compositor:
             data.update(
                 {

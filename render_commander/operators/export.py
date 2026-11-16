@@ -487,9 +487,17 @@ class RECOM_OT_ExportRenderScript(Operator):
         elif is_external:
             history_item.compositing = ext_info.get("use_compositor", False)
         else:
-            history_item.compositing = scene.render.use_compositing and (
-                bool(scene.compositing_node_group) if bpy.app.version >= (5, 0, 0) else scene.use_nodes
-            )
+            use_compositor = False
+            if bpy.app.version >= (5, 3, 0) and hasattr(scene, "compositor_effects"):
+                for effect in scene.compositor_effects:
+                    if getattr(effect, "enable_for_render", False) and getattr(effect, "node_group", None):
+                        use_compositor = True
+                        break
+            elif bpy.app.version >= (5, 0, 0):
+                use_compositor = bool(getattr(scene, "compositing_node_group", None))
+            else:
+                use_compositor = bool(getattr(scene, "use_nodes", False))
+            history_item.compositing = scene.render.use_compositing and use_compositor
 
         # Manage History List Limits
         item_index = len(prefs.render_history) - 1

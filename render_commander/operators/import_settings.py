@@ -237,10 +237,16 @@ class RECOM_OT_ImportAllSettings(Operator):
             override_settings.use_compositor = ext_info.get("use_compositor", False)
             override_settings.compositor_device = ext_info.get("compositor_device", "CPU")
         else:
-            if bpy.app.version >= (5, 0, 0):
-                use_compositor = bool(scene.compositing_node_group)
+            use_compositor = False
+            if bpy.app.version >= (5, 3, 0) and hasattr(scene, "compositor_effects"):
+                for effect in scene.compositor_effects:
+                    if getattr(effect, "enable_for_render", False) and getattr(effect, "node_group", None):
+                        use_compositor = True
+                        break
+            elif bpy.app.version >= (5, 0, 0):
+                use_compositor = bool(getattr(scene, "compositing_node_group", None))
             else:
-                use_compositor = scene.use_nodes
+                use_compositor = bool(getattr(scene, "use_nodes", False))
 
             override_settings.use_compositor = scene.render.use_compositing and use_compositor
             override_settings.compositor_device = scene.render.compositor_device

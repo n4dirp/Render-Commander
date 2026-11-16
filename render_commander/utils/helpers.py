@@ -327,11 +327,47 @@ def set_render_save_output(render, value: bool) -> bool:
     return False
 
 
-def get_compositor_node_tree(scene):
-    """Return the active compositor node tree for a scene across Blender versions."""
+def _uses_compositor_effects(scene) -> bool:
+    """Return whether the scene uses the Blender 5.3+ compositor effects stack."""
+    return bpy.app.version >= (5, 3, 0) and hasattr(scene, "compositor_effects")
+
+
+def get_compositor_node_trees(scene, *, render_only: bool = False):
+    """Return compositor node trees for a scene across Blender versions.
+
+    On Blender 5.3+ this yields node groups from compositor effects. When
+    `render_only` is True, only effects enabled for final render are included.
+    """
+    if _uses_compositor_effects(scene):
+        trees = []
+        for effect in scene.compositor_effects:
+            node_tree = getattr(effect, "node_group", None)
+            if not node_tree:
+                continue
+            if render_only and not getattr(effect, "enable_for_render", False):
+                continue
+            trees.append(node_tree)
+        return trees
+
     if bpy.app.version >= (5, 0, 0):
-        return getattr(scene, "compositing_node_group", None)
-    return getattr(scene, "node_tree", None) if getattr(scene, "use_nodes", False) else None
+        node_tree = getattr(scene, "compositing_node_group", None)
+    else:
+        node_tree = getattr(scene, "node_tree", None) if getattr(scene, "use_nodes", False) else None
+
+    return [node_tree] if node_tree else []
+
+
+def get_compositor_node_tree(scene):
+    """Return the primary compositor node tree for a scene across Blender versions."""
+    trees = get_compositor_node_trees(scene)
+    return trees[0] if trees else None
+
+
+def has_compositing_enabled(scene) -> bool:
+    """Return whether compositing is configured to run for the scene."""
+    if not getattr(scene.render, "use_compositing", False):
+        return False
+    return bool(get_compositor_node_trees(scene, render_only=True))
 
 
 def has_active_file_output_nodes(scene) -> bool:
@@ -339,14 +375,13 @@ def has_active_file_output_nodes(scene) -> bool:
     if not getattr(scene.render, "use_compositing", False):
         return False
 
-    node_tree = get_compositor_node_tree(scene)
-    if not node_tree:
-        return False
-
-    try:
-        return any(node.type == "OUTPUT_FILE" and not getattr(node, "mute", False) for node in node_tree.nodes)
-    except Exception:
-        return False
+    for node_tree in get_compositor_node_trees(scene, render_only=True):
+        try:
+            if any(node.type == "OUTPUT_FILE" and not getattr(node, "mute", False) for node in node_tree.nodes):
+                return True
+        except Exception:
+            continue
+    return False
 
 
 def get_render_output_block_reason(context, settings=None, override_settings=None) -> str | None:

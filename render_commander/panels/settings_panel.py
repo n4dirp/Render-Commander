@@ -106,13 +106,13 @@ class RECOM_PT_render_preferences(RCSubPanel, Panel):
         root_col = layout.column(align=True)
         root_col.prop(prefs, "keep_terminal_open")
 
+        if prefs.launch_mode != MODE_SINGLE:
+            root_col.prop(prefs, "track_render_time", text="Track Render Time")
+
         row = root_col.column()
         if settings.use_external_blend and settings.external_blend_file_path:
             row.active = False
         row.prop(prefs, "auto_save_before_render", text="Save Blend File")
-
-        if prefs.launch_mode != MODE_SINGLE:
-            root_col.prop(prefs, "track_render_time", text="Track Render Time")
 
 
 class RECOM_PT_output_filename(Panel):

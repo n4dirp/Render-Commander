@@ -452,7 +452,7 @@ class RECOM_Preferences(AddonPreferences):
         name="Track Render Time",
         description="Show render progress in the console.\n"
         "Displays progress bar, percentage, frame count, and estimated time remaining",
-        default=False,
+        default=True,
     )
 
     # Filename

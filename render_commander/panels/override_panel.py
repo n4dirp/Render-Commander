@@ -660,9 +660,11 @@ def _draw_data_path_properties(layout, override_settings):
     layout.enabled = False
 
     col = layout.column(align=True)
+    col.label(text="Data Path:")
     col.prop(item, "data_path", text="")
+    col.separator()
 
-    col = layout.column(align=True)
+    col = layout.column()
     col.prop(item, "name")
     col.prop(item, "prop_type", text="Type")
 
@@ -685,7 +687,7 @@ def _draw_data_path(layout, context):
 
     layout.active = override_settings.enabled
 
-    row = layout.row()
+    row = layout.row(align=True)
     row.prop(
         override_settings,
         "property_path_input",
@@ -693,7 +695,9 @@ def _draw_data_path(layout, context):
         icon="VIEWZOOM",
         placeholder="Data Path",
     )
+    row.operator("recom.add_advanced_property_override", text="", icon="ADD")
 
+    layout.separator(factor=0.5)
     col = layout.column()
     row = col.row()
 
@@ -711,16 +715,17 @@ def _draw_data_path(layout, context):
 
     # Controls
     col = row.column()
-    add_remove_col = col.column(align=True)
-    add_remove_col.operator("recom.add_advanced_property_override", text="", icon="ADD")
-    add_remove_col.operator("recom.remove_advanced_property_override", text="", icon="REMOVE")
+    col.operator("recom.remove_advanced_property_override", text="", icon="REMOVE")
 
     active_index = override_settings.active_data_path_index
     if override_settings.data_path_overrides and 0 <= active_index < len(override_settings.data_path_overrides):
         box_state = override_settings.box_state
         details_open = box_state.custom_api_details
 
+        layout.separator()
         toggle = layout.row(align=True)
+        toggle.use_property_split = False
+        toggle.alignment = "LEFT"
         toggle.prop(
             box_state,
             "custom_api_details",

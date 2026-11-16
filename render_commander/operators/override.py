@@ -63,8 +63,8 @@ class RECOM_OT_SwapResolution(Operator):
     """Swap the values of resolution_x and resolution_y."""
 
     bl_idname = "recom.swap_resolution"
-    bl_label = "Swap Width / Height"
-    bl_description = "Exchange the current width and height values"
+    bl_label = "Flip X and Y resolutions"
+    bl_description = "Flip the current X and Y resolution values"
     bl_options = {"INTERNAL"}
 
     def execute(self, context):

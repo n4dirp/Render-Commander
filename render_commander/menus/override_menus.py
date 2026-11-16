@@ -53,11 +53,6 @@ class RECOM_MT_resolution_x(Menu):
         layout.label(text="Resolution X")
         layout.separator()
 
-        swap_row = layout.row()
-        swap_row.active = override_settings.resolution_override
-        swap_row.operator("recom.swap_resolution", text="Swap X and Y", icon="UV_SYNC_SELECT")
-        layout.separator()
-
         sections = {
             "Landscape": [7680, 5120, 3840, 2560, 1280, 854, 640],
             "Portrait": [2160, 1920, 720, 480, 360],
@@ -90,11 +85,6 @@ class RECOM_MT_resolution_y(Menu):
             layout.enabled = False
 
         layout.label(text="Resolution Y")
-        layout.separator()
-
-        swap_row = layout.row()
-        swap_row.active = override_settings.resolution_override
-        swap_row.operator("recom.swap_resolution", text="Swap X and Y", icon="UV_SYNC_SELECT")
         layout.separator()
 
         sections = {

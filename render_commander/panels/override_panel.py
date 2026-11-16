@@ -487,6 +487,8 @@ def _draw_resolution(layout, context):
     sub.active = override_settings.resolution_override
     sub_row = sub.row(align=True)
     sub_row.prop(override_settings, "resolution_mode", text="")
+    if override_settings.resolution_mode == "CUSTOM":
+        sub_row.operator("recom.swap_resolution", text="", icon="ARROW_LEFTRIGHT")
 
     auto_width, auto_height = 0, 0
 

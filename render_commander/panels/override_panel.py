@@ -20,9 +20,11 @@ from ..utils.constants import (
 )
 from ..utils.helpers import (
     get_addon_preferences,
+    get_addon_settings,
     get_default_resolution,
     get_override_settings,
     get_render_engine,
+    get_scene_info,
     redraw_ui,
 )
 
@@ -358,9 +360,49 @@ def _draw_cycles_sampling(layout, context):
     layout.row().prop(override_settings.cycles, "sampling_mode", expand=True)
 
     if override_settings.cycles.sampling_mode == "FACTOR":
+        sampling_factor = override_settings.cycles.sampling_factor
         row = layout.row(align=True)
-        row.prop(override_settings.cycles, "sampling_factor", text="Samples %", slider=True)
+        row.prop(override_settings.cycles, "sampling_factor", text="Quality", slider=True)
         row.menu("RECOM_MT_sampling_factor", text="", icon="DOWNARROW_HLT")
+
+        if sampling_factor != 100:
+            # Calculate applied values from current scene or external blend
+            factor = sampling_factor / 100.0
+            settings = get_addon_settings(context)
+
+            if settings.use_external_blend and settings.external_blend_file_path:
+                ext_info = get_scene_info(settings) or {}
+                base_samples = ext_info.get("samples", 0)
+                base_min_samples = ext_info.get("adaptive_min_samples", 0)
+                base_threshold = ext_info.get("adaptive_threshold", 0)
+                base_time_limit = ext_info.get("time_limit", 0)
+            else:
+                scene = context.scene
+                base_samples = scene.cycles.samples
+                base_min_samples = scene.cycles.adaptive_min_samples
+                base_threshold = scene.cycles.adaptive_threshold
+                base_time_limit = scene.cycles.time_limit
+
+            new_samples = max(1, int(base_samples * factor))
+            new_min_samples = int(base_min_samples * factor)
+            new_threshold = base_threshold / max(0.0001, factor**0.5)
+            new_time_limit = base_time_limit * factor
+
+            # Preview box — only show rows where values actually change
+            preview_rows = []
+            if base_samples != new_samples:
+                preview_rows.append(f"Samples: {new_samples}")
+            if base_min_samples != new_min_samples:
+                preview_rows.append(f"Min Samples: {new_min_samples}")
+            if base_threshold != new_threshold:
+                preview_rows.append(f"Threshold: {new_threshold:.4f}")
+            if base_time_limit != new_time_limit:
+                preview_rows.append(f"Time Limit: {new_time_limit:.2f}s")
+
+            if preview_rows:
+                col = layout.column(align=True)
+                for row_text in preview_rows:
+                    col.label(text=row_text)
     else:
         row = layout.row(heading="Noise Threshold")
         row.prop(override_settings.cycles, "use_adaptive_sampling", text="")
@@ -582,7 +624,7 @@ def _draw_frame_range(layout, context):
 
     if prefs.launch_mode != MODE_SEQ:
         row = layout.row(align=True)
-        row.prop(override_settings, "frame_current", text="Current Frame")
+        row.prop(override_settings, "frame_current", text="Render Frame")
 
     if prefs.launch_mode != MODE_SINGLE:
         col = layout.column(align=True)

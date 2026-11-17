@@ -123,7 +123,7 @@ class RECOM_PG_CyclesRenderOverrides(PropertyGroup):
             ),
             ("CUSTOM", "Custom", "Set absolute sampling values manually"),
         ],
-        default="FACTOR",
+        default="CUSTOM",
         description="Choose how to override sampling values",
         update=lambda self, context: redraw_ui(),
     )

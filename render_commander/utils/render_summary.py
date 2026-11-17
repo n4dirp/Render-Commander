@@ -270,7 +270,7 @@ def _export_target_text(prefs, settings) -> str:
     else:  # CUSTOM_PATH
         target = prefs.custom_export_path or "Not set"
 
-    if prefs.export_scripts_subfolder and prefs.export_scripts_folder_name:
+    if prefs.export_scripts_subfolder and prefs.export_scripts_folder_name and target != "Choose folder at export":
         target = os.path.join(target.rstrip("/\\"), prefs.export_scripts_folder_name)
 
     return target

@@ -4,9 +4,11 @@
 
 ### Added
 - **Export History** can now show script names instead of blend file names
+- Cycles **Performance** overrides can now enable **Texture Cache** and **Auto Generate Texture Cache**, including saving them with override presets
 
 ### Changed
 - Generated render files now use clearer names: `_run` for launch scripts and logs, and `_render` for the Python scripts
+- Changed the default location of the addon panel to `Output Properties`
 
 ### Fixed
 - Added compatibility with Blender 5.3 compositor effects for compositing detection, File Output handling, and render script generation

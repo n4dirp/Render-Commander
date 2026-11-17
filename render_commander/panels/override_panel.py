@@ -461,8 +461,13 @@ def _draw_cycles_performance(layout, context):
     row.prop(override_settings.cycles, "tile_size")
     row.menu("RECOM_MT_tile_size", text="", icon="DOWNARROW_HLT")
 
-    col = layout.column(heading="Animation")
-    col.prop(override_settings.cycles, "persistent_data")
+    col = layout.column(align=True)
+    col.prop(override_settings.cycles, "use_texture_cache", text="Texture Cache")
+    row = col.row()
+    row.active = override_settings.cycles.use_texture_cache
+    row.prop(override_settings.cycles, "use_auto_generate_texture_cache", text="Auto Generate")
+
+    layout.prop(override_settings.cycles, "persistent_data")
 
 
 def _draw_eevee(layout, context):

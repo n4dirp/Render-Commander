@@ -269,6 +269,22 @@ class RECOM_PG_CyclesRenderOverrides(PropertyGroup):
         default=True,
         description="Enable persistent data for faster re-rendering",
     )
+    use_texture_cache: BoolProperty(
+        name="Use Texture Cache",
+        default=True,
+        description=(
+            "Load texture tiles at appropriate resolution on demand to reduce memory usage. "
+            "This avoids loading all textures into memory, at the cost of extra disk space and some performance"
+        ),
+    )
+    use_auto_generate_texture_cache: BoolProperty(
+        name="Auto Generate Texture Cache",
+        default=False,
+        description=(
+            "Automatically create tx files from image files when rendering, if the files do not exist or are outdated. "
+            "The path to store the texture cache files is configured in the preferences"
+        ),
+    )
 
 
 class RECOM_PG_EEVEERenderOverrides(PropertyGroup):

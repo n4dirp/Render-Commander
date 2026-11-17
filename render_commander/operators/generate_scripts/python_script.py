@@ -651,6 +651,8 @@ def _apply_cycles_performance_settings(override_settings, lines: list[str]) -> N
         [
             f"    bpy.context.scene.cycles.use_auto_tile = {cycles.use_tiling}",
             f"    bpy.context.scene.cycles.tile_size = {cycles.tile_size}",
+            f"    bpy.context.scene.render.use_texture_cache = {cycles.use_texture_cache}",
+            f"    bpy.context.scene.render.use_auto_generate_texture_cache = {cycles.use_auto_generate_texture_cache}",
             f"    bpy.context.scene.render.use_persistent_data = {cycles.persistent_data}",
             "",
         ]

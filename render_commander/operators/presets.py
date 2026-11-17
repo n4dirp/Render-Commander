@@ -118,6 +118,8 @@ class RECOM_OT_overrides_preset(AddPresetBase, Operator):
         "override_settings.cycles.use_spatial_splits",
         "override_settings.cycles.use_compact_bvh",
         "override_settings.cycles.persistent_data",
+        "override_settings.cycles.use_texture_cache",
+        "override_settings.cycles.use_auto_generate_texture_cache",
         # EEVEE
         "override_settings.eevee_override",
         "override_settings.eevee.samples",

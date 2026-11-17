@@ -298,7 +298,7 @@ class RECOM_Preferences(AddonPreferences):
                 2,
             ),
         ],
-        default=PANEL_LOCATION_VIEWPORT,
+        default=PANEL_LOCATION_OUTPUT,
         update=on_panel_location_changed,
     )
     logging_enabled: BoolProperty(

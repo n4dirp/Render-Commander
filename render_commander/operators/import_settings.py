@@ -223,12 +223,16 @@ class RECOM_OT_ImportAllSettings(Operator):
             cycles.use_spatial_splits = ext_info.get("use_spatial_splits", False)
             cycles.use_compact_bvh = ext_info.get("use_compact_bvh", False)
             cycles.persistent_data = ext_info.get("persistent_data", False)
+            cycles.use_texture_cache = ext_info.get("use_texture_cache", False)
+            cycles.use_auto_generate_texture_cache = ext_info.get("use_auto_generate_texture_cache", False)
         else:
             cycles.use_tiling = scene.cycles.use_auto_tile
             cycles.tile_size = scene.cycles.tile_size
             cycles.use_spatial_splits = scene.cycles.debug_use_spatial_splits
             cycles.use_compact_bvh = scene.cycles.debug_use_compact_bvh
             cycles.persistent_data = scene.render.use_persistent_data
+            cycles.use_texture_cache = scene.render.use_texture_cache
+            cycles.use_auto_generate_texture_cache = scene.render.use_auto_generate_texture_cache
 
         cycles.performance_override = True
 

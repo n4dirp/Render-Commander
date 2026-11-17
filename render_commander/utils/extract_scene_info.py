@@ -201,6 +201,11 @@ def get_scene_info() -> dict:
             if cycles.use_auto_tile:
                 data["tile_size"] = cycles.tile_size
 
+            # Texture cache settings (Blender 5.2+)
+            if bpy.app.version >= BLENDER_5_2 and hasattr(render, "use_texture_cache"):
+                data["use_texture_cache"] = render.use_texture_cache
+                data["use_auto_generate_texture_cache"] = render.use_auto_generate_texture_cache
+
         elif scene.render.engine in {"BLENDER_EEVEE_NEXT", "BLENDER_EEVEE"} and eevee:
             data.update(
                 {

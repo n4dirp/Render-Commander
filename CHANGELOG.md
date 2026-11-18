@@ -1,10 +1,10 @@
 # Changelog
 
-## [Unreleased]
+## [1.4.0] - 2026-11-18
 
 ### Added
 - **Export History** can now show script names instead of blend file names
-- Cycles **Performance** overrides can now enable **Texture Cache** and **Auto Generate Texture Cache**, including saving them with override presets
+- Cycles **Performance** overrides can now enable **Texture Cache** and **Auto Generate Texture Cache**
 
 ### Changed
 - Generated render files now use clearer names: `_run` for launch scripts and logs, and `_render` for the Python scripts

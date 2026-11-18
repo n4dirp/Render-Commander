@@ -1,7 +1,7 @@
 import logging
 import time
 
-SCRIPT_NAME = "render_script"
+SCRIPT_NAME = "render_commander"
 LOG_LEVEL = logging.INFO
 
 

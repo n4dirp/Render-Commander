@@ -655,9 +655,9 @@ def _draw_output_path(layout, context):
     layout.active = override_settings.enabled
 
     col = layout.column(align=False)
-    col.prop(override_settings, "output_directory", text="Directory", placeholder="Directory")
+    col.prop(override_settings, "output_directory", text="Directory")
     row = col.row(align=False)
-    row.prop(override_settings, "output_filename", text="Filename", placeholder="Filename")
+    row.prop(override_settings, "output_filename", text="Filename")
     row.popover(panel="RECOM_PT_path_variables", text="", icon="TAG")
 
 
@@ -1020,7 +1020,7 @@ class RECOM_PT_path_variables(Panel):
         layout.separator(factor=0.5)
 
         if not show_templates and not has_custom:
-            layout.label(text="No variables available", icon="INFO")
+            layout.label(text="No variables available", icon="STATUS_INFO")
         else:
             # Calculate columns based on visible sections only
             num_sections = 1 if show_templates else 0
@@ -1104,7 +1104,7 @@ class RECOM_PT_path_variables(Panel):
         has_custom = bool(prefs.custom_variables)
 
         if not show_templates and not has_custom:
-            layout.label(text="No variables available", icon="INFO")
+            layout.label(text="No variables available", icon="STATUS_INFO")
             return
 
 

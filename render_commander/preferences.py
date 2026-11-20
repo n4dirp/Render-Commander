@@ -252,7 +252,7 @@ class RECOM_Preferences(AddonPreferences):
 
     show_export_summary: BoolProperty(
         name="Show Export Summary",
-        description="Display a summary of the render settings in the launcher panel before exporting scripts",
+        description="Display a summary of the render settings before exporting scripts",
         default=True,
         update=lambda self, context: redraw_ui(),
     )

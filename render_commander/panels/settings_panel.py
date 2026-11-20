@@ -129,7 +129,7 @@ class RECOM_PT_render_preferences(RCSubPanel, Panel):
         ):
             box = layout.box()
             col = box.column()
-            col.label(text="Cycles render device is set to CPU.", icon="INFO")
+            col.label(text="Cycles render device is set to CPU.", icon="STATUS_INFO")
             col.label(text="Parallel & device options disabled.", icon="BLANK1")
 
 
@@ -245,7 +245,7 @@ class RECOM_PT_device_settings(RCBasePanel, Panel):
         draw_devices(col, prefs)
 
         if active:
-            layout.label(text="Only applies to the exported render scripts", icon="INFO")
+            layout.label(text="Only applies to the exported render scripts", icon="STATUS_INFO")
 
 
 class RECOM_PT_device_parallel(RCBasePanel, Panel):
@@ -391,7 +391,7 @@ class RECOM_PT_command_line_arguments(RCBasePanel, Panel):
 
         if found_config:
             col = layout.column(align=True)
-            col.label(text="Redundant arguments detected.", icon="INFO")
+            col.label(text="Redundant arguments detected.", icon="STATUS_INFO")
             col.label(text=f"Managed: {', '.join(found_config)}", icon="BLANK1")
 
 

@@ -57,7 +57,7 @@ class RECOM_PT_main_panel(RCBasePanel, Panel):
         warnings = build_render_summary_warnings(context)
 
         box = layout.box().column(align=True)
-        box.label(text="Summary", icon="INFO")
+        box.label(text="Render Summary")
         box.separator(type="LINE")
         rows = build_render_summary(context)
         for label, value in rows:
@@ -66,11 +66,11 @@ class RECOM_PT_main_panel(RCBasePanel, Panel):
             split.label(text=value)
 
         if warnings:
-            box.separator(factor=0.3)
-            for text in warnings:
+            box.separator(factor=1.0, type="LINE")
+            for i, text in enumerate(warnings):
                 row = box.row()
                 row.alert = True
-                row.label(text=text)
+                row.label(text=text, icon="ERROR" if i == 0 else "BLANK1")
 
         layout.separator()
 
